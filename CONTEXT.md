@@ -40,6 +40,10 @@ _Avoid_: Watched PR, relevant PR
 Every Tracked PR as StaleMate last read it from the code host, stamped with when it was read. A Viewer always sees one Snapshot; there is no history.
 _Avoid_: Cache, sync result, data
 
+**Out-of-date Snapshot**:
+A Snapshot whose last attempt to read the code host failed, so the Viewer is warned that what they see may be behind.
+_Avoid_: Stale data, stale snapshot
+
 **Inclusion Reason**:
 Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested). A PR can have several.
 _Avoid_: Flag, tag, source
@@ -59,5 +63,17 @@ The people who owe the next move on a PR — the author, one or more reviewers, 
 _Avoid_: Turn, ball in court, blocker, assignee
 
 **Waiting Time**:
-How long the current Waiting On has held the PR.
+How long the current Waiting On has held the PR, counted in Working Days.
 _Avoid_: Age (that is time since the PR opened), staleness
+
+**Working Day**:
+A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off the Team declares (e.g. election day). Chol hamoed and Yom HaZikaron are Working Days.
+_Avoid_: Business day, weekday
+
+**Urgency**:
+How loudly a PR's Waiting Time calls for attention — four levels, from under one Working Day up to a full working week or more.
+_Avoid_: Staleness, aging, priority
+
+**Nobody's Turn**:
+A Tracked PR whose Waiting On is empty — no one owes the next move, so it can sit unnoticed. Always flagged, never silent.
+_Avoid_: Orphan, unassigned
