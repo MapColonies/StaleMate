@@ -36,6 +36,10 @@ _Avoid_: Owned repo, project
 A PR StaleMate shows: any PR in a Team Repo, or any PR in the org that a Team Member authored, is a requested reviewer on, has reviewed, or is assigned to.
 _Avoid_: Watched PR, relevant PR
 
+**Snapshot**:
+Every Tracked PR as StaleMate last read it from the code host, stamped with when it was read. A Viewer always sees one Snapshot; there is no history.
+_Avoid_: Cache, sync result, data
+
 **Inclusion Reason**:
 Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested). A PR can have several.
 _Avoid_: Flag, tag, source
