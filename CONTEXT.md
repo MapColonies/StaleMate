@@ -29,11 +29,11 @@ A proposed change awaiting merge on a code host. A GitLab Merge Request is a PR.
 _Avoid_: Merge request, MR, change request
 
 **Team Repo**:
-A repository the Team has access to on GitHub.
+A live repository the Team is granted on GitHub, at any access level. Archived repositories are not Team Repos.
 _Avoid_: Owned repo, project
 
 **Tracked PR**:
-A PR StaleMate shows: any PR in a Team Repo, or any PR in the org that a Team Member authored, is a requested reviewer on, has reviewed, or is assigned to.
+A PR StaleMate shows: any PR in a Team Repo, or any PR in the org that a Team Member authored, is a requested reviewer on, has reviewed, or is assigned to, or that asks the Team itself for review. A PR in an archived repository is never a Tracked PR.
 _Avoid_: Watched PR, relevant PR
 
 **Snapshot**:
@@ -45,7 +45,7 @@ A Snapshot whose last attempt to read the code host failed, so the Viewer is war
 _Avoid_: Stale data, stale snapshot
 
 **Inclusion Reason**:
-Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested). A PR can have several.
+Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested, Team review requested). A PR can have several.
 _Avoid_: Flag, tag, source
 
 ### Status
@@ -67,7 +67,7 @@ How long the current Waiting On has held the PR, counted in Working Days.
 _Avoid_: Age (that is time since the PR opened), staleness
 
 **Working Day**:
-A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off the Team declares (e.g. election day). Chol hamoed and Yom HaZikaron are Working Days.
+A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off the Team declares (e.g. election day). Chol hamoed is a Working Day; Yom HaZikaron is not.
 _Avoid_: Business day, weekday
 
 **Urgency**:
