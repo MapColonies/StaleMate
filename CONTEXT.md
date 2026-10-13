@@ -51,8 +51,16 @@ _Avoid_: Flag, tag, source
 ### Status
 
 **Review Status**:
-Where a PR stands with its reviewers as a whole (e.g. awaiting review, changes requested, approved).
-_Avoid_: State, PR state
+Where a PR stands with its reviewers as a whole: Draft, Awaiting Review, Changes Requested, Awaiting Re-review, or Approved. StaleMate judges it by the Team's own norm (one approval, nothing outstanding), not by the code host's verdict or the repo's merge rules. Comments without a verdict, the author's own reviews and Bot reviews never move it.
+_Avoid_: State, PR state, review decision
+
+**Answered**:
+A reviewer's request for changes that the PR's side has responded to since: every comment thread of that review has an author reply or is resolved (or, if it had no threads, the author commented on the PR), or new commits arrived, or the reviewer was asked to review again. Answered says nothing about agreeing — the author may have pushed back.
+_Avoid_: Addressed, fixed, resolved
+
+**Awaiting Re-review**:
+The Review Status of a PR whose every outstanding request for changes is Answered, so the reviewers owe another look.
+_Avoid_: Changes addressed, ready for review
 
 **Check Status**:
 The combined result of a PR's CI checks (passing, failing, pending).
