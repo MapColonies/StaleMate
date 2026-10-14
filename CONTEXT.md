@@ -51,7 +51,7 @@ _Avoid_: Flag, tag, source
 ### Status
 
 **Review Status**:
-Where a PR stands with its reviewers as a whole: Draft, Awaiting Review, Changes Requested, Awaiting Re-review, or Approved. StaleMate judges it by the Team's own norm (one approval, nothing outstanding), not by the code host's verdict or the repo's merge rules. Comments without a verdict, the author's own reviews and Bot reviews never move it.
+Where a PR stands with its reviewers as a whole: Draft, Awaiting Review, Changes Requested, Awaiting Re-review, or Approved. StaleMate judges it by the Team's own norm (one approval, nothing outstanding), not by the code host's verdict or the repo's merge rules. An approval stands through later commits until its reviewer gives another verdict or it is dismissed. Comments without a verdict, the author's own reviews and Bot reviews never move it.
 _Avoid_: State, PR state, review decision
 
 **Answered**:
@@ -63,25 +63,29 @@ The Review Status of a PR whose every outstanding request for changes is Answere
 _Avoid_: Changes addressed, ready for review
 
 **Check Status**:
-The combined result of a PR's CI checks (passing, failing, pending).
+The combined result of all of a PR's CI checks: Passing, Failing (any check failed, errored, was cancelled or timed out), Pending, or None (no checks at all).
 _Avoid_: CI status, build status
 
 **Waiting On**:
-The people who owe the next move on a PR — the author, one or more reviewers, or both.
+The people or teams who owe the next move on a PR — the author, one or more reviewers, or both. Never empty and never a Bot: when no reviewer owes a move, the PR waits on its author.
 _Avoid_: Turn, ball in court, blocker, assignee
 
-**Waiting Time**:
-How long the current Waiting On has held the PR, counted in Working Days.
-_Avoid_: Age (that is time since the PR opened), staleness
+**Age**:
+How long a PR has been up for review, counted in Working Days from when it was first ready for review; time before that as a Draft does not count. The measure StaleMate exists to shrink.
+_Avoid_: Lifetime, lead time, Waiting Time
+
+**Idle Time**:
+How long since a person last acted on a PR — pushed, reviewed, commented, asked for a review or marked it ready — counted in Working Days. Bot activity does not count.
+_Avoid_: Waiting Time, staleness, inactivity
 
 **Working Day**:
 A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off the Team declares (e.g. election day). Chol hamoed is a Working Day; Yom HaZikaron is not.
 _Avoid_: Business day, weekday
 
 **Urgency**:
-How loudly a PR's Waiting Time calls for attention — four levels, from under one Working Day up to a full working week or more.
+How loudly a PR's Age calls for attention — four levels, with thresholds in Working Days the Team sets. A Draft has no Urgency.
 _Avoid_: Staleness, aging, priority
 
-**Nobody's Turn**:
-A Tracked PR whose Waiting On is empty — no one owes the next move, so it can sit unnoticed. Always flagged, never silent.
-_Avoid_: Orphan, unassigned
+**No Reviewer**:
+A PR Awaiting Review that no reviewer owes a move on — none asked, or every ask already met — so it falls to its author to find one. Always flagged, never silent.
+_Avoid_: Nobody's Turn, orphan, unassigned
