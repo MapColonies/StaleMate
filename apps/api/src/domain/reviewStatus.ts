@@ -1,6 +1,7 @@
 import type { Actor, PrFacts, ReviewFact } from './facts';
 import type { ReviewStatus } from './trackedPr';
 import { isBot } from './bots';
+import { authorCommentedOnPrAfter, isPrAuthor, threadsOf } from './reviewActivity';
 
 type VerdictReview = ReviewFact & { state: ReviewerVerdict['verdict'] };
 
@@ -18,8 +19,6 @@ function latestVerdictReviews(facts: PrFacts, botLogins: readonly string[]): Ver
 
 /** Whether the PR's side has responded to a request for changes since it was given. */
 function isAnswered(review: ReviewFact, facts: PrFacts): boolean {
-  const byAuthor = (actor: Actor | null): boolean => actor?.id === facts.author.id;
-
   // A review whose commit the code host no longer knows was given on a commit a force push replaced.
   // Updating the branch counts as new commits too. That's accepted noise.
   const hasNewCommits = review.commitOid !== facts.headCommit.oid;
@@ -34,14 +33,13 @@ function isAnswered(review: ReviewFact, facts: PrFacts): boolean {
     return true;
   }
 
-  // The review's threads are those it commented in, including threads an earlier review opened.
-  const threads = facts.reviewThreads.filter((thread) => thread.comments.some((comment) => comment.reviewId === review.id));
+  const threads = threadsOf(review, facts);
   if (threads.length > 0) {
     return threads.every(
-      (thread) => thread.isResolved || thread.comments.some((comment) => byAuthor(comment.author) && comment.createdAt > review.submittedAt)
+      (thread) => thread.isResolved || thread.comments.some((comment) => isPrAuthor(comment.author, facts) && comment.createdAt > review.submittedAt)
     );
   }
-  return facts.timeline.some((event) => event.type === 'comment' && byAuthor(event.actor) && event.at > review.submittedAt);
+  return authorCommentedOnPrAfter(review.submittedAt, facts);
 }
 
 /** A reviewer's latest verdict on the PR. */
