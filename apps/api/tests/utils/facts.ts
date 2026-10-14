@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers -- fixture data */
-import type { Actor, PrFacts, Roster } from '@domain/facts';
+import type { Actor, PrFacts, ReviewFact, ReviewThreadFact, Roster, ThreadCommentFact } from '@domain/facts';
 import type { DerivationConfig } from '@domain/deriveTrackedPr';
 
 export function anActor(overrides: Partial<Actor> = {}): Actor {
@@ -31,6 +31,26 @@ export function aPrFacts(overrides: Partial<PrFacts> = {}): PrFacts {
     timeline: [],
     ...overrides,
   };
+}
+
+export function aReview(overrides: Partial<ReviewFact> = {}): ReviewFact {
+  return {
+    id: 'PRR_1',
+    state: 'approved',
+    author: anActor({ id: 'U_bob', login: 'bob' }),
+    submittedAt: new Date('2026-10-13T08:00:00Z'),
+    commitOid: 'c0ffee',
+    onBehalfOf: [],
+    ...overrides,
+  };
+}
+
+export function aThreadComment(overrides: Partial<ThreadCommentFact> = {}): ThreadCommentFact {
+  return { author: anActor({ id: 'U_bob', login: 'bob' }), createdAt: new Date('2026-10-13T08:00:00Z'), reviewId: 'PRR_1', ...overrides };
+}
+
+export function aReviewThread(overrides: Partial<ReviewThreadFact> = {}): ReviewThreadFact {
+  return { isResolved: false, comments: [aThreadComment()], ...overrides };
 }
 
 export function aRoster(overrides: Partial<Roster> = {}): Roster {

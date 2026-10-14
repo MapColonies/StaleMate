@@ -2,7 +2,7 @@
 
 /** An account on the code host. */
 export interface Actor {
-  /** The code host's stable id. Bots are matched by id, never by login. */
+  /** The code host's stable id. Bots the code host types are matched by id or type, never by login: their logins differ between APIs. */
   id: string;
   login: string;
   /** The code host types the account as a Bot. Logins configured as Bots are not flagged here. */

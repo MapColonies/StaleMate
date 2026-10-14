@@ -21,7 +21,7 @@ export interface DerivationConfig {
 /** Derives a Tracked PR from its facts. Age and Idle Time are counted up to `now`. */
 export function deriveTrackedPr(facts: PrFacts, roster: Roster, config: DerivationConfig, now: Date): TrackedPr {
   const author = toPerson(facts.author, roster, config.botLogins);
-  const review = deriveReviewStatus(facts);
+  const review = deriveReviewStatus(facts, config.botLogins);
   const waitingOn = deriveWaitingOn(facts, author);
   const clocks = deriveClocks(facts, config.urgencyThresholds, now);
 
