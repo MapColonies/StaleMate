@@ -46,6 +46,7 @@
     "@map-colonies/tracing-utils": "catalog:",
     "@opentelemetry/api": "catalog:",
     "compression": "catalog:",
+    "date-holidays": "catalog:",
     "express": "catalog:",
     "express-openapi-validator": "catalog:",
     "http-status-codes": "catalog:",
