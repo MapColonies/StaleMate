@@ -1,0 +1,48 @@
+{
+  "openapiConfig": {
+    "filePath": "./openapi3.yaml",
+    "basePath": "/docs",
+    "rawPath": "/api",
+    "uiPath": "/api"
+  },
+  "telemetry": {
+    "logger": {
+      "level": "info",
+      "prettyPrint": false
+    },
+    "tracing": {
+      "isEnabled": false
+    },
+    "shared": {}
+  },
+  "server": {
+    "port": 8080,
+    "request": {
+      "payload": {
+        "limit": "1mb"
+      }
+    },
+    "response": {
+      "compression": {
+        "enabled": true,
+        "options": null
+      }
+    }
+  },
+  "team": {
+    "slug": "infra"
+  },
+  "bots": {
+    "logins": ["mapcolonies-devops", "mapcolonies-org"]
+  },
+  "extraNonWorkingDays": ["2026-10-27"],
+  "urgency": {
+    "thresholds": [2, 4, 8]
+  },
+  "sync": {
+    "intervalMs": 120000,
+    "refreshCooldownMs": 30000
+  },
+  "provider": "github",
+  "githubApp": {}
+}

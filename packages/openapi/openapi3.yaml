@@ -1,0 +1,311 @@
+openapi: 3.0.1
+servers:
+  - url: /
+  - url: /api
+info:
+  title: StaleMate
+  description: >-
+    Every Tracked PR of the Team, fully derived from the code host: Review Status, Check Status, Waiting On, Age and Idle
+    Time. See CONTEXT.md in the repository for the vocabulary.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+# Read-only and reachable only on the VPN, so there is no authentication.
+security: []
+paths:
+  /snapshot:
+    get:
+      operationId: getSnapshot
+      summary: returns the latest Snapshot, with Age and Idle Time computed against the request time
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/snapshot'
+        503:
+          description: No sweep of the code host has succeeded yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/warming'
+  /refresh:
+    post:
+      operationId: refresh
+      summary: sweeps the code host now, unless a sweep is running or the refresh cooldown has not passed
+      responses:
+        202:
+          description: Accepted. Returns the sync state after the request was handled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/syncState'
+components:
+  schemas:
+    snapshot:
+      type: object
+      description: Every Tracked PR as StaleMate last read it from the code host.
+      required:
+        - readAt
+        - sync
+        - config
+        - team
+        - prs
+      properties:
+        readAt:
+          type: string
+          format: date-time
+          description: When the code host was read for this Snapshot.
+        sync:
+          $ref: '#/components/schemas/syncState'
+        config:
+          $ref: '#/components/schemas/snapshotConfig'
+        team:
+          type: array
+          description: The Team Members. Members whose logins are configured as Bots have kind bot.
+          items:
+            $ref: '#/components/schemas/person'
+        prs:
+          type: array
+          items:
+            $ref: '#/components/schemas/trackedPr'
+    warming:
+      type: object
+      required:
+        - status
+        - sync
+      properties:
+        status:
+          type: string
+          enum:
+            - warming
+        sync:
+          $ref: '#/components/schemas/syncState'
+    syncState:
+      type: object
+      required:
+        - state
+      properties:
+        state:
+          type: string
+          enum:
+            - idle
+            - syncing
+        lastAttemptAt:
+          type: string
+          format: date-time
+          description: When the last sweep started. Absent before the first sweep.
+        lastError:
+          type: string
+          description: A short, safe message about why the last sweep failed. Absent when it succeeded.
+          example: GitHub API unreachable
+    snapshotConfig:
+      type: object
+      required:
+        - urgencyThresholds
+      properties:
+        urgencyThresholds:
+          type: array
+          description: The Age in Working Days at which Urgency rises to levels 1, 2 and 3.
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+            minimum: 0
+          example: [2, 4, 8]
+    person:
+      type: object
+      required:
+        - login
+        - kind
+      properties:
+        login:
+          type: string
+        kind:
+          $ref: '#/components/schemas/personKind'
+    personKind:
+      type: string
+      description: >-
+        member is a Team Member. bot is a Bot, whether the code host types it as one or its login is configured as one. outsider is anyone else.
+      enum:
+        - member
+        - bot
+        - outsider
+    trackedPr:
+      type: object
+      required:
+        - id
+        - repo
+        - number
+        - title
+        - url
+        - author
+        - assignees
+        - requestedReviewers
+        - reviewers
+        - inclusionReasons
+        - reviewStatus
+        - approvals
+        - checkStatus
+        - waitingOn
+        - noReviewer
+        - age
+        - idleTime
+        - urgency
+      properties:
+        id:
+          type: string
+          description: The code host's id of the PR.
+        repo:
+          type: string
+          description: The repository, as owner/name.
+          example: MapColonies/opa-la
+        number:
+          type: integer
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        author:
+          $ref: '#/components/schemas/person'
+        assignees:
+          type: array
+          items:
+            $ref: '#/components/schemas/person'
+        requestedReviewers:
+          type: array
+          description: The people currently requested for review. Team requests appear in waitingOn.
+          items:
+            $ref: '#/components/schemas/person'
+        reviewers:
+          type: array
+          description: The people other than the author who reviewed the PR. Bots are left out.
+          items:
+            $ref: '#/components/schemas/person'
+        inclusionReasons:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/inclusionReason'
+        reviewStatus:
+          $ref: '#/components/schemas/reviewStatus'
+        approvals:
+          type: integer
+          minimum: 0
+          description: The number of current approvals, shown as ×N on Approved.
+        checkStatus:
+          $ref: '#/components/schemas/checkStatus'
+        waitingOn:
+          type: array
+          description: Who owes the next move. Never empty and never a Bot.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/waitingOnParty'
+        noReviewer:
+          type: boolean
+          description: The PR is Awaiting Review and no reviewer owes a move, so it waits on its author.
+        age:
+          $ref: '#/components/schemas/clock'
+        idleTime:
+          $ref: '#/components/schemas/clock'
+        urgency:
+          $ref: '#/components/schemas/urgency'
+    inclusionReason:
+      type: string
+      description: Why the PR is a Tracked PR.
+      enum:
+        - teamRepo
+        - authoredByMember
+        - memberReviewRequested
+        - reviewedByMember
+        - assignedToMember
+        - teamReviewRequested
+    reviewStatus:
+      type: string
+      enum:
+        - draft
+        - awaitingReview
+        - changesRequested
+        - awaitingReReview
+        - approved
+    checkStatus:
+      type: string
+      enum:
+        - passing
+        - failing
+        - pending
+        - none
+    waitingOnParty:
+      oneOf:
+        - $ref: '#/components/schemas/waitingOnPerson'
+        - $ref: '#/components/schemas/waitingOnTeam'
+      discriminator:
+        propertyName: type
+        mapping:
+          person: '#/components/schemas/waitingOnPerson'
+          team: '#/components/schemas/waitingOnTeam'
+    waitingOnPerson:
+      type: object
+      required:
+        - type
+        - login
+        - kind
+        - role
+      properties:
+        type:
+          type: string
+          enum:
+            - person
+        login:
+          type: string
+        kind:
+          $ref: '#/components/schemas/personKind'
+        role:
+          type: string
+          description: Whether the person owes the move as the PR's author or as a reviewer.
+          enum:
+            - author
+            - reviewer
+    waitingOnTeam:
+      type: object
+      required:
+        - type
+        - slug
+        - viaTeam
+      properties:
+        type:
+          type: string
+          enum:
+            - team
+        slug:
+          type: string
+          example: infra
+        viaTeam:
+          type: boolean
+          description: >-
+            True when this is the Team itself, so every Team Member counts as Waiting On it. A request to any other team
+            leaves no Team Member Waiting On it.
+    clock:
+      type: object
+      description: A span of time counted in Working Days, computed against the request time.
+      required:
+        - workingMs
+        - since
+      properties:
+        workingMs:
+          type: integer
+          minimum: 0
+          description: The working time in the span, in milliseconds. Divide by 24 h for Working Days.
+        since:
+          type: string
+          format: date-time
+          description: When the span started, for showing wall-clock time.
+    urgency:
+      type: integer
+      description: How loudly the PR's Age calls for attention, from 0 (neutral) to 3. Null for a Draft.
+      minimum: 0
+      maximum: 3
+      nullable: true

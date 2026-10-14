@@ -1,0 +1,87 @@
+name: pull_request
+
+on: [pull_request, workflow_dispatch]
+
+env:
+  TURBO_SCM_BASE: origin/${{ github.base_ref}}
+  NODE_CONFIG_ENV: test
+
+jobs:
+  eslint:
+    name: Run TS Project eslint
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [24.x]
+
+    steps:
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0 # Fetch all history for all branches and tags
+          filter: 'blob:none' # Fetch only the commit history and tree, not file contents
+
+      - name: Init nodejs
+        uses: ./.github/actions/init-pnpm
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run linters
+        run: pnpm exec turbo run lint --affected
+
+  openapi-lint:
+    name: Run OpenAPI lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0 # Fetch all history for all branches and tags
+          filter: 'blob:none' # Fetch only the commit history and tree, not file contents
+
+      - name: Init nodejs
+        uses: ./.github/actions/init-pnpm
+      - name: Run openapi linters
+        run: pnpm exec turbo run lint:openapi --affected
+
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [24.x]
+
+    steps:
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0 # Fetch all history for all branches and tags
+          filter: 'blob:none' # Fetch only the commit history and tree, not file contents
+
+      - name: Init nodejs
+        uses: ./.github/actions/init-pnpm
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run tests
+        run: pnpm exec turbo run test --affected
+
+  knip:
+    name: Run knip to detect unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out TS Project Git repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Fetch base branch for turbo
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
+      - name: Init nodejs
+        uses: ./.github/actions/init-pnpm
+        with:
+          install-filter: '*'
+
+      - name: Run knip
+        run: pnpm run knip
