@@ -43,5 +43,5 @@ runs:
         if [ -n "$INSTALL_FILTER" ]; then
           pnpm exec turbo run build --filter="$INSTALL_FILTER"
         else
-          pnpm exec turbo run build --affected
+          pnpm exec turbo run build $AFFECTED
         fi

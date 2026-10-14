@@ -5,6 +5,8 @@ on: [pull_request, workflow_dispatch]
 env:
   TURBO_SCM_BASE: origin/${{ github.base_ref}}
   NODE_CONFIG_ENV: test
+  # Only a pull request has a base to compare against; a manual run checks every package.
+  AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
 jobs:
   eslint:
@@ -28,7 +30,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Run linters
-        run: pnpm exec turbo run lint --affected
+        run: pnpm exec turbo run lint $AFFECTED
 
   openapi-lint:
     name: Run OpenAPI lint Check
@@ -43,7 +45,7 @@ jobs:
       - name: Init nodejs
         uses: ./.github/actions/init-pnpm
       - name: Run openapi linters
-        run: pnpm exec turbo run lint:openapi --affected
+        run: pnpm exec turbo run lint:openapi $AFFECTED
 
   tests:
     name: Run Tests
@@ -66,7 +68,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Run tests
-        run: pnpm exec turbo run test --affected
+        run: pnpm exec turbo run test $AFFECTED
 
   knip:
     name: Run knip to detect unused dependencies
