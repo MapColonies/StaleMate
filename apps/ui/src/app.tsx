@@ -13,6 +13,7 @@ import { useTheme } from '@/shell/use-theme';
 import { ViewerPicker } from '@/shell/viewer-picker';
 import { VIEW_NAMES, useLastView } from '@/shell/use-last-view';
 import { ViewSwitcher } from '@/shell/view-switcher';
+import { TableView } from '@/views/table/table-view';
 import { ViewPlaceholder } from '@/views/view-placeholder';
 
 function Logo() {
@@ -64,7 +65,8 @@ export default function App() {
       </header>
       {snapshot && <OutOfDateBanner snapshot={snapshot} now={now} />}
       <main className="flex-1 bg-muted/40">
-        {snapshot ? (
+        {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
+        {snapshot && view !== 'table' && (
           <ViewPlaceholder
             name={VIEW_NAMES[view]}
             prs={prs}
@@ -73,9 +75,8 @@ export default function App() {
             viewer={viewer}
             onResetFilters={resetFilters}
           />
-        ) : (
-          <StartupState error={error} />
         )}
+        {!snapshot && <StartupState error={error} />}
       </main>
     </div>
   );

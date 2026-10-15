@@ -29,6 +29,11 @@ export function isWaitingOnViewer(pr: TrackedPr, viewer: string | null, filters:
   return waitsOnPerson(pr, viewer) || (!filters.hideViaTeam && waitsOnTheTeamFor(pr, viewer));
 }
 
+/** The PR is on the Viewer only through a request to the Team: the case marked "via @infra". */
+export function isOnViewerViaTeam(pr: TrackedPr, viewer: string | null, filters: Pick<Filters, 'hideViaTeam'>): boolean {
+  return viewer !== null && !filters.hideViaTeam && !waitsOnPerson(pr, viewer) && waitsOnTheTeamFor(pr, viewer);
+}
+
 /** The header's "N + M team": PRs Waiting On the Viewer by name, then the Team's requests that aren't already theirs. */
 export function waitingOnViewerCounts(prs: readonly TrackedPr[], viewer: string | null): { mine: number; team: number } {
   const counts = { mine: 0, team: 0 };

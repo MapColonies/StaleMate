@@ -1,0 +1,275 @@
+import { useMemo } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from 'lucide-react';
+import { createColumnHelper, functionalUpdate, useTable, type Header } from '@tanstack/react-table';
+import { AgeChip, CheckStatusBadge, IdleLine, InclusionReasonBadges, NoReviewerFlag, PersonChip, ReviewStatusBadge, WaitingOnChips } from '@/cells';
+import { CheckboxMenu } from '@/components/checkbox-menu';
+import { REVIEW_STATUSES, applyFilters } from '@/filters/filter-model';
+import { useFilters } from '@/filters/use-filters';
+import { cn } from '@/lib/utils';
+import { isWaitingOnViewer } from '@/snapshot/selectors';
+import type { CheckStatus, Snapshot, TrackedPr } from '@/snapshot/types';
+import { COLUMN_NAMES, type ColumnId, features } from './table-model';
+import { FilterBar } from './filter-bar';
+import { TAB_NAMES, TABS, type Tab, prsInTab } from './tabs';
+import { useHiddenColumns } from './use-hidden-columns';
+import { useTableUrlState } from './table-url';
+
+const helper = createColumnHelper<typeof features, TrackedPr>();
+
+// Ascending puts what needs fixing first.
+const CHECK_ORDER: readonly CheckStatus[] = ['failing', 'pending', 'passing', 'none'];
+
+/** What the cells need beyond the PR. */
+interface CellContext {
+  viewer: string | null;
+  hideViaTeam: boolean;
+  now: number;
+}
+
+function tableColumns({ viewer, hideViaTeam, now }: CellContext) {
+  return helper.columns([
+    helper.accessor((pr) => pr.age.workingMs, {
+      id: 'age',
+      header: COLUMN_NAMES.age,
+      sortFn: 'basic',
+      sortDescFirst: true,
+      cell: ({ row }) => <AgeChip pr={row.original} now={now} />,
+    }),
+    helper.accessor((pr) => pr.idleTime.workingMs, {
+      id: 'idle',
+      header: COLUMN_NAMES.idle,
+      sortFn: 'basic',
+      sortDescFirst: true,
+      cell: ({ row }) => <IdleLine pr={row.original} />,
+    }),
+    helper.display({
+      id: 'waitingOn',
+      // It carries the No Reviewer flag, which every view shows.
+      enableHiding: false,
+      header: COLUMN_NAMES.waitingOn,
+      cell: ({ row }) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <WaitingOnChips pr={row.original} viewer={viewer} hideViaTeam={hideViaTeam} />
+          <NoReviewerFlag pr={row.original} />
+        </div>
+      ),
+    }),
+    helper.accessor('repo', {
+      header: COLUMN_NAMES.repo,
+      sortFn: 'text',
+      cell: ({ row }) => <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">{row.original.repo}</span>,
+    }),
+    helper.accessor('title', {
+      header: COLUMN_NAMES.title,
+      sortFn: 'text',
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="min-w-64">
+          <a href={row.original.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+            {row.original.title}
+          </a>
+          <span className="ml-1.5 text-xs text-muted-foreground">#{row.original.number}</span>
+        </div>
+      ),
+    }),
+    helper.accessor((pr) => pr.author.login, {
+      id: 'author',
+      header: COLUMN_NAMES.author,
+      sortFn: 'text',
+      cell: ({ row }) => <PersonChip person={row.original.author} viewer={viewer} />,
+    }),
+    helper.accessor((pr) => REVIEW_STATUSES.indexOf(pr.reviewStatus), {
+      id: 'review',
+      header: COLUMN_NAMES.review,
+      sortFn: 'basic',
+      cell: ({ row }) => <ReviewStatusBadge pr={row.original} />,
+    }),
+    helper.accessor((pr) => CHECK_ORDER.indexOf(pr.checkStatus), {
+      id: 'checks',
+      header: COLUMN_NAMES.checks,
+      sortFn: 'basic',
+      cell: ({ row }) => <CheckStatusBadge status={row.original.checkStatus} />,
+    }),
+    helper.display({
+      id: 'reasons',
+      header: COLUMN_NAMES.reasons,
+      cell: ({ row }) => (
+        <div className="min-w-60">
+          <InclusionReasonBadges reasons={row.original.inclusionReasons} />
+        </div>
+      ),
+    }),
+  ]);
+}
+
+/** The tabs, each with how many PRs it holds. The Viewer's tabs have no count without a Viewer. */
+function TabBar({ tab, counts, onChange }: { tab: Tab; counts: Partial<Record<Tab, number>>; onChange: (tab: Tab) => void }) {
+  return (
+    <div role="tablist" aria-label="PRs to show" className="inline-flex rounded-md bg-muted p-0.5">
+      {TABS.map((value) => {
+        const count = counts[value];
+        return (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={value === tab}
+            onClick={() => onChange(value)}
+            className={cn(
+              'inline-flex items-center gap-1 rounded px-2.5 py-1 text-sm whitespace-nowrap',
+              value === tab ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {TAB_NAMES[value]}
+            {count !== undefined && (
+              <>
+                {' '}
+                <span
+                  className={cn(
+                    'rounded px-1 text-[11px] tabular-nums',
+                    value === 'my-turn' && count > 0 ? 'bg-indigo-600 text-white' : 'bg-muted-foreground/15 text-muted-foreground'
+                  )}
+                >
+                  {count}
+                </span>
+              </>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SortableHeader({ header, multiSort }: { header: Header<typeof features, TrackedPr, unknown>; multiSort: boolean }) {
+  const { column } = header;
+  const name = COLUMN_NAMES[column.id as ColumnId];
+  if (!column.getCanSort()) {
+    return <>{name}</>;
+  }
+  const direction = column.getIsSorted();
+  const level = column.getSortIndex();
+  const Arrow = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ArrowUpDown;
+  return (
+    <button
+      type="button"
+      onClick={column.getToggleSortingHandler()}
+      title="Click to sort, Shift+click to add a sort level"
+      className="inline-flex items-center gap-1 hover:text-foreground"
+    >
+      {name}
+      <Arrow aria-hidden className={cn('size-3', direction === false && 'opacity-30')} />
+      {direction !== false && multiSort && <span className="text-[10px] text-indigo-600 dark:text-indigo-400">{level + 1}</span>}
+    </button>
+  );
+}
+
+const HIGHLIGHTS = {
+  noReviewer: { row: 'bg-amber-50/70 dark:bg-amber-950/30', firstCell: 'border-l-2 border-l-amber-500' },
+  viewersTurn: { row: 'bg-indigo-50/50 dark:bg-indigo-950/30', firstCell: 'border-l-2 border-l-indigo-500' },
+} as const;
+
+const ARIA_SORT = { asc: 'ascending', desc: 'descending' } as const;
+
+/**
+ * The Table (prototype variant A): every Tracked PR that passes the filters in one dense table, under tabs for the Viewer's
+ * own slices. Shift+click sorts by more than one column; the column picker hides columns.
+ */
+export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
+  const { filters, setFilters, resetFilters } = useFilters();
+  const { tab, setTab, sorting, setSorting } = useTableUrlState();
+  const [columnVisibility, setColumnVisibility] = useHiddenColumns();
+
+  const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
+  const rows = useMemo(() => prsInTab(filtered, tab, viewer, filters), [filtered, tab, viewer, filters]);
+  const counts = useMemo(
+    () =>
+      Object.fromEntries((viewer === null ? (['all'] as const) : TABS).map((value) => [value, prsInTab(filtered, value, viewer, filters).length])),
+    [filtered, viewer, filters]
+  );
+  const columns = useMemo(() => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, now }), [viewer, filters.hideViaTeam, now]);
+
+  const table = useTable({
+    features,
+    columns,
+    data: rows,
+    getRowId: (pr) => pr.id,
+    state: { sorting, columnVisibility },
+    onSortingChange: (updater) => setSorting(functionalUpdate(updater, sorting)),
+    onColumnVisibilityChange: (updater) => setColumnVisibility(functionalUpdate(updater, columnVisibility)),
+    enableMultiSort: true,
+    // A sort level is replaced or flipped, never dropped: the table always has an order.
+    enableSortingRemoval: false,
+  });
+
+  const hideable = table.getAllLeafColumns().filter((column) => column.getCanHide());
+
+  return (
+    <section className="flex flex-col">
+      <div className="space-y-2.5 border-b bg-background px-5 py-3">
+        <div className="flex items-center gap-3">
+          <TabBar tab={tab} counts={counts} onChange={setTab} />
+          {viewer === null && tab !== 'all' && (
+            <span className="text-xs text-amber-700 dark:text-amber-400">Pick who you are (top right) to use this tab.</span>
+          )}
+          <div className="ml-auto">
+            <CheckboxMenu
+              align="right"
+              label={
+                <>
+                  <Columns3 className="size-3.5" /> Columns
+                </>
+              }
+              options={hideable.map((column) => ({ value: column.id, label: COLUMN_NAMES[column.id as ColumnId], checked: column.getIsVisible() }))}
+              onToggle={(id) => table.getColumn(id)?.toggleVisibility()}
+            />
+          </div>
+        </div>
+        <FilterBar prs={snapshot.prs} filters={filters} onChange={setFilters} onReset={resetFilters} />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-separate border-spacing-0 text-sm">
+          <thead className="sticky top-0 z-10 bg-muted">
+            {table.getHeaderGroups().map((group) => (
+              <tr key={group.id}>
+                {group.headers.map((header) => {
+                  const direction = header.column.getIsSorted();
+                  return (
+                    <th
+                      key={header.id}
+                      aria-sort={direction === false ? undefined : ARIA_SORT[direction]}
+                      className="border-b px-3 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground"
+                    >
+                      <SortableHeader header={header} multiSort={sorting.length > 1} />
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="bg-background">
+            {table.getRowModel().rows.map((row) => {
+              const pr = row.original;
+              // No Reviewer outranks the Viewer's turn: it needs someone to find a reviewer.
+              const highlight = pr.noReviewer ? HIGHLIGHTS.noReviewer : isWaitingOnViewer(pr, viewer, filters) ? HIGHLIGHTS.viewersTurn : null;
+              return (
+                <tr key={row.id} className={cn('hover:bg-accent/60', highlight?.row)}>
+                  {row.getVisibleCells().map((cell, index) => (
+                    <td key={cell.id} className={cn('border-b border-border/60 px-3 py-2 align-middle', index === 0 && highlight?.firstCell)}>
+                      <table.FlexRender cell={cell} />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {rows.length === 0 && <p className="p-16 text-center text-muted-foreground">No Tracked PRs match these filters.</p>}
+        <p className="px-5 py-3 text-xs text-muted-foreground">
+          {rows.length} of {snapshot.prs.length} Tracked PRs · Shift+click a column header to add a sort level
+        </p>
+      </div>
+    </section>
+  );
+}

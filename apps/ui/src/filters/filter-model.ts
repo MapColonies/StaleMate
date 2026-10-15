@@ -45,7 +45,8 @@ export const DEFAULT_FILTERS: Filters = {
   hideViaTeam: false,
 };
 
-const REVIEW_STATUSES: readonly ReviewStatus[] = ['draft', 'awaitingReview', 'changesRequested', 'awaitingReReview', 'approved'];
+/** In the order a PR moves through review. */
+export const REVIEW_STATUSES: readonly ReviewStatus[] = ['draft', 'awaitingReview', 'changesRequested', 'awaitingReReview', 'approved'];
 const CHECK_STATUSES: readonly CheckStatus[] = ['passing', 'failing', 'pending', 'none'];
 const INCLUSION_REASONS: readonly InclusionReason[] = [
   'teamRepo',
