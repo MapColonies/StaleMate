@@ -32,6 +32,7 @@ export class SyncLoop {
   private syncing = false;
   private running = false;
   private lastAttemptAt: Date | undefined;
+  private nextAttemptAt: Date | undefined;
   private lastError: string | undefined;
   private timer: NodeJS.Timeout | undefined;
 
@@ -52,6 +53,7 @@ export class SyncLoop {
   public stop(): void {
     this.running = false;
     clearTimeout(this.timer);
+    this.nextAttemptAt = undefined;
   }
 
   /** Sweeps at once if no sweep is running and the cooldown since the last one started has passed. Otherwise does nothing. */
@@ -67,12 +69,14 @@ export class SyncLoop {
     return {
       state: this.syncing ? 'syncing' : 'idle',
       ...(this.lastAttemptAt && { lastAttemptAt: this.lastAttemptAt.toISOString() }),
+      ...(this.nextAttemptAt && { nextAttemptAt: this.nextAttemptAt.toISOString() }),
       ...(this.lastError !== undefined && { lastError: this.lastError }),
     };
   }
 
   private async sweep(): Promise<void> {
     clearTimeout(this.timer);
+    this.nextAttemptAt = undefined;
     this.syncing = true;
     const startedAt = new Date();
     this.lastAttemptAt = startedAt;
@@ -93,7 +97,9 @@ export class SyncLoop {
     } finally {
       this.syncing = false;
       if (this.running) {
-        this.timer = setTimeout(() => void this.sweep(), this.config.get('sync.intervalMs'));
+        const intervalMs = this.config.get('sync.intervalMs');
+        this.nextAttemptAt = new Date(Date.now() + intervalMs);
+        this.timer = setTimeout(() => void this.sweep(), intervalMs);
       }
     }
   }

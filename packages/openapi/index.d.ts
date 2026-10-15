@@ -69,6 +69,11 @@ export type components = {
        */
       lastAttemptAt?: string;
       /**
+       * Format: date-time
+       * @description When the next scheduled sweep starts: sync.intervalMs after the last one ended. Absent while a sweep runs and before the first one, so the UI can poll for the new Snapshot as it lands.
+       */
+      nextAttemptAt?: string;
+      /**
        * @description A short, safe message about why the last sweep failed. Absent when it succeeded.
        * @example GitHub API unreachable
        */

@@ -97,6 +97,12 @@ components:
           type: string
           format: date-time
           description: When the last sweep started. Absent before the first sweep.
+        nextAttemptAt:
+          type: string
+          format: date-time
+          description: >-
+            When the next scheduled sweep starts: sync.intervalMs after the last one ended. Absent while a sweep runs and
+            before the first one, so the UI can poll for the new Snapshot as it lands.
         lastError:
           type: string
           description: A short, safe message about why the last sweep failed. Absent when it succeeded.

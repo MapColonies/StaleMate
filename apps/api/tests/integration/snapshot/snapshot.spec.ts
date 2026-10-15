@@ -39,11 +39,15 @@ describe('snapshot', function () {
   let provider: ScriptedProvider;
   let syncLoop: SyncLoop;
   let cooldownMs: number;
+  let intervalMs: number;
 
   beforeAll(async function () {
     await initConfig(true);
     cooldownMs = getConfig().get('sync.refreshCooldownMs');
+    intervalMs = getConfig().get('sync.intervalMs');
   });
+
+  const after = (from: Date | string, ms: number): string => new Date(new Date(from).getTime() + ms).toISOString();
 
   beforeEach(async function () {
     vi.useFakeTimers({ toFake: ['Date'], now: mondayMorning });
@@ -122,7 +126,7 @@ describe('snapshot', function () {
 
       expect(snapshot).toMatchObject({
         readAt: mondayMorning.toISOString(),
-        sync: { state: 'idle', lastAttemptAt: mondayMorning.toISOString() },
+        sync: { state: 'idle', lastAttemptAt: mondayMorning.toISOString(), nextAttemptAt: after(mondayMorning, intervalMs) },
         config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: cooldownMs },
       });
       expect(snapshot.sync).not.toHaveProperty('lastError');
@@ -159,12 +163,25 @@ describe('snapshot', function () {
       expect((await getSnapshot()).readAt).toBe(sync.lastAttemptAt);
     });
 
+    it('should say when the next sweep starts: sync.intervalMs after the last one ended', async function () {
+      const release = provider.hold();
+      const firstSweep = syncLoop.start();
+      // The sweep takes a minute.
+      vi.setSystemTime(mondayMorning.getTime() + 60_000);
+      release();
+      await firstSweep;
+
+      const { sync } = await getSnapshot();
+
+      expect(sync.nextAttemptAt).toBe(after(mondayMorning, 60_000 + intervalMs));
+    });
+
     it('should do nothing during the cooldown', async function () {
       await syncLoop.start();
 
       const sync = await refreshAfter(cooldownMs - 1);
 
-      expect(sync).toEqual({ state: 'idle', lastAttemptAt: mondayMorning.toISOString() });
+      expect(sync).toEqual({ state: 'idle', lastAttemptAt: mondayMorning.toISOString(), nextAttemptAt: after(mondayMorning, intervalMs) });
       expect(provider.sweeps).toBe(1);
     });
 
@@ -194,7 +211,7 @@ describe('snapshot', function () {
 
       expect(snapshot.readAt).toBe(good.readAt);
       expect(withoutClocks(snapshot.prs)).toEqual(withoutClocks(good.prs));
-      expect(snapshot.sync).toEqual({ state: 'idle', lastAttemptAt: failedAt, lastError: 'Sync failed' });
+      expect(snapshot.sync).toEqual({ state: 'idle', lastAttemptAt: failedAt, nextAttemptAt: after(failedAt, intervalMs), lastError: 'Sync failed' });
     });
 
     it.each([
