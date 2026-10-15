@@ -7,7 +7,7 @@ import { viewerOptions } from '@/snapshot/selectors';
 import { isWarming, useSnapshot } from '@/snapshot/use-snapshot';
 import { HeaderCounts } from '@/shell/header-counts';
 import { OutOfDateBanner } from '@/shell/out-of-date-banner';
-import { SyncStatus } from '@/shell/sync-status';
+import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
 import { ThemeToggle } from '@/shell/theme-toggle';
 import { useTheme } from '@/shell/use-theme';
 import { ViewerPicker } from '@/shell/viewer-picker';
@@ -23,6 +23,14 @@ function Logo() {
       <h1 className="font-semibold tracking-tight">StaleMate</h1>
     </div>
   );
+}
+
+/** Why the last poll brought no Snapshot, while the last one it brought is still on show. */
+function apiProblem(error: unknown, isError: boolean): ApiProblem | null {
+  if (!isError) {
+    return null;
+  }
+  return isWarming(error) ? 'restarted' : 'unreachable';
 }
 
 /** What shows before there is a Snapshot to show. */
@@ -58,7 +66,7 @@ export default function App() {
         <ViewSwitcher view={view} onChange={setView} />
         {snapshot && <HeaderCounts prs={snapshot.prs} viewer={viewer} />}
         <div className="ml-auto flex items-center gap-4">
-          {snapshot && <SyncStatus snapshot={snapshot} now={now} apiUnreachable={isError} />}
+          {snapshot && <SyncStatus snapshot={snapshot} now={now} apiProblem={apiProblem(error, isError)} />}
           <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />
           {snapshot && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
         </div>

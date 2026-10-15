@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import App from '@/app';
@@ -15,11 +15,12 @@ const ago = (ms: number): string => new Date(Date.now() - ms).toISOString();
 function renderApp() {
   // No retries: a stubbed failure should surface on the first pass.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
       <App />
     </QueryClientProvider>
   );
+  return { ...rendered, queryClient };
 }
 
 function serve(snapshot: Snapshot): void {
@@ -133,6 +134,42 @@ describe('the header', () => {
     renderApp();
 
     expect(await screen.findByText('updated 40 s ago')).toBeInTheDocument();
+  });
+
+  it('keeps saying how old the Snapshot is while a sync runs', async () => {
+    serve(aFreshSnapshot({ sync: { state: 'syncing', lastAttemptAt: ago(5 * SECOND) } }));
+
+    renderApp();
+
+    expect(await screen.findByText('updated 40 s ago')).toBeInTheDocument();
+    expect(screen.getByText(/syncing with github/i)).toBeInTheDocument();
+  });
+});
+
+describe('when the API stops answering with a Snapshot', () => {
+  it('keeps the Snapshot, and says the API restarted while its first sync runs', async () => {
+    serve(aFreshSnapshot({ prs: [aPr({ title: 'Kept change' })] }));
+    const { queryClient } = renderApp();
+    await screen.findByText('Kept change');
+
+    onRequest('GET', '/api/snapshot', { status: 503, body: { status: 'warming', sync: { state: 'syncing', lastAttemptAt: ago(SECOND) } } });
+    await act(() => queryClient.refetchQueries());
+
+    expect(await screen.findByText(/API restarted — first sync running/)).toBeInTheDocument();
+    expect(screen.queryByText(/API unreachable/)).not.toBeInTheDocument();
+    expect(screen.getByText('Kept change')).toBeInTheDocument();
+  });
+
+  it('keeps the Snapshot, and says the API is unreachable when it is', async () => {
+    serve(aFreshSnapshot({ prs: [aPr({ title: 'Kept change' })] }));
+    const { queryClient } = renderApp();
+    await screen.findByText('Kept change');
+
+    onRequest('GET', '/api/snapshot', 'unreachable');
+    await act(() => queryClient.refetchQueries());
+
+    expect(await screen.findByText(/API unreachable/)).toBeInTheDocument();
+    expect(screen.getByText('Kept change')).toBeInTheDocument();
   });
 });
 
