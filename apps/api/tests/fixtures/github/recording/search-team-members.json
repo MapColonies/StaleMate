@@ -1,0 +1,37 @@
+{
+  "data": {
+    "search": {
+      "issueCount": 6,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": [
+        {
+          "id": "PR_kwDOJLgOiM8AAAABHSqmzA"
+        },
+        {
+          "id": "PR_kwDONpnaH87ryZPL"
+        },
+        {
+          "id": "PR_kwDOQm1CY869UpEM"
+        },
+        {
+          "id": "PR_kwDOL-jpMs6psB8a"
+        },
+        {
+          "id": "PR_kwDOO5rrzc6iOO7n"
+        },
+        {
+          "id": "PR_kwDOLjZFFs6Kq0bL"
+        }
+      ]
+    },
+    "rateLimit": {
+      "cost": 1,
+      "remaining": 4971,
+      "limit": 5000,
+      "resetAt": "2026-10-15T08:07:02Z"
+    }
+  }
+}

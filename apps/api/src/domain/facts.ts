@@ -27,7 +27,10 @@ export interface ReviewFact {
   submittedAt: Date;
   /** The head commit the review was given on. */
   commitOid: string | null;
-  /** The slugs of the teams the review was given on behalf of. */
+  /**
+   * The slugs of the teams the review was given on behalf of. It only matters while the PR asks a team for review,
+   * so a provider may leave it empty on a PR that asks none.
+   */
   onBehalfOf: string[];
 }
 

@@ -1,0 +1,28 @@
+{
+  "data": {
+    "search": {
+      "issueCount": 3,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": [
+        {
+          "id": "PR_kwDOJLgOiM8AAAABHSqmzA"
+        },
+        {
+          "id": "PR_kwDONpnaH87ryZPL"
+        },
+        {
+          "id": "PR_kwDOL-jpMs6psB8a"
+        }
+      ]
+    },
+    "rateLimit": {
+      "cost": 1,
+      "remaining": 4973,
+      "limit": 5000,
+      "resetAt": "2026-10-15T08:07:02Z"
+    }
+  }
+}

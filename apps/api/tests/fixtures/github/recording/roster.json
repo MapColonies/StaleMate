@@ -1,0 +1,173 @@
+{
+  "data": {
+    "organization": {
+      "team": {
+        "members": {
+          "pageInfo": {
+            "hasNextPage": false
+          },
+          "nodes": [
+            {
+              "__typename": "User",
+              "id": "U_member_1",
+              "login": "member-1"
+            },
+            {
+              "__typename": "User",
+              "id": "U_member_2",
+              "login": "member-2"
+            },
+            {
+              "__typename": "User",
+              "id": "U_member_3",
+              "login": "member-3"
+            },
+            {
+              "__typename": "User",
+              "id": "U_member_4",
+              "login": "member-4"
+            },
+            {
+              "__typename": "User",
+              "id": "U_member_5",
+              "login": "member-5"
+            },
+            {
+              "__typename": "User",
+              "id": "U_member_6",
+              "login": "member-6"
+            },
+            {
+              "__typename": "User",
+              "id": "U_kgDOCIdygg",
+              "login": "mapcolonies-devops"
+            },
+            {
+              "__typename": "User",
+              "id": "U_kgDOEUQegg",
+              "login": "mapcolonies-org"
+            },
+            {
+              "__typename": "User",
+              "id": "U_member_7",
+              "login": "member-7"
+            }
+          ]
+        },
+        "repositories": {
+          "pageInfo": {
+            "hasNextPage": false
+          },
+          "nodes": [
+            {
+              "nameWithOwner": "MapColonies/eslint-config",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/ts-server-boilerplate",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/ts-npm-package-boilerplate",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/error-express-handler",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/telemetry",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/prettier-config",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/openapi-express-viewer",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/js-logger",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/express-access-log-middleware",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/read-pkg",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/ts-script-boilerplate",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/lookup-tables",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/opa-la",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/shared-workflows",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/nginx",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/config",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/config-server",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/config-ui",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/openapi-helpers",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/infra-portal",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/tsconfig",
+              "isArchived": true
+            },
+            {
+              "nameWithOwner": "MapColonies/elastic-alertmanager-connector",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/jobnik-manager",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/infra-copilot-instructions",
+              "isArchived": false
+            },
+            {
+              "nameWithOwner": "MapColonies/dem-gateway",
+              "isArchived": false
+            }
+          ]
+        }
+      }
+    },
+    "rateLimit": {
+      "cost": 1,
+      "remaining": 4974,
+      "limit": 5000,
+      "resetAt": "2026-10-15T08:07:02Z"
+    }
+  }
+}

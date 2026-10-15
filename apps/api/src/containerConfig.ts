@@ -3,7 +3,7 @@ import { trace } from '@opentelemetry/api';
 import { Registry } from 'prom-client';
 import { instanceCachingFactory } from 'tsyringe';
 import type { DependencyContainer } from 'tsyringe/dist/typings/types';
-import { jsLogger } from '@map-colonies/js-logger';
+import { jsLogger, type Logger } from '@map-colonies/js-logger';
 import { type InjectionObject, registerDependencies } from '@common/dependencyRegistration';
 import { SERVICES, SERVICE_NAME } from '@common/constants';
 import { getTracing } from '@common/tracing';
@@ -11,18 +11,25 @@ import { type ConfigType, getConfig } from '@common/config';
 import { snapshotRouterFactory, SNAPSHOT_ROUTER_SYMBOL } from './snapshot/routes/snapshotRouter';
 import { PR_PROVIDER, type PrProvider } from './providers/prProvider';
 import { FixturePrProvider } from './providers/fixture/fixturePrProvider';
+import { createGithubPrProvider } from './providers/github/githubPrProvider';
 import { SNAPSHOT_STORE } from './cache/snapshotStore';
 import { InMemorySnapshotStore } from './cache/inMemorySnapshotStore';
 import { SYNC_LOOP, SyncLoop } from './sync/syncLoop';
-import { createSyncMetrics, SYNC_METRICS } from './sync/syncMetrics';
+import { createSyncMetrics, SYNC_METRICS, type SyncMetrics } from './sync/syncMetrics';
 
-function createPrProvider(config: ConfigType): PrProvider {
-  const provider = config.get('provider');
-  switch (provider) {
+function createPrProvider(container: DependencyContainer): PrProvider {
+  const config = container.resolve<ConfigType>(SERVICES.CONFIG);
+  switch (config.get('provider')) {
     case 'fixture':
       return new FixturePrProvider(config.get('team.slug'));
     case 'github':
-      throw new Error('the github provider is not implemented yet: set provider to fixture');
+      return createGithubPrProvider({
+        teamSlug: config.get('team.slug'),
+        githubToken: config.get('githubToken'),
+        githubApp: config.get('githubApp'),
+        logger: container.resolve<Logger>(SERVICES.LOGGER),
+        metrics: container.resolve<SyncMetrics>(SYNC_METRICS),
+      });
   }
 }
 
@@ -49,7 +56,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
     { token: SERVICES.METRICS, provider: { useValue: metricsRegistry } },
     { token: SYNC_METRICS, provider: { useValue: createSyncMetrics(metricsRegistry) } },
     { token: SNAPSHOT_STORE, provider: { useValue: new InMemorySnapshotStore() } },
-    { token: PR_PROVIDER, provider: { useFactory: instanceCachingFactory((container) => createPrProvider(container.resolve(SERVICES.CONFIG))) } },
+    { token: PR_PROVIDER, provider: { useFactory: instanceCachingFactory(createPrProvider) } },
     { token: SYNC_LOOP, provider: { useFactory: instanceCachingFactory((container) => container.resolve(SyncLoop)) } },
     { token: SNAPSHOT_ROUTER_SYMBOL, provider: { useFactory: snapshotRouterFactory } },
     {

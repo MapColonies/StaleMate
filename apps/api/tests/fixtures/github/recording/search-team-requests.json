@@ -1,0 +1,22 @@
+{
+  "data": {
+    "search": {
+      "issueCount": 1,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": [
+        {
+          "id": "PR_kwDOE7Sle86IQw5X"
+        }
+      ]
+    },
+    "rateLimit": {
+      "cost": 1,
+      "remaining": 4970,
+      "limit": 5000,
+      "resetAt": "2026-10-15T08:07:02Z"
+    }
+  }
+}

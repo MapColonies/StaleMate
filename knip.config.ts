@@ -16,8 +16,7 @@ const config: KnipConfig = {
       ignoreUnresolved: ['./instrumentation.mjs'],
       // config.get() is typed through lodash's GetFieldType, which needs these types installed.
       ignoreDependencies: ['@types/lodash'],
-      // The provider and store seams have no implementation until #18 and #19 land.
-      entry: ['src/instrumentation.mts', 'src/providers/prProvider.ts', 'src/cache/snapshotStore.ts'],
+      entry: ['src/instrumentation.mts'],
     },
     'apps/ui': {},
   },
