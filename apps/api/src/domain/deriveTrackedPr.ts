@@ -23,7 +23,7 @@ export function deriveTrackedPr(facts: PrFacts, roster: Roster, config: Derivati
   const author = toPerson(facts.author, roster, config.botLogins);
   const review = deriveReviewStatus(facts, config.botLogins);
   const waitingOn = deriveWaitingOn(facts, review, roster, config);
-  const clocks = deriveClocks(facts, config.urgencyThresholds, now);
+  const clocks = deriveClocks(facts, config, now);
 
   return {
     id: facts.id,

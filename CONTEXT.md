@@ -75,7 +75,7 @@ How long a PR has been up for review, counted in Working Days from when it was f
 _Avoid_: Lifetime, lead time, Waiting Time
 
 **Idle Time**:
-How long since a person last acted on a PR — pushed, reviewed, commented, asked for a review or marked it ready — counted in Working Days. Bot activity does not count.
+How long since a person last acted on a PR — opened it, pushed, reviewed, commented, asked for a review or marked it ready — counted in Working Days. Bot activity does not count.
 _Avoid_: Waiting Time, staleness, inactivity
 
 **Working Day**:
