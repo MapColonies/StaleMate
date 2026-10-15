@@ -43,6 +43,6 @@
     "intervalMs": 120000,
     "refreshCooldownMs": 30000
   },
-  "provider": "github",
+  "provider": "fixture",
   "githubApp": {}
 }

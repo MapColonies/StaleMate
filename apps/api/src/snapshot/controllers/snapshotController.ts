@@ -1,20 +1,26 @@
 import httpStatus from 'http-status-codes';
-import { injectable } from 'tsyringe';
+import { inject, injectable } from 'tsyringe';
 import type { TypedRequestHandlers } from 'stalemate-openapi';
+import { SnapshotManager } from '../models/snapshotManager';
 
-/**
- * Serves the Snapshot and takes "Refresh now" requests.
- *
- * Until #18 (Serve the Snapshot from the fixture provider) adds the sync loop, nothing ever sweeps:
- * the Snapshot stays warming and refresh reports an idle sync.
- */
+/** Serves the Snapshot and takes "Refresh now" requests. */
 @injectable()
 export class SnapshotController {
-  public getSnapshot: TypedRequestHandlers['getSnapshot'] = (_req, res) => {
-    return res.status(httpStatus.SERVICE_UNAVAILABLE).json({ status: 'warming', sync: { state: 'idle' } });
+  public constructor(@inject(SnapshotManager) private readonly manager: SnapshotManager) {}
+
+  public getSnapshot: TypedRequestHandlers['getSnapshot'] = async (_req, res, next) => {
+    try {
+      const result = await this.manager.getSnapshot();
+      if (result.status === 'warming') {
+        return res.status(httpStatus.SERVICE_UNAVAILABLE).json(result);
+      }
+      return res.status(httpStatus.OK).json(result.snapshot);
+    } catch (error) {
+      next(error);
+    }
   };
 
   public refresh: TypedRequestHandlers['refresh'] = (_req, res) => {
-    return res.status(httpStatus.ACCEPTED).json({ state: 'idle' });
+    return res.status(httpStatus.ACCEPTED).json(this.manager.refresh());
   };
 }

@@ -1,5 +1,5 @@
 import type { PrFacts, Roster } from './facts';
-import type { TrackedPr } from './trackedPr';
+import type { Person, TrackedPr } from './trackedPr';
 import { deriveReviewStatus } from './reviewStatus';
 import { deriveCheckStatus } from './checkStatus';
 import { deriveWaitingOn } from './waitingOn';
@@ -41,4 +41,9 @@ export function deriveTrackedPr(facts: PrFacts, roster: Roster, config: Derivati
     noReviewer: waitingOn.noReviewer,
     ...clocks,
   };
+}
+
+/** Classifies every Team Member. Members whose logins are configured as Bots are Bots. */
+export function deriveTeam(roster: Roster, config: Pick<DerivationConfig, 'botLogins'>): Person[] {
+  return roster.members.map((member) => toPerson(member, roster, config.botLogins));
 }

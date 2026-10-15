@@ -12,3 +12,5 @@ export interface SnapshotStore {
   get: () => Promise<StoredSnapshot | undefined>;
   set: (snapshot: StoredSnapshot) => Promise<void>;
 }
+
+export const SNAPSHOT_STORE = Symbol('SnapshotStore');

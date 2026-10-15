@@ -1,36 +1,65 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- stub parameters, used once #18 lands */
 import type { Actor, PrFacts, Roster } from './facts';
 import type { InclusionReason, Person } from './trackedPr';
+import { isBot } from './bots';
+
+/** Team Members are matched by id, so a renamed account stays a member and a login reused by someone else doesn't. */
+function isMember(actor: Actor, roster: Roster): boolean {
+  return roster.members.some((member) => member.id === actor.id);
+}
+
+/** The people other than the author who reviewed the PR, each once, in the order they first reviewed. */
+function reviewersOf(facts: PrFacts): Actor[] {
+  const byId = new Map<string, Actor>();
+  for (const review of facts.reviews) {
+    if (review.author.id !== facts.author.id && !byId.has(review.author.id)) {
+      byId.set(review.author.id, review.author);
+    }
+  }
+  return [...byId.values()];
+}
+
+function requestedReviewersOf(facts: PrFacts): Actor[] {
+  return facts.reviewRequests.flatMap((request) => (request.type === 'person' ? [request.reviewer] : []));
+}
 
 export interface Participants {
   assignees: Person[];
   requestedReviewers: Person[];
+  /** Bots are left out. */
   reviewers: Person[];
 }
 
-/**
- * Classifies an account as a Team Member, a Bot or an outsider.
- *
- * Stub: returns a placeholder that treats everyone as a Team Member. Owned by #18 (Serve the Snapshot from the fixture provider).
- */
-export function toPerson(actor: Actor, _roster: Roster, _botLogins: readonly string[]): Person {
-  return { login: actor.login, kind: 'member' };
+/** Classifies an account as a Bot, a Team Member or an outsider. A Team Member whose login is configured as a Bot is a Bot. */
+export function toPerson(actor: Actor, roster: Roster, botLogins: readonly string[]): Person {
+  if (isBot(actor, botLogins)) {
+    return { login: actor.login, kind: 'bot' };
+  }
+  return { login: actor.login, kind: isMember(actor, roster) ? 'member' : 'outsider' };
 }
 
 /**
- * Lists why the PR is a Tracked PR.
- *
- * Stub: returns a placeholder. Owned by #18 (Serve the Snapshot from the fixture provider).
+ * Lists why the PR is a Tracked PR, in the order the contract lists the reasons.
+ * Team membership decides, whatever the account's kind, so a service account in the Team counts.
  */
-export function deriveInclusionReasons(_facts: PrFacts, _roster: Roster, _teamSlug: string): InclusionReason[] {
-  return ['teamRepo'];
+export function deriveInclusionReasons(facts: PrFacts, roster: Roster, teamSlug: string): InclusionReason[] {
+  const anyMember = (actors: readonly Actor[]): boolean => actors.some((actor) => isMember(actor, roster));
+  const applies: Record<InclusionReason, boolean> = {
+    teamRepo: roster.repos.includes(facts.repo),
+    authoredByMember: isMember(facts.author, roster),
+    memberReviewRequested: anyMember(requestedReviewersOf(facts)),
+    reviewedByMember: anyMember(reviewersOf(facts)),
+    assignedToMember: anyMember(facts.assignees),
+    teamReviewRequested: facts.reviewRequests.some((request) => request.type === 'team' && request.slug === teamSlug),
+  };
+  return (Object.keys(applies) as InclusionReason[]).filter((reason) => applies[reason]);
 }
 
-/**
- * Lists the PR's assignees, requested reviewers and reviewers.
- *
- * Stub: returns a placeholder with nobody. Owned by #18 (Serve the Snapshot from the fixture provider).
- */
-export function deriveParticipants(_facts: PrFacts, _roster: Roster, _botLogins: readonly string[]): Participants {
-  return { assignees: [], requestedReviewers: [], reviewers: [] };
+/** Lists the PR's assignees, requested reviewers and reviewers. */
+export function deriveParticipants(facts: PrFacts, roster: Roster, botLogins: readonly string[]): Participants {
+  const toPeople = (actors: readonly Actor[]): Person[] => actors.map((actor) => toPerson(actor, roster, botLogins));
+  return {
+    assignees: toPeople(facts.assignees),
+    requestedReviewers: toPeople(requestedReviewersOf(facts)),
+    reviewers: toPeople(reviewersOf(facts).filter((reviewer) => !isBot(reviewer, botLogins))),
+  };
 }
