@@ -105,6 +105,7 @@ components:
       type: object
       required:
         - urgencyThresholds
+        - refreshCooldownMs
       properties:
         urgencyThresholds:
           type: array
@@ -115,6 +116,13 @@ components:
             type: number
             minimum: 0
           example: [2, 4, 8]
+        refreshCooldownMs:
+          type: integer
+          minimum: 0
+          description: >-
+            How long after a sweep starts a refresh is ignored, in milliseconds. Counted from sync.lastAttemptAt, so the UI
+            can show when "Refresh now" is available again.
+          example: 30000
     person:
       type: object
       required:

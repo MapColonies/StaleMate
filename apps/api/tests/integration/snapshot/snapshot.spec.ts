@@ -123,7 +123,7 @@ describe('snapshot', function () {
       expect(snapshot).toMatchObject({
         readAt: mondayMorning.toISOString(),
         sync: { state: 'idle', lastAttemptAt: mondayMorning.toISOString() },
-        config: { urgencyThresholds: [2, 4, 8] },
+        config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: cooldownMs },
       });
       expect(snapshot.sync).not.toHaveProperty('lastError');
       expect(snapshot.team).toContainEqual({ login: 'CptSchnitz', kind: 'member' });

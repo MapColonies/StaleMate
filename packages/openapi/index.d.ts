@@ -84,6 +84,11 @@ export type components = {
        *     ]
        */
       urgencyThresholds: number[];
+      /**
+       * @description How long after a sweep starts a refresh is ignored, in milliseconds. Counted from sync.lastAttemptAt, so the UI can show when "Refresh now" is available again.
+       * @example 30000
+       */
+      refreshCooldownMs: number;
     };
     person: {
       login: string;
