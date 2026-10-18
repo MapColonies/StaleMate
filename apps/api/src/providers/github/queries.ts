@@ -18,6 +18,25 @@ interface TimelineActorEvent {
   actor: ActorNode | null;
 }
 
+/**
+ * GitHub charges a query for the items it asks for, not for those it gets, and charges a connection nested in a list once
+ * per item of that list. So rather than ask every PR of a batch for a connection's worth, each PR is read under its own
+ * alias and asked for only about as many items as the details query found it has.
+ */
+function perPrQuery(operation: string, sizeVariable: string, selection: (size: string) => string): (reads: readonly SizedRead[]) => PerPrQuery {
+  return (reads) => {
+    const variables: Record<string, string | number> = {};
+    const declarations: string[] = [];
+    const fields = reads.map(({ id, size }, index) => {
+      variables[`id${index}`] = id;
+      variables[`${sizeVariable}${index}`] = size;
+      declarations.push(`$id${index}: ID!, $${sizeVariable}${index}: Int!`);
+      return `pr${index}: node(id: $id${index}) { ... on PullRequest { id ${selection(`$${sizeVariable}${index}`)} } }`;
+    });
+    return { document: `query ${operation}(${declarations.join(', ')}) {\n  ${fields.join('\n  ')}\n  ${RATE_LIMIT}\n}`, variables };
+  };
+}
+
 export const ROSTER_QUERY = `query Roster($org: String!, $team: String!) {
   organization(login: $org) {
     team(slug: $team) {
@@ -166,25 +185,36 @@ export interface NodesData<T> {
   nodes: (T | null)[];
 }
 
-/** A PR's review threads cost one request per thread, so only PRs that have threads are read. */
-export const THREADS_QUERY = `query ReviewThreads($ids: [ID!]!) {
-  nodes(ids: $ids) {
-    ... on PullRequest {
-      id
-      reviewThreads(first: 100) {
-        pageInfo { hasNextPage }
-        nodes {
-          isResolved
-          comments(first: 50) {
-            pageInfo { hasNextPage }
-            nodes { createdAt author { ${ACTOR} } pullRequestReview { id } }
-          }
+/** A PR read by id, with how many items of its costly connection to ask for. */
+export interface SizedRead {
+  id: string;
+  size: number;
+}
+
+/** A query that reads a batch of PRs, each under its own alias: pr0, pr1 and so on. */
+export interface PerPrQuery {
+  document: string;
+  variables: Record<string, string | number>;
+}
+
+/** Holds the PRs a per-PR query read, by alias. A PR is null when it is gone. */
+export type PerPrData<T> = Partial<Record<`pr${number}`, T | null>>;
+
+/** A PR's review threads cost one request per thread, so only PRs that have threads are read, each for the threads it has. */
+export const threadsQuery = perPrQuery(
+  'ReviewThreads',
+  'threads',
+  (size) => `reviewThreads(first: ${size}) {
+      pageInfo { hasNextPage }
+      nodes {
+        isResolved
+        comments(first: 50) {
+          pageInfo { hasNextPage }
+          nodes { createdAt author { ${ACTOR} } pullRequestReview { id } }
         }
       }
-    }
-  }
-  ${RATE_LIMIT}
-}`;
+    }`
+);
 
 export interface ThreadsNode {
   id: string;
@@ -195,15 +225,11 @@ export interface ThreadsNode {
 }
 
 /** Which teams each review was given on behalf of costs one request per review, and only matters while a team is asked for review. */
-export const REVIEW_TEAMS_QUERY = `query ReviewTeams($ids: [ID!]!) {
-  nodes(ids: $ids) {
-    ... on PullRequest {
-      id
-      reviews(last: 100) { nodes { id onBehalfOf(first: 10) { nodes { slug } } } }
-    }
-  }
-  ${RATE_LIMIT}
-}`;
+export const reviewTeamsQuery = perPrQuery(
+  'ReviewTeams',
+  'reviews',
+  (size) => `reviews(last: ${size}) { nodes { id onBehalfOf(first: 10) { nodes { slug } } } }`
+);
 
 export interface ReviewTeamsNode {
   id: string;

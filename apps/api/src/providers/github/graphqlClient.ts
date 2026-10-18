@@ -51,6 +51,8 @@ export interface GraphqlClientOptions {
 export class GraphqlClient {
   /** The points every query so far has cost. */
   public pointsSpent = 0;
+  /** How many queries were sent so far. */
+  public requestsSent = 0;
   private lastRateLimit: RateLimit | undefined;
 
   public constructor(private readonly options: GraphqlClientOptions) {}
@@ -62,6 +64,7 @@ export class GraphqlClient {
     }
     const token = await this.options.getToken();
     let response: Response;
+    this.requestsSent++;
     try {
       response = await this.options.fetch(GRAPHQL_URL, {
         method: 'POST',

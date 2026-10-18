@@ -126,6 +126,21 @@ export function aNodesResponse(nodes: unknown[]): object {
   return { data: { nodes, rateLimit: aRateLimit() } };
 }
 
+/** Answers a query that reads each PR under its own alias, pr0, pr1 and so on. */
+export function aPerPrResponse(nodes: unknown[]): object {
+  return { data: { ...Object.fromEntries(nodes.map((node, index) => [`pr${index}`, node])), rateLimit: aRateLimit() } };
+}
+
+/** The ids of the PRs a query reads, whether as one list or each in its own variable. */
+export function requestedIds(variables: Record<string, unknown>): string[] {
+  if (Array.isArray(variables.ids)) {
+    return variables.ids as string[];
+  }
+  return Object.keys(variables)
+    .filter((name) => /^id\d+$/.test(name))
+    .map((name) => variables[name] as string);
+}
+
 /** Serves an empty Team of alice and the opa-la repo, and empty search results, so a test overrides only what it is about. */
 export function anEmptyGithub(): FakeGithub {
   return new FakeGithub()
@@ -133,9 +148,9 @@ export function anEmptyGithub(): FakeGithub {
     .on('SearchPullRequests', () => aSearchResponse([]))
     .on('PullRequestDetails', () => aNodesResponse([]))
     .on('ReviewThreads', ({ variables }) =>
-      aNodesResponse((variables.ids as string[]).map((id) => ({ id, reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } })))
+      aPerPrResponse(requestedIds(variables).map((id) => ({ id, reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } })))
     )
-    .on('ReviewTeams', ({ variables }) => aNodesResponse((variables.ids as string[]).map((id) => ({ id, reviews: { nodes: [] } }))));
+    .on('ReviewTeams', ({ variables }) => aPerPrResponse(requestedIds(variables).map((id) => ({ id, reviews: { nodes: [] } }))));
 }
 
 /** A Logger whose every method is a spy, so a test can assert what was logged. */

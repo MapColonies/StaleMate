@@ -11,6 +11,7 @@ import { SweepError, type SweepFailure } from '@src/providers/prProvider';
 import { createSyncMetrics, type SyncMetrics } from '@src/sync/syncMetrics';
 import {
   aNodesResponse,
+  aPerPrResponse,
   aPrNode,
   aRateLimit,
   aRosterResponse,
@@ -18,6 +19,7 @@ import {
   aSpyLogger,
   anEmptyGithub,
   type FakeGithub,
+  requestedIds,
 } from './helpers/fakeGithub';
 
 describe('GithubPrProvider', function () {
@@ -93,7 +95,7 @@ describe('GithubPrProvider', function () {
     async function sweepOne(node: Record<string, unknown>, extra: Partial<Record<string, (ids: string[]) => unknown>> = {}): Promise<PrFacts> {
       github.on('SearchPullRequests', () => aSearchResponse([String(node.id)])).on('PullRequestDetails', () => aNodesResponse([node]));
       for (const [operation, respond] of Object.entries(extra)) {
-        github.on(operation, ({ variables }) => respond?.(variables.ids as string[]));
+        github.on(operation, ({ variables }) => respond?.(requestedIds(variables)));
       }
       const { prs } = await aProvider().sweep();
 
@@ -273,7 +275,7 @@ describe('GithubPrProvider', function () {
         .on('SearchPullRequests', () => aSearchResponse(['PR_1', 'PR_2']))
         .on('PullRequestDetails', () => aNodesResponse([aPrNode({ id: 'PR_1' }), aPrNode({ id: 'PR_2', reviewThreads: { totalCount: 2 } })]))
         .on('ReviewThreads', () =>
-          aNodesResponse([
+          aPerPrResponse([
             {
               id: 'PR_2',
               reviewThreads: {
@@ -304,7 +306,7 @@ describe('GithubPrProvider', function () {
 
       const { prs } = await aProvider().sweep();
 
-      expect(github.requestsFor('ReviewThreads').map((request) => request.variables.ids)).toEqual([['PR_2']]);
+      expect(github.requestsFor('ReviewThreads').map((request) => requestedIds(request.variables))).toEqual([['PR_2']]);
       expect(prs.map((pr) => pr.reviewThreads)).toEqual([
         [],
         [
@@ -344,13 +346,64 @@ describe('GithubPrProvider', function () {
           ])
         )
         .on('ReviewTeams', () =>
-          aNodesResponse([{ id: 'PR_2', reviews: { nodes: [{ id: 'PRR_2', onBehalfOf: { nodes: [{ slug: 'infra' }, { slug: '3d' }] } }] } }])
+          aPerPrResponse([{ id: 'PR_2', reviews: { nodes: [{ id: 'PRR_2', onBehalfOf: { nodes: [{ slug: 'infra' }, { slug: '3d' }] } }] } }])
         );
 
       const { prs } = await aProvider().sweep();
 
-      expect(github.requestsFor('ReviewTeams').map((request) => request.variables.ids)).toEqual([['PR_2']]);
+      expect(github.requestsFor('ReviewTeams').map((request) => requestedIds(request.variables))).toEqual([['PR_2']]);
       expect(prs.map((pr) => pr.reviews.map((prReview) => prReview.onBehalfOf))).toEqual([[[]], [['infra', '3d']]]);
+    });
+
+    // GitHub charges a query for the items it asks for, not for those it gets, so asking for 100 threads of every PR cost ~9× as much.
+    // A few more than counted, so threads that turn up between the queries aren't lost.
+    it('should ask for only as many threads as each PR has, and a few more, up to 100', async function () {
+      github
+        .on('SearchPullRequests', () => aSearchResponse(['PR_1', 'PR_2', 'PR_3']))
+        .on('PullRequestDetails', () =>
+          aNodesResponse([
+            aPrNode({ id: 'PR_1', reviewThreads: { totalCount: 3 } }),
+            aPrNode({ id: 'PR_2' }),
+            aPrNode({ id: 'PR_3', reviewThreads: { totalCount: 150 } }),
+          ])
+        );
+
+      await aProvider().sweep();
+
+      expect(github.requestsFor('ReviewThreads').map((request) => request.variables)).toEqual([
+        { id0: 'PR_1', threads0: 8, id1: 'PR_3', threads1: 100 },
+      ]);
+    });
+
+    it('should ask for only as many reviews as each PR has, and a few more, when reading the teams they were given on behalf of', async function () {
+      const teamRequest = {
+        pageInfo: { hasNextPage: false },
+        nodes: [{ asCodeOwner: false, requestedReviewer: { __typename: 'Team', slug: 'infra' } }],
+      };
+      const review = { state: 'APPROVED', submittedAt: '2026-10-13T08:00:00Z', author: bob, commit: { oid: 'c0ffee' } };
+      github
+        .on('SearchPullRequests', () => aSearchResponse(['PR_1', 'PR_2']))
+        .on('PullRequestDetails', () =>
+          aNodesResponse([
+            aPrNode({ id: 'PR_1', reviewRequests: teamRequest }),
+            aPrNode({
+              id: 'PR_2',
+              reviewRequests: teamRequest,
+              reviews: {
+                pageInfo: { hasPreviousPage: false },
+                nodes: [
+                  { id: 'PRR_1', ...review },
+                  { id: 'PRR_2', ...review },
+                ],
+              },
+            }),
+          ])
+        );
+
+      await aProvider().sweep();
+
+      // A PR without reviews has none to read the teams of.
+      expect(github.requestsFor('ReviewTeams').map((request) => request.variables)).toEqual([{ id0: 'PR_2', reviews0: 7 }]);
     });
 
     it('should warn when it reads only part of what a PR has', async function () {
@@ -362,7 +415,7 @@ describe('GithubPrProvider', function () {
         }),
         {
           ReviewThreads: (ids) =>
-            aNodesResponse(
+            aPerPrResponse(
               ids.map((id) => ({
                 id,
                 reviewThreads: {
@@ -555,6 +608,28 @@ describe('GithubPrProvider', function () {
 
       // The roster and the three searches cost a point each.
       expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ points: 7, prs: 1, durationMs: expect.any(Number) as unknown }));
+    });
+
+    it('should log the time, points and requests of each step of the sweep', async function () {
+      github
+        .on('SearchPullRequests', () => aSearchResponse(['PR_1']))
+        .on('PullRequestDetails', () => ({ data: { nodes: [aPrNode({ reviewThreads: { totalCount: 1 } })], rateLimit: aRateLimit({ cost: 3 }) } }));
+
+      await aProvider().sweep();
+
+      const durationMs = expect.any(Number) as unknown;
+
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          steps: {
+            roster: { durationMs, points: 1, requests: 1 },
+            search: { durationMs, points: 3, requests: 3 },
+            details: { durationMs, points: 3, requests: 1 },
+            threads: { durationMs, points: 1, requests: 1 },
+            reviewTeams: { durationMs, points: 0, requests: 0 },
+          },
+        })
+      );
     });
   });
 
