@@ -105,7 +105,7 @@ function addReviewParties(facts: PrFacts, review: ReviewOutcome, config: Waiting
 }
 
 export interface WaitingOn {
-  /** Never empty and never a Bot. */
+  /** Never empty, and never a Bot except a Bot PR's own author. */
   parties: WaitingOnParty[];
   noReviewer: boolean;
 }
@@ -114,8 +114,10 @@ export interface WaitingOn {
  * Derives who owes the PR's next move, and whether it has No Reviewer.
  * A Draft waits on its author, and so does an approved PR, whose author owes the merge. Otherwise the PR waits on the requested
  * reviewers, on whoever owes the next move on each request for changes and comment-only review, and on the author while checks
- * fail or the PR conflicts with its base. Bots are never picked, and their reviews and threads are ignored.
- * A PR Awaiting Review that no reviewer owes a move on, and whose reviews owe the author nothing, has No Reviewer and waits on its author.
+ * fail or the PR conflicts with its base. Bot reviewers are never picked, and Bots' reviews and threads are ignored. A Bot author is
+ * picked like any author, as no human owes its moves in its place.
+ * A PR Awaiting Review that no reviewer owes a move on, and whose reviews owe the author nothing, has No Reviewer and waits on its author,
+ * even while its checks fail or it conflicts.
  */
 export function deriveWaitingOn(facts: PrFacts, review: ReviewOutcome, roster: Roster, config: WaitingOnConfig): WaitingOn {
   const parties = new Parties(roster, config);

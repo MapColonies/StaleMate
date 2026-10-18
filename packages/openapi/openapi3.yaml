@@ -214,13 +214,13 @@ components:
           $ref: '#/components/schemas/checkStatus'
         waitingOn:
           type: array
-          description: Who owes the next move. Never empty and never a Bot.
+          description: Who owes the next move. Never empty, and never a Bot except a Bot PR's own author.
           minItems: 1
           items:
             $ref: '#/components/schemas/waitingOnParty'
         noReviewer:
           type: boolean
-          description: The PR is Awaiting Review and no reviewer owes a move, so it waits on its author.
+          description: The PR is Awaiting Review and no reviewer owes a move, so it waits on its author. Set even while checks fail or the PR conflicts.
         age:
           $ref: '#/components/schemas/clock'
         idleTime:

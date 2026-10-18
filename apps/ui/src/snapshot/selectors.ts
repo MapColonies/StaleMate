@@ -50,8 +50,9 @@ export function waitingOnViewerCounts(prs: readonly TrackedPr[], viewer: string 
   return counts;
 }
 
+/** The header's No Reviewer count is human work only: Bot PRs stay out of it whatever the filters, though they keep the flag. */
 export function noReviewerCount(prs: readonly TrackedPr[]): number {
-  return prs.filter((pr) => pr.noReviewer).length;
+  return prs.filter((pr) => pr.noReviewer && pr.author.kind !== 'bot').length;
 }
 
 /** When "Refresh now" works again: the API ignores a refresh until the cooldown since the last sweep started has passed. */

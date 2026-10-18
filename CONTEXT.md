@@ -67,7 +67,7 @@ The combined result of all of a PR's CI checks: Passing, Failing (any check fail
 _Avoid_: CI status, build status
 
 **Waiting On**:
-The people or teams who owe the next move on a PR — the author, one or more reviewers, or both. Never empty and never a Bot: when no reviewer owes a move, the PR waits on its author.
+The people or teams who owe the next move on a PR — the author, one or more reviewers, or both. Never empty: when no reviewer owes a move, the PR waits on its author. Never a Bot, except a Bot PR's own author, who stands wherever an author would owe a move, because no human owes it in their place.
 _Avoid_: Turn, ball in court, blocker, assignee
 
 **Age**:
@@ -87,5 +87,5 @@ How loudly a PR's Age calls for attention — four levels, with thresholds in Wo
 _Avoid_: Staleness, aging, priority
 
 **No Reviewer**:
-A PR Awaiting Review that no reviewer owes a move on — none asked, or every ask already met — so it falls to its author to find one. Always flagged, never silent.
+A PR Awaiting Review that no reviewer owes a move on — none asked, or every ask already met — so it falls to its author to find one, or, on a Bot PR, to whichever Team Member picks it up. Always flagged, never silent, even while its checks fail or it conflicts with its base.
 _Avoid_: Nobody's Turn, orphan, unassigned

@@ -79,4 +79,14 @@ describe('noReviewerCount', () => {
 
     expect(noReviewerCount(prs)).toBe(2);
   });
+
+  it('leaves out Bot PRs, though they are flagged', () => {
+    const renovate = bot('renovate[bot]');
+    const prs = [
+      aPr({ noReviewer: true, waitingOn: [waitingOnAuthor(bob)] }),
+      aPr({ author: renovate, noReviewer: true, waitingOn: [waitingOnAuthor(renovate)] }),
+    ];
+
+    expect(noReviewerCount(prs)).toBe(1);
+  });
 });

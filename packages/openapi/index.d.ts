@@ -127,9 +127,9 @@ export type components = {
       /** @description The number of current approvals, shown as ×N on Approved. */
       approvals: number;
       checkStatus: components['schemas']['checkStatus'];
-      /** @description Who owes the next move. Never empty and never a Bot. */
+      /** @description Who owes the next move. Never empty, and never a Bot except a Bot PR's own author. */
       waitingOn: components['schemas']['waitingOnParty'][];
-      /** @description The PR is Awaiting Review and no reviewer owes a move, so it waits on its author. */
+      /** @description The PR is Awaiting Review and no reviewer owes a move, so it waits on its author. Set even while checks fail or the PR conflicts. */
       noReviewer: boolean;
       age: components['schemas']['clock'];
       idleTime: components['schemas']['clock'];
