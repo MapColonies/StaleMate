@@ -39,7 +39,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
   return (
     <li aria-labelledby={titleId} className="flex items-stretch hover:bg-accent/60">
       <UrgencyBar pr={pr} />
-      <div className="flex w-20 shrink-0 flex-col items-end justify-center gap-0.5 pr-3">
+      <div className="flex w-20 shrink-0 flex-col items-end gap-0.5 py-2.5 pr-3">
         <AgeChip pr={pr} now={now} />
         <IdleLine pr={pr} />
       </div>
@@ -59,8 +59,9 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
           <InclusionReasonBadges reasons={pr.inclusionReasons} />
         </div>
       </div>
-      <div className="flex w-72 shrink-0 flex-col items-start justify-center gap-1 px-4 py-2.5">
-        <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked />
+      <div className="flex w-72 shrink-0 flex-col items-start gap-1 px-4 py-2.5">
+        {/* At most two lines, as on the left, so every row keeps one height. */}
+        <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked max={2} />
         <NoReviewerFlag pr={pr} />
       </div>
     </li>

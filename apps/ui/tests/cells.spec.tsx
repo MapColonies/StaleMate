@@ -59,6 +59,20 @@ describe('WaitingOnChips', () => {
     expect(chips()).toEqual(['You review', 'carol review', 'bob review']);
   });
 
+  it('folds the parties past the most it may show into +N more, naming them on hover', () => {
+    const waitingOn = [waitingOnReviewer(member('carol')), waitingOnReviewer(alice), waitingOnReviewer(member('dave')), waitingOnTheTeam];
+    render(<WaitingOnChips pr={aPr({ author: bob, waitingOn })} viewer="alice" stacked max={2} />);
+
+    expect(chips()).toEqual(['You review', 'carol review +2 more']);
+    expect(screen.getByText('+2 more')).toHaveAttribute('title', 'dave · review\n@infra');
+  });
+
+  it('shows every party when they fit', () => {
+    render(<WaitingOnChips pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob), waitingOnReviewer(alice)] })} viewer={null} stacked max={2} />);
+
+    expect(chips()).toEqual(['bob author', 'alice review']);
+  });
+
   it('marks people outside the Team ext', () => {
     const stranger = outsider('stranger');
     render(<WaitingOnChips pr={aPr({ author: stranger, waitingOn: [waitingOnAuthor(stranger)] })} viewer={null} />);
