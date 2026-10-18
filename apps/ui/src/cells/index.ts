@@ -1,5 +1,5 @@
 // The PR cells every view shares.
-export { AgeChip, IdleLine } from './clock-cells';
+export { AgeChip, IdleLine, UrgencyBar } from './clock-cells';
 export { CheckStatusBadge } from './check-status-badge';
 export { InclusionReasonBadges } from './inclusion-reason-badges';
 export { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS } from './labels';

@@ -13,6 +13,7 @@ import { useTheme } from '@/shell/use-theme';
 import { ViewerPicker } from '@/shell/viewer-picker';
 import { VIEW_NAMES, useLastView } from '@/shell/use-last-view';
 import { ViewSwitcher } from '@/shell/view-switcher';
+import { InboxView } from '@/views/inbox/inbox-view';
 import { TableView } from '@/views/table/table-view';
 import { ViewPlaceholder } from '@/views/view-placeholder';
 
@@ -74,7 +75,8 @@ export default function App() {
       {snapshot && <OutOfDateBanner snapshot={snapshot} now={now} />}
       <main className="flex-1 bg-muted/40">
         {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
-        {snapshot && view !== 'table' && (
+        {snapshot && view === 'inbox' && <InboxView snapshot={snapshot} viewer={viewer} now={now} />}
+        {snapshot && view === 'board' && (
           <ViewPlaceholder
             name={VIEW_NAMES[view]}
             prs={prs}

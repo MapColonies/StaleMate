@@ -302,6 +302,16 @@ describe('the views', () => {
     expect(await screen.findByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('opens the Inbox, bucketed for the Viewer', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(aFreshSnapshot({ prs: [aPr({ title: 'Asks alice', author: bob, waitingOn: [waitingOnReviewer(alice)] })] }));
+    renderApp();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Inbox' }));
+
+    expect(within(screen.getByRole('region', { name: 'Your turn' })).getByText('Asks alice')).toBeInTheDocument();
+  });
+
   it('shows the PRs that pass the filters in the URL, hiding Bots by default', async () => {
     serve(aFreshSnapshot({ prs: [aPr({ title: 'Human change' }), aPr({ title: 'Bump deps', author: bot('renovate') })] }));
     renderApp();

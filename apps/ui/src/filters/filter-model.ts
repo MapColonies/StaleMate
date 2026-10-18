@@ -166,6 +166,27 @@ export function activeFilterCount(filters: Filters): number {
 
 // ---- applying -------------------------------------------------------------
 
+/** The filters that pick from a list of values: the Table's multi-selects and the Inbox's facets. */
+export type ListFilter = 'repo' | 'author' | 'reviewer' | 'waitingOn' | 'review' | 'check' | 'reason';
+
+/** The values a PR has for each list filter, each once. */
+const LIST_VALUES: { [K in ListFilter]: (pr: TrackedPr) => readonly Filters[K][number][] } = {
+  repo: (pr) => [pr.repo],
+  author: (pr) => [pr.author.login],
+  // Requested or already reviewed.
+  reviewer: (pr) => [...new Set([...pr.requestedReviewers, ...pr.reviewers].map((person) => person.login))],
+  waitingOn: (pr) => pr.waitingOn.map(partyKey),
+  review: (pr) => [pr.reviewStatus],
+  check: (pr) => [pr.checkStatus],
+  reason: (pr) => pr.inclusionReasons,
+};
+
+const LIST_FILTERS = Object.keys(LIST_VALUES) as ListFilter[];
+
+/** A list filter's values with one value picked, or unpicked if it was. */
+export const toggled = <T extends string>(values: readonly T[], value: T): T[] =>
+  values.includes(value) ? values.filter((other) => other !== value) : [...values, value];
+
 const anyOf = <T>(wanted: readonly T[], values: readonly T[]): boolean => wanted.length === 0 || values.some((value) => wanted.includes(value));
 
 /** The PRs that pass every filter. Within one filter, any selected value matches. */
@@ -177,19 +198,24 @@ export function applyFilters(prs: readonly TrackedPr[], filters: Filters): Track
       !(filters.hideBots && pr.author.kind === 'bot') &&
       !(filters.hideOutsiders && pr.author.kind === 'outsider') &&
       (q === '' || `${pr.repo} #${pr.number} ${pr.title} ${pr.author.login}`.toLowerCase().includes(q)) &&
-      anyOf(filters.repo, [pr.repo]) &&
-      anyOf(filters.author, [pr.author.login]) &&
-      anyOf(
-        filters.reviewer,
-        [...pr.requestedReviewers, ...pr.reviewers].map((person) => person.login)
-      ) &&
-      anyOf(filters.waitingOn, pr.waitingOn.map(partyKey)) &&
-      anyOf(filters.review, [pr.reviewStatus]) &&
-      anyOf(filters.check, [pr.checkStatus]) &&
-      anyOf(filters.reason, pr.inclusionReasons) &&
+      LIST_FILTERS.every((filter) => anyOf<string>(filters[filter], LIST_VALUES[filter](pr))) &&
       (filters.ageMin === null || age >= filters.ageMin) &&
       (filters.ageMax === null || age < filters.ageMax) &&
       (filters.idleOver === null || workingDays(pr.idleTime) > filters.idleOver)
     );
   });
+}
+
+/**
+ * How many PRs each value of a list filter would keep: the PRs that pass every other filter, counted by their values.
+ * The filter's own selection is left out, so picking a value doesn't zero the others.
+ */
+export function facetCounts<K extends ListFilter>(prs: readonly TrackedPr[], filters: Filters, filter: K): Map<Filters[K][number], number> {
+  const counts = new Map<Filters[K][number], number>();
+  for (const pr of applyFilters(prs, { ...filters, [filter]: [] })) {
+    for (const value of LIST_VALUES[filter](pr)) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+  }
+  return counts;
 }

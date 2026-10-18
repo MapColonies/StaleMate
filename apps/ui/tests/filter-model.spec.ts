@@ -6,10 +6,12 @@ import {
   IDLE_PRESETS,
   activeFilterCount,
   applyFilters,
+  facetCounts,
   parseFilters,
   partyKey,
   serializeFilters,
 } from '@/filters/filter-model';
+import type { TrackedPr } from '@/snapshot/types';
 import { aPr, bot, clock, member, outsider, waitingOnAuthor, waitingOnReviewer, waitingOnTeam, waitingOnTheTeam } from './fixtures/snapshot';
 
 const everyFilterSet: Filters = {
@@ -207,5 +209,47 @@ describe('applyFilters', () => {
     const more = aPr({ idleTime: clock(3.1) });
 
     expect(applyFilters([three, more], show({ idleOver: 3 }))).toEqual([more]);
+  });
+});
+
+describe('facetCounts', () => {
+  const alice = member('alice');
+  const bob = member('bob');
+  const carol = member('carol');
+  const counts = (prs: TrackedPr[], filters: Partial<Filters>, facet: Parameters<typeof facetCounts>[2]) =>
+    Object.fromEntries(facetCounts(prs, { ...DEFAULT_FILTERS, ...filters }, facet));
+
+  const prs = [
+    aPr({ repo: 'MapColonies/a', author: bob, reviewStatus: 'awaitingReview', waitingOn: [waitingOnReviewer(alice)] }),
+    aPr({ repo: 'MapColonies/a', author: carol, reviewStatus: 'approved', waitingOn: [waitingOnAuthor(carol)] }),
+    aPr({ repo: 'MapColonies/b', author: bob, reviewStatus: 'approved', waitingOn: [waitingOnAuthor(bob), waitingOnTheTeam] }),
+    aPr({ repo: 'MapColonies/b', author: bot('renovate'), reviewStatus: 'approved', waitingOn: [waitingOnAuthor(bot('renovate'))] }),
+  ];
+
+  it('counts the PRs that pass the filters for each value of a facet', () => {
+    expect(counts(prs, {}, 'repo')).toEqual({ 'MapColonies/a': 2, 'MapColonies/b': 1 });
+    expect(counts(prs, {}, 'waitingOn')).toEqual({ alice: 1, carol: 1, bob: 1, '@infra': 1 });
+  });
+
+  it('reflects the other active filters', () => {
+    expect(counts(prs, { review: ['approved'] }, 'repo')).toEqual({ 'MapColonies/a': 1, 'MapColonies/b': 1 });
+    expect(counts(prs, { hideBots: false, review: ['approved'] }, 'repo')).toEqual({ 'MapColonies/a': 1, 'MapColonies/b': 2 });
+  });
+
+  it('ignores the facet’s own selection, so its other values keep their counts', () => {
+    expect(counts(prs, { repo: ['MapColonies/a'] }, 'repo')).toEqual({ 'MapColonies/a': 2, 'MapColonies/b': 1 });
+    expect(counts(prs, { repo: ['MapColonies/a'] }, 'author')).toEqual({ bob: 1, carol: 1 });
+  });
+
+  it('counts a PR once per value, even when a reviewer is both requested and has reviewed', () => {
+    const pr = aPr({ requestedReviewers: [alice], reviewers: [alice, bob] });
+
+    expect(counts([pr], {}, 'reviewer')).toEqual({ alice: 1, bob: 1 });
+  });
+
+  it('counts each Inclusion Reason of a PR', () => {
+    const pr = aPr({ inclusionReasons: ['teamRepo', 'teamReviewRequested'] });
+
+    expect(counts([pr], {}, 'reason')).toEqual({ teamRepo: 1, teamReviewRequested: 1 });
   });
 });

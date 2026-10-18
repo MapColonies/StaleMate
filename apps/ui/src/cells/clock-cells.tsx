@@ -11,6 +11,14 @@ const URGENCY_STYLES = [
   'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
 ] as const;
 
+// The same hues, solid, for a bar down the edge of a row.
+const URGENCY_BARS = ['bg-transparent', 'bg-yellow-400', 'bg-orange-500', 'bg-red-500'] as const;
+
+/** A strip coloured by the PR's Urgency, down the edge of a row. */
+export function UrgencyBar({ pr }: { pr: Pick<TrackedPr, 'urgency'> }) {
+  return <div aria-hidden className={cn('w-1 shrink-0', pr.urgency === null ? 'bg-transparent' : URGENCY_BARS[pr.urgency])} />;
+}
+
 /** The PR's Age in Working Days, coloured by its Urgency. Hovering shows the times behind it. */
 export function AgeChip({ pr, now }: { pr: Pick<TrackedPr, 'age' | 'idleTime' | 'urgency'>; now: number }) {
   return (

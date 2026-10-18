@@ -1,15 +1,11 @@
-import { FilterX, Search, X } from 'lucide-react';
+import { FilterX } from 'lucide-react';
 import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS } from '@/cells';
 import { CheckboxMenu } from '@/components/checkbox-menu';
-import { AGE_PRESETS, IDLE_PRESETS, type Filters, activeFilterCount } from '@/filters/filter-model';
-import { filterOptions, teamSlug } from '@/filters/filter-options';
-import { cn } from '@/lib/utils';
+import { SearchBox } from '@/components/search-box';
+import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, activeFilterCount, toggled } from '@/filters/filter-model';
+import { filterOptions } from '@/filters/filter-options';
+import { FilterSwitches } from '@/filters/filter-switches';
 import type { TrackedPr } from '@/snapshot/types';
-
-type ListFilter = 'repo' | 'author' | 'reviewer' | 'waitingOn' | 'review' | 'check' | 'reason';
-
-const toggled = <T extends string>(values: readonly T[], value: T): T[] =>
-  values.includes(value) ? values.filter((other) => other !== value) : [...values, value];
 
 const entries = <K extends string>(labels: Record<K, string>) => Object.entries(labels) as [K, string][];
 
@@ -43,24 +39,6 @@ function ListFilterMenu<K extends ListFilter>({
   );
 }
 
-function Switch({ label, title, checked, onChange }: { label: string; title?: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      title={title}
-      onClick={() => onChange(!checked)}
-      className="inline-flex items-center gap-2 text-sm whitespace-nowrap"
-    >
-      <span className={cn('relative h-[18px] w-8 rounded-full transition-colors', checked ? 'bg-primary' : 'bg-input')}>
-        <span className={cn('absolute top-0.5 size-3.5 rounded-full bg-background shadow transition-all', checked ? 'left-4' : 'left-0.5')} />
-      </span>
-      {label}
-    </button>
-  );
-}
-
 const SELECT_CLASS = 'h-8 rounded-md border border-dashed border-input bg-background px-2 text-sm';
 
 /** The Table's horizontal bar over the shared filter model. */
@@ -77,7 +55,6 @@ export function FilterBar({
   onReset: () => void;
 }) {
   const options = filterOptions(prs);
-  const slug = teamSlug(prs) ?? 'team';
   const same = (values: readonly string[]) => values.map((value) => [value, value] as const);
   const agePreset = AGE_PRESETS.findIndex((preset) => preset.ageMin === filters.ageMin && preset.ageMax === filters.ageMax);
   const idlePreset = IDLE_PRESETS.findIndex((preset) => preset.idleOver === filters.idleOver);
@@ -85,26 +62,7 @@ export function FilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-72">
-        <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={filters.q}
-          onChange={(event) => onChange({ q: event.target.value })}
-          placeholder="Search title, repo, #number, author…"
-          aria-label="Search"
-          className="h-8 w-full rounded-md border border-input bg-background pr-7 pl-7 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        />
-        {filters.q !== '' && (
-          <button
-            type="button"
-            aria-label="Clear the search"
-            onClick={() => onChange({ q: '' })}
-            className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
-      </div>
+      <SearchBox value={filters.q} onChange={(q) => onChange({ q })} className="w-72" />
       <ListFilterMenu name="Waiting On" filter="waitingOn" choices={same(options.waitingOn)} filters={filters} onChange={onChange} />
       <ListFilterMenu name="Reviewer" filter="reviewer" choices={same(options.reviewer)} filters={filters} onChange={onChange} />
       <ListFilterMenu name="Author" filter="author" choices={same(options.author)} filters={filters} onChange={onChange} />
@@ -149,14 +107,7 @@ export function FilterBar({
         ))}
       </select>
       <div className="mx-1 h-5 w-px bg-border" />
-      <Switch label="Hide Bots" checked={filters.hideBots} onChange={(hideBots) => onChange({ hideBots })} />
-      <Switch label="Hide non-team authors" checked={filters.hideOutsiders} onChange={(hideOutsiders) => onChange({ hideOutsiders })} />
-      <Switch
-        label={`Hide via @${slug}`}
-        title={`Requests to @${slug} stop counting as your turn`}
-        checked={filters.hideViaTeam}
-        onChange={(hideViaTeam) => onChange({ hideViaTeam })}
-      />
+      <FilterSwitches prs={prs} filters={filters} onChange={onChange} />
       {active > 0 && (
         <button
           type="button"
