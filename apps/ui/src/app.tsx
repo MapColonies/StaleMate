@@ -57,7 +57,8 @@ export default function App() {
   const viewer = storedViewer !== null && options.includes(storedViewer) ? storedViewer : null;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // The header stays put; the views scroll below it, and the Board scrolls inside itself.
+    <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center gap-5 border-b bg-background px-5">
         <Logo />
         <ViewSwitcher view={view} onChange={setView} />
@@ -69,7 +70,7 @@ export default function App() {
         </div>
       </header>
       {snapshot && <OutOfDateBanner snapshot={snapshot} now={now} />}
-      <main className="flex-1 bg-muted/40">
+      <main className="min-h-0 flex-1 overflow-auto bg-muted/40">
         {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
         {snapshot && view === 'inbox' && <InboxView snapshot={snapshot} viewer={viewer} now={now} />}
         {snapshot && view === 'board' && <BoardView snapshot={snapshot} viewer={viewer} now={now} />}

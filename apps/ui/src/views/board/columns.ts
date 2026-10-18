@@ -1,4 +1,5 @@
 import { partyKey } from '@/filters/filter-model';
+import { DEFAULT_PR_ORDER, PR_ORDERS, type PrOrder } from '@/order/pr-order';
 import type { Person, TrackedPr, WaitingOnParty } from '@/snapshot/types';
 
 /** Whom a column waits on: a person, or a team. A person's role differs from PR to PR, so it stays on the cards. */
@@ -30,16 +31,16 @@ function rank(column: BoardColumn, viewer: string | null): number {
 }
 
 /**
- * The Board's columns: one per party the PRs are Waiting On, each holding every PR that waits on it, oldest first.
+ * The Board's columns: one per party the PRs are Waiting On, each holding every PR that waits on it, in the given order.
  * A PR waiting on two parties is in both columns. A request to the Team stays in the Team's column rather than in
  * every member's. The Viewer's column comes first, even when nothing waits on them; the rest go by most PRs first.
  */
-export function boardColumns(prs: readonly TrackedPr[], viewer: string | null): BoardColumn[] {
+export function boardColumns(prs: readonly TrackedPr[], viewer: string | null, order: PrOrder = DEFAULT_PR_ORDER): BoardColumn[] {
   const columns = new Map<string, BoardColumn>();
   if (viewer !== null) {
     columns.set(viewer, { key: viewer, owner: { type: 'person', person: { login: viewer, kind: 'member' } }, prs: [] });
   }
-  for (const pr of [...prs].sort((a, b) => b.age.workingMs - a.age.workingMs)) {
+  for (const pr of [...prs].sort(PR_ORDERS[order].compare)) {
     for (const party of pr.waitingOn) {
       const key = partyKey(party);
       const column = columns.get(key) ?? { key, owner: ownerOf(party), prs: [] };

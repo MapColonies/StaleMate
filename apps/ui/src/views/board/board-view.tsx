@@ -18,6 +18,8 @@ import { FilterBar } from '@/filters/filter-bar';
 import { applyFilters, partyKey } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
 import { cn } from '@/lib/utils';
+import { OrderSelect } from '@/order/order-select';
+import { usePrOrder } from '@/order/use-pr-order';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
 import { type BoardColumn, type BoardStats, type ColumnOwner, boardColumns, boardStats, isViewersColumn } from './columns';
 
@@ -127,12 +129,12 @@ function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardCo
 
 function Column({ column, viewer, now }: { column: BoardColumn; viewer: string | null; now: number }) {
   const mine = isViewersColumn(column.owner, viewer);
-  const oldest = column.prs[0];
+  const oldest = Math.max(0, ...column.prs.map((pr) => wholeWorkingDays(pr.age)));
   return (
     <section
       aria-label={mine ? 'You' : column.key}
       className={cn(
-        'flex w-80 shrink-0 flex-col rounded-xl',
+        'flex max-h-full w-80 shrink-0 flex-col rounded-xl',
         mine ? 'bg-indigo-50 ring-2 ring-indigo-400 dark:bg-indigo-950/40 dark:ring-indigo-700' : 'bg-muted'
       )}
     >
@@ -140,7 +142,7 @@ function Column({ column, viewer, now }: { column: BoardColumn; viewer: string |
         <Owner owner={column.owner} viewer={viewer} />
         <span className="ml-auto text-xs whitespace-nowrap text-muted-foreground tabular-nums">
           {plural(column.prs.length, 'PR')}
-          {oldest && ` · oldest ${wholeWorkingDays(oldest.age)}d`}
+          {column.prs.length > 0 && ` · oldest ${oldest}d`}
         </span>
       </div>
       {/* How the column's PRs split by Urgency, the loudest first. */}
@@ -153,7 +155,7 @@ function Column({ column, viewer, now }: { column: BoardColumn; viewer: string |
           />
         ))}
       </div>
-      <ul className="space-y-2 px-2 pb-2">
+      <ul className="min-h-0 space-y-2 overflow-y-auto px-2 pb-2">
         {column.prs.map((pr) => (
           <BoardCard key={pr.id} pr={pr} column={column} viewer={viewer} now={now} />
         ))}
@@ -170,14 +172,17 @@ function Column({ column, viewer, now }: { column: BoardColumn; viewer: string |
 export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
   const { filters, setFilters, resetFilters } = useFilters();
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
-  const columns = useMemo(() => boardColumns(filtered, viewer), [filtered, viewer]);
+  const [order, setOrder] = usePrOrder();
+  const columns = useMemo(() => boardColumns(filtered, viewer, order), [filtered, viewer, order]);
   const stats = useMemo(() => boardStats(filtered, columns), [filtered, columns]);
 
   return (
-    <section className="flex flex-col">
-      <div className="space-y-2.5 border-b bg-background px-5 py-3">
+    // The Board fills the window: the columns scroll down on their own, and the Board scrolls across.
+    <section className="flex h-full flex-col">
+      <div className="shrink-0 space-y-2.5 border-b bg-background px-5 py-3">
         <FilterBar prs={snapshot.prs} filters={filters} onChange={setFilters} onReset={resetFilters} />
         <div className="flex items-center gap-3">
+          <OrderSelect order={order} onChange={setOrder} />
           <StatsStrip stats={stats} thresholds={snapshot.config.urgencyThresholds} viewer={viewer} />
           <span className="ml-auto text-xs whitespace-nowrap text-muted-foreground">
             {filtered.length} of {snapshot.prs.length} Tracked PRs
@@ -187,7 +192,7 @@ export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
       {filtered.length === 0 ? (
         <p className="p-10 text-center text-muted-foreground">No Tracked PRs match these filters.</p>
       ) : (
-        <div className="flex items-start gap-3 overflow-x-auto p-4">
+        <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto p-4">
           {columns.map((column) => (
             <Column key={column.key} column={column} viewer={viewer} now={now} />
           ))}

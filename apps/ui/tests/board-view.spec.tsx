@@ -94,3 +94,23 @@ describe('the Board', () => {
     expect(titlesIn('carol')).toEqual(['nobody asked']);
   });
 });
+
+describe('the Board’s order', () => {
+  it('is oldest first, and can be newest first, kept in the URL', async () => {
+    renderBoard(snapshot);
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Newest first');
+
+    expect(titlesIn('bob')).toEqual(['asks bob', 'asks bob and carol']);
+    expect(new URLSearchParams(window.location.search).get('order')).toBe('newest');
+  });
+
+  it('is read from the URL', () => {
+    window.history.replaceState(null, '', '/?order=newest');
+
+    renderBoard(snapshot);
+
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Newest first');
+    expect(titlesIn('carol')).toEqual(['nobody asked', 'asks bob and carol']);
+  });
+});

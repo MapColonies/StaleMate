@@ -72,6 +72,18 @@ describe('boardColumns', () => {
     expect(columnIds(prs, null)).toEqual([['alice', ['old', 'middling', 'young']]]);
   });
 
+  it('orders each column as asked: newest first, or by Idle Time', () => {
+    const prs = [
+      aPr({ id: 'young, idle long', age: clock(1), idleTime: clock(0.9) }),
+      aPr({ id: 'old, busy', age: clock(30), idleTime: clock(0.1) }),
+      aPr({ id: 'middling', age: clock(5), idleTime: clock(3) }),
+    ];
+    const order = (prOrder: Parameters<typeof boardColumns>[2]) => boardColumns(prs, null, prOrder)[0]?.prs.map((pr) => pr.id);
+
+    expect(order('newest')).toEqual(['young, idle long', 'middling', 'old, busy']);
+    expect(order('idleLongest')).toEqual(['middling', 'young, idle long', 'old, busy']);
+  });
+
   it('keeps a No Reviewer PR in its author’s column', () => {
     const prs = [aPr({ id: 'nobody asked', author: carol, requestedReviewers: [], waitingOn: [waitingOnAuthor(carol)], noReviewer: true })];
 
