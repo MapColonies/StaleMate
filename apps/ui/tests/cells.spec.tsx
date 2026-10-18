@@ -47,6 +47,18 @@ describe('WaitingOnChips', () => {
     expect(chips()).toEqual(['You review']);
   });
 
+  it('puts the Viewer first, the others in their order', () => {
+    const carol = member('carol');
+    render(
+      <WaitingOnChips
+        pr={aPr({ author: bob, waitingOn: [waitingOnReviewer(carol), waitingOnReviewer(alice), waitingOnReviewer(bob)] })}
+        viewer="alice"
+      />
+    );
+
+    expect(chips()).toEqual(['You review', 'carol review', 'bob review']);
+  });
+
   it('marks people outside the Team ext', () => {
     const stranger = outsider('stranger');
     render(<WaitingOnChips pr={aPr({ author: stranger, waitingOn: [waitingOnAuthor(stranger)] })} viewer={null} />);

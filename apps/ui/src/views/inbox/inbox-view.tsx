@@ -59,8 +59,8 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
           <InclusionReasonBadges reasons={pr.inclusionReasons} />
         </div>
       </div>
-      <div className="flex w-80 shrink-0 flex-wrap items-center justify-end gap-2 px-4">
-        <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
+      <div className="flex w-72 shrink-0 flex-col items-start justify-center gap-1 px-4 py-2.5">
+        <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked />
         <NoReviewerFlag pr={pr} />
       </div>
     </li>

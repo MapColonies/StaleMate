@@ -46,15 +46,32 @@ function PartyChip({ party, viewer, markViaTeam }: { party: WaitingOnParty; view
   );
 }
 
+const isViewer = (party: WaitingOnParty, viewer: string | null): boolean => party.type === 'person' && party.login === viewer;
+
 /**
- * Who the PR is Waiting On. A request to the Team that puts the PR on the Viewer is marked "via @infra",
- * unless the Viewer has hidden those requests.
+ * Who the PR is Waiting On, the Viewer first. A request to the Team that puts the PR on the Viewer is marked "via @infra",
+ * unless the Viewer has hidden those requests. Stacked puts one party per line, so the names line up down a list of rows.
  */
-export function WaitingOnChips({ pr, viewer, hideViaTeam = false }: { pr: TrackedPr; viewer: string | null; hideViaTeam?: boolean }) {
+export function WaitingOnChips({
+  pr,
+  viewer,
+  hideViaTeam = false,
+  stacked = false,
+}: {
+  pr: TrackedPr;
+  viewer: string | null;
+  hideViaTeam?: boolean;
+  stacked?: boolean;
+}) {
   const markViaTeam = isOnViewerViaTeam(pr, viewer, { hideViaTeam });
+  const parties = [...pr.waitingOn].sort((a, b) => Number(isViewer(b, viewer)) - Number(isViewer(a, viewer)));
   return (
-    <span role="list" aria-label="Waiting On" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {pr.waitingOn.map((party) => (
+    <span
+      role="list"
+      aria-label="Waiting On"
+      className={cn('flex', stacked ? 'flex-col items-start gap-1' : 'flex-wrap items-center gap-x-3 gap-y-1')}
+    >
+      {parties.map((party) => (
         <span key={partyKey(party)} role="listitem">
           <PartyChip party={party} viewer={viewer} markViaTeam={markViaTeam} />
         </span>
