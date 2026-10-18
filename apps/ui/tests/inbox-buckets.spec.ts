@@ -74,4 +74,33 @@ describe('inboxBuckets', () => {
       rest: ['unrelated', 'own, team requested', 'team', 'own, on bob', 'review', 'own, her move', 'other team'],
     });
   });
+
+  describe('the order within a bucket', () => {
+    const prs = [
+      aPr({ id: 'young, idle long', age: clock(1), idleTime: clock(0.9) }),
+      aPr({ id: 'old, busy', age: clock(30), idleTime: clock(0.1) }),
+      aPr({ id: 'middling', age: clock(5), idleTime: clock(3) }),
+    ];
+    const order = (inboxOrder: Parameters<typeof inboxBuckets>[3]) =>
+      inboxBuckets(prs, null, { hideViaTeam: false }, inboxOrder)
+        .find((bucket) => bucket.key === 'rest')
+        ?.prs.map((pr) => pr.id);
+
+    it('is oldest first by default', () => {
+      expect(
+        inboxBuckets(prs, null, { hideViaTeam: false })
+          .find((bucket) => bucket.key === 'rest')
+          ?.prs.map((pr) => pr.id)
+      ).toEqual(['old, busy', 'middling', 'young, idle long']);
+    });
+
+    it('can be newest first', () => {
+      expect(order('newest')).toEqual(['young, idle long', 'middling', 'old, busy']);
+    });
+
+    it('can be by Idle Time, longest or shortest first', () => {
+      expect(order('idleLongest')).toEqual(['middling', 'young, idle long', 'old, busy']);
+      expect(order('recentlyActive')).toEqual(['old, busy', 'young, idle long', 'middling']);
+    });
+  });
 });

@@ -16,8 +16,9 @@ import { activeFilterCount, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
 import { cn } from '@/lib/utils';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
-import { type Bucket, type BucketKey, inboxBuckets } from './buckets';
+import { type Bucket, type BucketKey, INBOX_ORDERS, type InboxOrder, inboxBuckets } from './buckets';
 import { FacetSidebar } from './facet-sidebar';
+import { useInboxOrder } from './use-inbox-order';
 
 const BUCKET_HEADINGS: Record<BucketKey, { title: string; hint: string; icon: ReactNode }> = {
   yourTurn: { title: 'Your turn', hint: 'You owe the next move', icon: <Inbox className="size-4" /> },
@@ -96,8 +97,9 @@ function BucketSection({ bucket, context, defaultOpen }: { bucket: Bucket; conte
  */
 export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
   const { filters, setFilters, resetFilters } = useFilters();
+  const [order, setOrder] = useInboxOrder();
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
-  const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters), [filtered, viewer, filters]);
+  const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters, order), [filtered, viewer, filters, order]);
   const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now };
   const active = activeFilterCount(filters);
 
@@ -107,6 +109,18 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
       <section className="min-w-0 flex-1 space-y-6 p-5">
         <div className="flex items-center gap-3">
           <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="w-96" />
+          <select
+            aria-label="Order"
+            value={order}
+            onChange={(event) => setOrder(event.target.value as InboxOrder)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {Object.entries(INBOX_ORDERS).map(([value, { label }]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
           {active > 0 && (
             <button
               type="button"

@@ -126,3 +126,24 @@ describe('the Inbox’s facets', () => {
     expect(facetEntries('Repo')).toEqual(['MapColonies/b1']);
   });
 });
+
+describe('the Inbox’s order', () => {
+  it('is oldest first, and can be newest first, kept in the URL', async () => {
+    renderInbox(snapshot, 'alice');
+    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Newest first');
+
+    expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
+    expect(new URLSearchParams(window.location.search).get('order')).toBe('newest');
+  });
+
+  it('is read from the URL', () => {
+    window.history.replaceState(null, '', '/?order=newest');
+
+    renderInbox(snapshot, 'alice');
+
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Newest first');
+    expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
+  });
+});
