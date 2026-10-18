@@ -14,6 +14,9 @@ const URGENCY_STYLES = [
 // The same hues, solid, for a bar down the edge of a row.
 const URGENCY_BARS = ['bg-transparent', 'bg-yellow-400', 'bg-orange-500', 'bg-red-500'] as const;
 
+/** The same hues, solid, for a dot or a share of a bar; neutral shows as grey. */
+export const URGENCY_FILLS = ['bg-zinc-300 dark:bg-zinc-600', 'bg-yellow-400', 'bg-orange-500', 'bg-red-500'] as const;
+
 /** A strip coloured by the PR's Urgency, down the edge of a row. */
 export function UrgencyBar({ pr }: { pr: Pick<TrackedPr, 'urgency'> }) {
   return <div aria-hidden className={cn('w-1 shrink-0', pr.urgency === null ? 'bg-transparent' : URGENCY_BARS[pr.urgency])} />;

@@ -312,6 +312,17 @@ describe('the views', () => {
     expect(within(screen.getByRole('region', { name: 'Your turn' })).getByText('Asks alice')).toBeInTheDocument();
   });
 
+  it('opens the Board, the Viewer’s column first', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(aFreshSnapshot({ prs: [aPr({ title: 'Asks alice', author: bob, waitingOn: [waitingOnReviewer(alice)] })] }));
+    renderApp();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Board' }));
+
+    expect(within(screen.getAllByRole('region')[0] as HTMLElement).getByText('Asks alice')).toBeInTheDocument();
+    expect(screen.getAllByRole('region')[0]).toHaveAccessibleName('You');
+  });
+
   it('shows the PRs that pass the filters in the URL, hiding Bots by default', async () => {
     serve(aFreshSnapshot({ prs: [aPr({ title: 'Human change' }), aPr({ title: 'Bump deps', author: bot('renovate') })] }));
     renderApp();

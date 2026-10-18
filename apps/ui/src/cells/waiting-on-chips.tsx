@@ -5,7 +5,8 @@ import { isOnViewerViaTeam } from '@/snapshot/selectors';
 import type { TrackedPr, WaitingOnParty } from '@/snapshot/types';
 import { PersonChip } from './person-chip';
 
-function TeamChip({ slug, viaTeam }: { slug: string; viaTeam: boolean }) {
+/** A team, muted when it is another team than the Team, since no Team Member owes its moves. */
+export function TeamChip({ slug, viaTeam }: { slug: string; viaTeam: boolean }) {
   return (
     <span
       className={cn('inline-flex items-center gap-1.5 text-[13px] whitespace-nowrap', !viaTeam && 'text-muted-foreground')}

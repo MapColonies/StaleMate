@@ -41,7 +41,7 @@ function ListFilterMenu<K extends ListFilter>({
 
 const SELECT_CLASS = 'h-8 rounded-md border border-dashed border-input bg-background px-2 text-sm';
 
-/** The Table's horizontal bar over the shared filter model. */
+/** A horizontal bar over the shared filter model, for the views that have no sidebar: the Table and the Board. */
 export function FilterBar({
   prs,
   filters,

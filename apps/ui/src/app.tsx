@@ -1,6 +1,4 @@
 import { useMemo } from 'react';
-import { activeFilterCount, applyFilters } from '@/filters/filter-model';
-import { useFilters } from '@/filters/use-filters';
 import { STORAGE_KEYS, useStoredString } from '@/lib/local-storage';
 import { useNow } from '@/lib/use-now';
 import { viewerOptions } from '@/snapshot/selectors';
@@ -11,11 +9,11 @@ import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
 import { ThemeToggle } from '@/shell/theme-toggle';
 import { useTheme } from '@/shell/use-theme';
 import { ViewerPicker } from '@/shell/viewer-picker';
-import { VIEW_NAMES, useLastView } from '@/shell/use-last-view';
+import { useLastView } from '@/shell/use-last-view';
 import { ViewSwitcher } from '@/shell/view-switcher';
+import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
 import { TableView } from '@/views/table/table-view';
-import { ViewPlaceholder } from '@/views/view-placeholder';
 
 function Logo() {
   return (
@@ -49,7 +47,6 @@ function StartupState({ error }: { error: unknown }) {
 
 export default function App() {
   const { data: snapshot, error, isError } = useSnapshot();
-  const { filters, resetFilters } = useFilters();
   const [storedViewer, setViewer] = useStoredString(STORAGE_KEYS.viewer);
   const [view, setView] = useLastView();
   const theme = useTheme();
@@ -58,7 +55,6 @@ export default function App() {
   const options = useMemo(() => (snapshot ? viewerOptions(snapshot.team) : []), [snapshot]);
   // A stored Viewer who has left the Team is no Viewer.
   const viewer = storedViewer !== null && options.includes(storedViewer) ? storedViewer : null;
-  const prs = useMemo(() => (snapshot ? applyFilters(snapshot.prs, filters) : []), [snapshot, filters]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -76,16 +72,7 @@ export default function App() {
       <main className="flex-1 bg-muted/40">
         {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
         {snapshot && view === 'inbox' && <InboxView snapshot={snapshot} viewer={viewer} now={now} />}
-        {snapshot && view === 'board' && (
-          <ViewPlaceholder
-            name={VIEW_NAMES[view]}
-            prs={prs}
-            total={snapshot.prs.length}
-            activeFilters={activeFilterCount(filters)}
-            viewer={viewer}
-            onResetFilters={resetFilters}
-          />
-        )}
+        {snapshot && view === 'board' && <BoardView snapshot={snapshot} viewer={viewer} now={now} />}
         {!snapshot && <StartupState error={error} />}
       </main>
     </div>
