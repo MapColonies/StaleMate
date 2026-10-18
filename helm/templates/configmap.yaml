@@ -1,0 +1,12 @@
+{{- if .Values.ui.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ include "stalemate.name" . }}-configmap
+data:
+  # The SPA routes on the client, so any path that isn't a file gets index.html.
+  extension.conf: |
+      root   /usr/share/nginx/html;
+      index  index.html index.htm;
+      try_files $uri $uri/ /index.html;
+{{- end }}

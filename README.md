@@ -32,3 +32,20 @@ The GitHub provider's tests replay a real sweep recorded in `apps/api/tests/fixt
 
 After changing `packages/openapi/openapi3.yaml`, regenerate its types with
 `pnpm --filter stalemate-openapi generate:openapi-types`.
+
+## Release and deploy
+
+release-please keeps one version for the whole repo and tags releases `vX.Y.Z`. A tag builds `infra/stalemate-api` and
+`infra/stalemate-ui` from `docker/` and pushes the umbrella chart `stalemate` from `helm/`, which bundles the API's chart from
+`apps/api/helm` and the common nginx chart as `ui`. The chart needs the GitHub App's id, installation id and PEM private key
+under `api.githubApp`. The workflows need the repo secrets `ACR_URL`, `ACR_PUSH_USER` and `ACR_PUSH_TOKEN` for the registry, and
+`GH_PAT` so release-please's tags trigger the build.
+
+To check the chart locally, after `helm registry login` to the registry:
+
+```sh
+helm dependency build apps/api/helm
+helm dependency update helm
+helm lint helm -f helm/test-values.yaml
+helm template stalemate helm -f helm/test-values.yaml
+```

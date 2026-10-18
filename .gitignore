@@ -120,3 +120,8 @@ html
 .turbo
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# helm dependencies, rebuilt from Chart.yaml
+**/helm/charts/
+# Every release bumps the umbrella's dependency on the API chart, which would leave a committed lock stale; CI updates it instead.
+helm/Chart.lock

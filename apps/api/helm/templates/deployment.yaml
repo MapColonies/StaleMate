@@ -1,0 +1,107 @@
+{{- $releaseName := .Release.Name -}}
+{{- $chartName := include "stalemate-api.name" . -}}
+{{- $cloudProviderDockerRegistryUrl := include "stalemate-api.cloudProviderDockerRegistryUrl" . -}}
+{{- $cloudProviderImagePullSecretName := include "stalemate-api.cloudProviderImagePullSecretName" . -}}
+{{- $imageTag := include "stalemate-api.tag" . -}}
+{{- if .Values.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $releaseName }}-{{ $chartName }}
+  labels:
+    app: {{ $chartName }}
+    component: {{ $chartName }}
+    release: {{ $releaseName }}
+    {{- include "stalemate-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  # The old pod keeps serving until the new one has its first Snapshot. Two pods sweeping at once for a moment is harmless.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: {{ $chartName }}
+      release: {{ $releaseName }}
+      run: {{ $releaseName }}-{{ $chartName }}
+      {{- include "stalemate-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ $chartName }}
+        release: {{ $releaseName }}
+        run: {{ $releaseName }}-{{ $chartName }}
+        {{- include "stalemate-api.labels" . | nindent 8 }}
+      annotations:
+        {{ include "mclabels.annotations" . | nindent 8 }}
+        {{- if .Values.resetOnConfigChange }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.additionalPodAnnotations }}
+        {{- toYaml .Values.additionalPodAnnotations | nindent 8}}
+        {{- end }}
+    spec:
+    {{- if $cloudProviderImagePullSecretName }}
+      imagePullSecrets:
+        - name: {{ $cloudProviderImagePullSecretName | quote }}
+    {{- end }}
+      containers:
+        - name: {{ $releaseName }}-{{ $chartName }}-deployment
+          {{- with .Values.image }}
+          image: {{ $cloudProviderDockerRegistryUrl }}{{ .repository }}:{{ $imageTag }}
+          {{- end }}
+          volumeMounts:
+            - name: github-app
+              mountPath: {{ include "stalemate-api.privateKeyDir" . }}
+              readOnly: true
+            {{- if .Values.ca.enabled }}
+            - mountPath: {{ printf "%s/%s" .Values.ca.path .Values.ca.key | quote }}
+              name: root-ca
+              subPath: {{ quote .Values.ca.key }}
+            {{- end }}
+          env:
+            - name: SERVER_PORT
+              value: {{ .Values.env.targetPort | quote }}
+            {{- if .Values.ca.enabled }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: {{ printf "%s/%s" .Values.ca.path .Values.ca.key | quote }}
+            {{- end }}
+            {{- if .Values.extraEnvVars }}
+            {{- toYaml .Values.extraEnvVars | nindent 12 }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ $releaseName }}-{{ $chartName }}-configmap
+          ports:
+            - name: http
+              containerPort: {{ .Values.env.targetPort }}
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.initialDelaySeconds }}
+            httpGet:
+              path: /liveness
+              port: {{ .Values.env.targetPort }}
+          # Passes only once the first sweep has produced a Snapshot. A bad App key on first deploy leaves the pod never ready.
+          readinessProbe:
+            periodSeconds: 5
+            httpGet:
+              path: /readiness
+              port: {{ .Values.env.targetPort }}
+          {{- if .Values.resources.enabled }}
+          resources:
+            {{- toYaml .Values.resources.value | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: github-app
+          secret:
+            secretName: {{ include "stalemate-api.githubAppSecretName" . }}
+        {{- if .Values.ca.enabled }}
+        - name: root-ca
+          secret:
+            secretName: {{ .Values.ca.secretName }}
+        {{- end }}
+{{- end -}}

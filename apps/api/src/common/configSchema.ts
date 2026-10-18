@@ -5,6 +5,7 @@ import { typeSymbol } from '@map-colonies/schemas/build/schemas/symbol';
 
 // StaleMate's config schema lives in this repo rather than in @map-colonies/schemas.
 // It composes the boilerplate's common sections by $ref, which @map-colonies/config resolves from the schemas package.
+// Every Team-specific setting has an x-env-value, so the helm chart can render it into the environment; arrays arrive as JSON.
 
 const stalemateSchema = {
   type: 'object',
@@ -30,6 +31,8 @@ const stalemateSchema = {
           default: ['mapcolonies-devops', 'mapcolonies-org'],
           description: 'Logins that count as Bots, on top of the accounts GitHub types as Bot',
           items: { type: 'string' },
+          'x-env-value': 'BOTS_LOGINS',
+          'x-env-format': 'json',
         },
       },
     },
@@ -38,6 +41,8 @@ const stalemateSchema = {
       default: ['2026-10-27'],
       description: 'Extra days off the Team declares, as YYYY-MM-DD in Asia/Jerusalem',
       items: { type: 'string', format: 'date' },
+      'x-env-value': 'EXTRA_NON_WORKING_DAYS',
+      'x-env-format': 'json',
     },
     urgency: {
       type: 'object',
@@ -52,6 +57,8 @@ const stalemateSchema = {
           minItems: 3,
           maxItems: 3,
           items: { type: 'number', minimum: 0 },
+          'x-env-value': 'URGENCY_THRESHOLDS',
+          'x-env-format': 'json',
         },
       },
     },
@@ -103,7 +110,7 @@ const stalemateSchema = {
   },
 } as const;
 
-type StalemateConfig = FromExtendedSchema<{ 'x-env-value': string }, typeof stalemateSchema>;
+type StalemateConfig = FromExtendedSchema<{ 'x-env-value': string; 'x-env-format': 'json' }, typeof stalemateSchema>;
 
 // Flattened into one object type: lodash's GetFieldType, which types config.get(), gives up on intersections.
 export type ConfigSchemaType = { [K in keyof (commonBoilerplateV3Type & StalemateConfig)]: (commonBoilerplateV3Type & StalemateConfig)[K] };

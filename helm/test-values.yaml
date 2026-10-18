@@ -1,0 +1,16 @@
+# Values for linting and rendering the chart locally and in CI. Not packaged.
+host: &host stalemate.example.com
+
+api:
+  githubApp:
+    appId: 123456
+    installationId: 7890123
+    privateKey: not-a-real-key
+  route:
+    host: *host
+
+ui:
+  route:
+    routesMapping:
+      - path: /
+        host: *host

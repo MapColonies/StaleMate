@@ -1,0 +1,102 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "changelog-sections": [
+    {
+      "section": "🎉 Features",
+      "type": "feat"
+    },
+    {
+      "section": "🐛 Bug Fixes",
+      "type": "fix"
+    },
+    {
+      "section": "⚡ Performance Improvements",
+      "type": "perf"
+    },
+    {
+      "type": "helm",
+      "section": "Helm Changes",
+      "hidden": false
+    },
+    {
+      "section": "🔗 Dependencies",
+      "type": "deps"
+    },
+    {
+      "section": "📝 Documentation",
+      "type": "docs"
+    },
+    {
+      "section": "🏗️ Build System",
+      "type": "build",
+      "hidden": true
+    },
+    {
+      "section": "🤖 Continuous Integration",
+      "type": "ci",
+      "hidden": true
+    },
+    {
+      "section": "🔧 Miscellaneous Chores",
+      "type": "chore",
+      "hidden": true
+    },
+    {
+      "section": "⏪ Reverts",
+      "type": "revert"
+    },
+    {
+      "section": "✅ Tests",
+      "type": "test",
+      "hidden": true
+    },
+    {
+      "section": "💄 Style",
+      "type": "style",
+      "hidden": true
+    },
+    {
+      "section": "♻️ Code Refactoring",
+      "type": "refactor",
+      "hidden": true
+    }
+  ],
+  "draft-pull-request": false,
+  "include-v-in-tag": true,
+  "include-component-in-tag": false,
+  "pull-request-title-pattern": "chore(global): release${component} ${version}",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "helm/Chart.yaml"
+        },
+        {
+          "type": "generic",
+          "path": "apps/api/helm/Chart.yaml"
+        },
+        {
+          "type": "generic",
+          "path": "helm/values.yaml"
+        },
+        {
+          "type": "json",
+          "path": "apps/api/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/ui/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/openapi/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,93 @@
+global:
+  cloudProvider: {}
+  tracing: {}
+  metrics: {}
+
+cloudProvider: &cloudProvider
+  dockerRegistryUrl: my-registry-url.io
+  imagePullSecretName: 'my-registry-secret'
+  flavor: openshift
+
+ca: &ca
+  enabled: false
+  secretName: 'root-ca'
+  path: '/usr/local/share/ca-certificates'
+  key: 'ca.crt'
+
+# The one host both Routes share: the UI on /, the API on /api.
+# An anchor only reaches this file: a release overriding the host sets api.route.host and ui.route.routesMapping[0].host.
+host: &host ''
+tls: &tls
+  enabled: true
+  termination: edge
+  insecureEdgeTerminationPolicy: Redirect
+  useCerts: false
+  certificate: ''
+  key: ''
+  caCertificate: ''
+
+api:
+  enabled: true
+  cloudProvider: *cloudProvider
+  ca: *ca
+  image:
+    repository: infra/stalemate-api
+    tag: v0.0.0 # x-release-please-version
+
+  githubApp:
+    appId:
+    installationId:
+    # Required: the App's PEM private key.
+    privateKey: ''
+
+  route:
+    enabled: true
+    host: *host
+    path: /api
+    tls: *tls
+
+ui:
+  enabled: true
+  replicaCount: 1
+  cloudProvider: *cloudProvider
+  mclabels:
+    owner: infra
+    partOf: stalemate
+    component: frontend
+    logScraping: false
+    criticality: internal
+  image:
+    repository: infra/stalemate-ui
+    tag: v0.0.0 # x-release-please-version
+  resources:
+    value:
+      limits:
+        cpu: 400m
+      requests:
+        cpu: 100m
+  extraVolumes:
+    - name: config
+      configMap:
+        name: '{{ .Release.Name }}-stalemate-configmap'
+  extraVolumeMounts:
+    - name: config
+      mountPath: /etc/nginx/conf.d/extensions/extension.conf
+      subPath: extension.conf
+  opentelemetry:
+    ratio: 1
+  nginx:
+    extensions:
+      location:
+        enabled: true
+        fileName: extension.conf
+  authorization:
+    enabled: false
+  backend:
+    enabled: false
+  route:
+    enabled: true
+    # nginx chart 2.x reads the host from routesMapping; it has no route.host.
+    routesMapping:
+      - path: /
+        host: *host
+    tls: *tls
