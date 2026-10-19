@@ -39,23 +39,23 @@ describe('prsInTab', () => {
     expect(ids('all', null)).toHaveLength(snapshot.prs.length);
   });
 
-  it('shows the PRs Waiting On the Viewer under My turn, requests to the Team included', () => {
+  it('shows the PRs Waiting On the Viewer under Your turn, requests to the Team included', () => {
     expect(ids('my-turn', 'alice')).toEqual(['review', 'own, her move', 'team']);
   });
 
-  it('drops the requests to the Team from My turn when they are hidden', () => {
+  it('drops the requests to the Team from Your turn when they are hidden', () => {
     expect(ids('my-turn', 'alice', true)).toEqual(['review', 'own, her move']);
   });
 
-  it('shows the PRs the Viewer authored under My PRs, whoever they wait on', () => {
+  it('shows the PRs the Viewer authored under Your PRs, whoever they wait on', () => {
     expect(ids('my-prs', 'alice')).toEqual(['own, her move', 'own, on bob', 'own, team requested']);
   });
 
-  it('shows every PR the Viewer authored, reviews, is asked on, is assigned or owes a move on under Involving me', () => {
+  it('shows every PR the Viewer authored, reviews, is asked on, is assigned or owes a move on under Involving you', () => {
     expect(ids('involving-me', 'alice')).toEqual(['review', 'own, her move', 'own, on bob', 'team', 'own, team requested', 'reviewed', 'assigned']);
   });
 
-  it('leaves the Team’s requests out of Involving me when they are hidden', () => {
+  it('leaves the Team’s requests out of Involving you when they are hidden', () => {
     expect(ids('involving-me', 'alice', true)).not.toContain('team');
   });
 

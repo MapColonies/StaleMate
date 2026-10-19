@@ -91,13 +91,13 @@ describe('WaitingOnChips', () => {
   it('names the author and the reviewers it waits on', () => {
     render(<WaitingOnChips pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob), waitingOnReviewer(alice)] })} viewer={null} />);
 
-    expect(chips()).toEqual(['bob author', 'alice review']);
+    expect(chips()).toEqual(['bob author', 'alice reviewer']);
   });
 
   it('shows the Viewer as You', () => {
     render(<WaitingOnChips pr={aPr({ author: bob, waitingOn: [waitingOnReviewer(alice)] })} viewer="alice" />);
 
-    expect(chips()).toEqual(['You review']);
+    expect(chips()).toEqual(['You reviewer']);
   });
 
   it('puts the Viewer first, the others in their order', () => {
@@ -109,21 +109,21 @@ describe('WaitingOnChips', () => {
       />
     );
 
-    expect(chips()).toEqual(['You review', 'carol review', 'bob review']);
+    expect(chips()).toEqual(['You reviewer', 'carol reviewer', 'bob reviewer']);
   });
 
   it('folds the parties past the most it may show into +N more, naming them on hover', () => {
     const waitingOn = [waitingOnReviewer(member('carol')), waitingOnReviewer(alice), waitingOnReviewer(member('dave')), waitingOnTheTeam];
     render(<WaitingOnChips pr={aPr({ author: bob, waitingOn })} viewer="alice" stacked max={2} />);
 
-    expect(chips()).toEqual(['You review', 'carol review +2 more']);
-    expect(screen.getByText('+2 more')).toHaveAttribute('title', 'dave · review\n@infra');
+    expect(chips()).toEqual(['You reviewer', 'carol reviewer +2 more']);
+    expect(screen.getByText('+2 more')).toHaveAttribute('title', 'dave · reviewer\n@infra');
   });
 
   it('shows every party when they fit', () => {
     render(<WaitingOnChips pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob), waitingOnReviewer(alice)] })} viewer={null} stacked max={2} />);
 
-    expect(chips()).toEqual(['bob author', 'alice review']);
+    expect(chips()).toEqual(['bob author', 'alice reviewer']);
   });
 
   it('marks people outside the Team ext', () => {
@@ -175,7 +175,7 @@ describe('AgeChip', () => {
     expect(screen.getByText('9d')).toHaveAttribute('data-urgency', 'none');
   });
 
-  it('shows when the PR became ready, its last activity and the wall-clock time on hover', () => {
+  it('shows when the PR became ready, how long ago in wall-clock time, and its last human activity on hover', () => {
     const pr = aPr({
       age: { workingMs: clock(9).workingMs, since: '2026-10-01T09:00:00Z' },
       idleTime: { workingMs: clock(2).workingMs, since: '2026-10-12T09:00:00Z' },
@@ -183,9 +183,8 @@ describe('AgeChip', () => {
     render(<AgeChip pr={pr} now={now} />);
 
     const hover = screen.getByText('9d').closest('[title]')?.getAttribute('title');
-    expect(hover).toMatch(/Ready for review .*2026/);
-    expect(hover).toMatch(/Last activity .*2026/);
-    expect(hover).toContain('14 d wall-clock');
+    expect(hover).toMatch(/Ready for review: .*2026.* \(14 d ago\)/);
+    expect(hover).toMatch(/Last human activity: .*2026/);
   });
 });
 

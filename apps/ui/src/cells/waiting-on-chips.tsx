@@ -23,8 +23,6 @@ export function TeamChip({ slug, viaTeam }: { slug: string; viaTeam: boolean }) 
   );
 }
 
-const roleLabel = (role: 'author' | 'reviewer'): string => (role === 'author' ? 'author' : 'review');
-
 function PartyChip({ party, viewer, markViaTeam }: { party: WaitingOnParty; viewer: string | null; markViaTeam: boolean }) {
   if (party.type === 'team') {
     return (
@@ -43,8 +41,7 @@ function PartyChip({ party, viewer, markViaTeam }: { party: WaitingOnParty; view
   }
   return (
     <span className="inline-flex items-center gap-1">
-      <PersonChip person={party} viewer={viewer} />{' '}
-      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{roleLabel(party.role)}</span>
+      <PersonChip person={party} viewer={viewer} /> <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{party.role}</span>
     </span>
   );
 }
@@ -52,7 +49,7 @@ function PartyChip({ party, viewer, markViaTeam }: { party: WaitingOnParty; view
 const isViewer = (party: WaitingOnParty, viewer: string | null): boolean => party.type === 'person' && party.login === viewer;
 
 /** A party as the "+N more" hover names it. */
-const partyText = (party: WaitingOnParty): string => (party.type === 'team' ? `@${party.slug}` : `${party.login} · ${roleLabel(party.role)}`);
+const partyText = (party: WaitingOnParty): string => (party.type === 'team' ? `@${party.slug}` : `${party.login} · ${party.role}`);
 
 /**
  * Who the PR is Waiting On, the Viewer first. A request to the Team that puts the PR on the Viewer is marked "via @infra",

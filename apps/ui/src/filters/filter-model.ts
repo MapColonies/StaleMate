@@ -59,7 +59,7 @@ const INCLUSION_REASONS: readonly InclusionReason[] = [
 
 /** The prototype's presets, re-expressed in Working Days: a working week is 5, a month about 20, a quarter about 60. */
 export const AGE_PRESETS: readonly { label: string; ageMin: number | null; ageMax: number | null }[] = [
-  { label: 'Any age', ageMin: null, ageMax: null },
+  { label: 'Any', ageMin: null, ageMax: null },
   { label: '< 5 Working Days', ageMin: null, ageMax: 5 },
   { label: '< 20 Working Days', ageMin: null, ageMax: 20 },
   { label: '< 60 Working Days', ageMin: null, ageMax: 60 },
@@ -67,10 +67,10 @@ export const AGE_PRESETS: readonly { label: string; ageMin: number | null; ageMa
 ];
 
 export const IDLE_PRESETS: readonly { label: string; idleOver: number | null }[] = [
-  { label: 'Any Idle Time', idleOver: null },
-  { label: 'Idle > 1 Working Day', idleOver: 1 },
-  { label: 'Idle > 3 Working Days', idleOver: 3 },
-  { label: 'Idle > 5 Working Days', idleOver: 5 },
+  { label: 'Any', idleOver: null },
+  { label: '> 1 Working Day', idleOver: 1 },
+  { label: '> 3 Working Days', idleOver: 3 },
+  { label: '> 5 Working Days', idleOver: 5 },
 ];
 
 /** The key a Waiting On party goes by in the waitingOn filter. */

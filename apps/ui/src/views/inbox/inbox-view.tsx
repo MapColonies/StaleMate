@@ -27,7 +27,7 @@ const BUCKET_HEADINGS: Record<BucketKey, { title: string; hint: string; icon: Re
   yourTurn: { title: 'Your turn', hint: 'You owe the next move', icon: <Inbox className="size-4" /> },
   yourPrs: { title: 'Your PRs, waiting on others', hint: 'Nudge someone?', icon: <Send className="size-4" /> },
   noReviewer: { title: 'No Reviewer', hint: 'Nobody owes a review — the author has to find a reviewer', icon: <TriangleAlert className="size-4" /> },
-  rest: { title: 'Rest of the team', hint: 'Waiting on someone else', icon: <Eye className="size-4" /> },
+  rest: { title: 'Rest of the Team', hint: 'Waiting on someone else', icon: <Eye className="size-4" /> },
 };
 
 /** What the rows need beyond the PR. */
@@ -131,11 +131,11 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         </div>
         {viewer === null && (
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-100">
-            Pick who you are in <b>I am…</b> (top right) and the Inbox sorts into <b>Your turn</b> and <b>Your PRs</b>.
+            Pick who you are in <b>I am…</b> (top right) to sort the Inbox into <b>Your turn</b> and <b>Your PRs</b>.
           </div>
         )}
         {buckets.map((bucket) => (
-          // The rest of the team folds away while the Viewer has their own buckets to look at.
+          // The Rest of the Team folds away while the Viewer has their own buckets to look at.
           <BucketSection key={bucket.key} bucket={bucket} context={context} defaultOpen={viewer === null || bucket.key !== 'rest'} />
         ))}
       </section>

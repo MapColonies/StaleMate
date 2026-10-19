@@ -112,7 +112,7 @@ describe('the Table’s tabs', () => {
   it('shows the Viewer’s turn, requests to the Team included, and keeps the tab in the URL', async () => {
     renderTable(snapshot, 'alice');
 
-    await userEvent.click(screen.getByRole('tab', { name: /My turn/ }));
+    await userEvent.click(screen.getByRole('tab', { name: /Your turn/ }));
 
     expect(rowTitles().sort()).toEqual(['asks alice', 'asks the Team']);
     expect(new URLSearchParams(window.location.search).get('tab')).toBe('my-turn');
@@ -122,9 +122,9 @@ describe('the Table’s tabs', () => {
     renderTable(snapshot, 'alice');
 
     expect(screen.getByRole('tab', { name: 'All 4' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'My turn 2' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'My PRs 1' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Involving me 3' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Your turn 2' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Your PRs 1' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Involving you 3' })).toBeInTheDocument();
   });
 
   it('asks for a Viewer in their tabs', () => {

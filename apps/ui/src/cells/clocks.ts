@@ -8,12 +8,12 @@ export function wholeWorkingDays(clock: Clock): number {
   return Math.floor(workingDays(clock));
 }
 
-/** The hover over the Idle Time: when a person last acted on the PR. */
+/** The hover over the Idle Time: when a person, not a Bot, last acted on the PR. */
 export function idleHover(pr: Pick<TrackedPr, 'idleTime'>): string {
-  return `Last activity ${DATE_TIME.format(Date.parse(pr.idleTime.since))}`;
+  return `Last human activity: ${DATE_TIME.format(Date.parse(pr.idleTime.since))}`;
 }
 
-/** The hover over a PR's clocks: when it became ready, its last human activity, and the wall-clock time since it became ready. */
+/** The hover over a PR's clocks: when it became ready and how long ago in wall-clock time, then its last human activity. */
 export function clockHover(pr: Pick<TrackedPr, 'age' | 'idleTime'>, now: number): string {
-  return [`Ready for review ${DATE_TIME.format(Date.parse(pr.age.since))}`, idleHover(pr), `${formatSince(pr.age.since, now)} wall-clock`].join('\n');
+  return [`Ready for review: ${DATE_TIME.format(Date.parse(pr.age.since))} (${formatSince(pr.age.since, now)} ago)`, idleHover(pr)].join('\n');
 }

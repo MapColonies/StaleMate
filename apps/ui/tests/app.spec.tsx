@@ -48,12 +48,12 @@ describe('before the first sync', () => {
   it('says why the first sync is failing', async () => {
     onRequest('GET', '/api/snapshot', {
       status: 503,
-      body: { status: 'warming', sync: { state: 'idle', lastAttemptAt: ago(MINUTE), lastError: 'App authentication failed' } },
+      body: { status: 'warming', sync: { state: 'idle', lastAttemptAt: ago(MINUTE), lastError: 'GitHub App authentication failed' } },
     });
 
     renderApp();
 
-    expect(await screen.findByText(/first sync — it is failing: App authentication failed/)).toBeInTheDocument();
+    expect(await screen.findByText(/first sync with GitHub — the last attempt failed: GitHub App authentication failed/)).toBeInTheDocument();
   });
 
   it('says when the API cannot be reached', async () => {
@@ -115,7 +115,7 @@ describe('the header', () => {
 
     renderApp();
 
-    expect(await screen.findByTestId('my-turn')).toHaveTextContent('Your turn 2 + 1 team');
+    expect(await screen.findByTestId('my-turn')).toHaveTextContent('Your turn 2 + 1 via @infra');
     expect(screen.getByTestId('no-reviewer')).toHaveTextContent('1 No Reviewer');
   });
 
@@ -133,7 +133,7 @@ describe('the header', () => {
 
     renderApp();
 
-    expect(await screen.findByText('updated 40 s ago')).toBeInTheDocument();
+    expect(await screen.findByText('Updated 40 s ago')).toBeInTheDocument();
   });
 
   it('keeps saying how old the Snapshot is while a sync runs', async () => {
@@ -141,7 +141,7 @@ describe('the header', () => {
 
     renderApp();
 
-    expect(await screen.findByText('updated 40 s ago')).toBeInTheDocument();
+    expect(await screen.findByText('Updated 40 s ago')).toBeInTheDocument();
     expect(screen.getByText(/syncing with github/i)).toBeInTheDocument();
   });
 });
@@ -179,7 +179,7 @@ describe('the Out-of-date Snapshot banner', () => {
 
     renderApp();
 
-    await screen.findByText(/updated/);
+    await screen.findByText(/Updated/);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -188,7 +188,9 @@ describe('the Out-of-date Snapshot banner', () => {
 
     renderApp();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Showing data from 14 min ago — sync failing: GitHub API unreachable');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Showing the Snapshot from 14 min ago — the last sync with GitHub failed: GitHub API unreachable'
+    );
   });
 });
 
@@ -241,7 +243,7 @@ describe('"Refresh now"', () => {
     await userEvent.click(await screen.findByRole('button', { name: /refresh now/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Refresh failed: HTTP 502');
-    expect(screen.getByText('updated 40 s ago')).toBeInTheDocument();
+    expect(screen.getByText('Updated 40 s ago')).toBeInTheDocument();
   });
 });
 
@@ -262,7 +264,7 @@ describe('the theme', () => {
 
     await waitFor(() => expect(html).toHaveClass('dark'));
 
-    await userEvent.click(screen.getByRole('button', { name: /theme: follows the system/i }));
+    await userEvent.click(screen.getByRole('button', { name: /theme: system/i }));
     expect(html).not.toHaveClass('dark');
     expect(window.localStorage.getItem('stalemate.theme')).toBe('light');
 
@@ -283,7 +285,7 @@ describe('the theme', () => {
 
     renderApp();
 
-    await screen.findByRole('button', { name: /theme: follows the system/i });
+    await screen.findByRole('button', { name: /theme: system/i });
     expect(document.documentElement).not.toHaveClass('dark');
     vi.unstubAllGlobals();
   });

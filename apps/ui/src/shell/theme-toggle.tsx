@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import type { ThemePreference } from './use-theme';
 
 const THEMES: Record<ThemePreference, { label: string; Icon: typeof Sun }> = {
-  system: { label: 'Theme: follows the system', Icon: Monitor },
-  light: { label: 'Theme: light', Icon: Sun },
-  dark: { label: 'Theme: dark', Icon: Moon },
+  system: { label: 'Theme: System', Icon: Monitor },
+  light: { label: 'Theme: Light', Icon: Sun },
+  dark: { label: 'Theme: Dark', Icon: Moon },
 };
 
 /** Cycles system → light → dark. */

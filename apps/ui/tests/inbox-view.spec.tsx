@@ -64,7 +64,7 @@ describe('the Inbox', () => {
       'Your turn',
       'Your PRs, waiting on others',
       'No Reviewer',
-      'Rest of the team',
+      'Rest of the Team',
     ]);
     expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
     expect(titlesIn('Your PRs, waiting on others')).toEqual(['alice’s own']);
@@ -81,10 +81,10 @@ describe('the Inbox', () => {
   it('folds the rest of the team away, until opened', async () => {
     renderInbox(snapshot, 'alice');
 
-    expect(titlesIn('Rest of the team')).toEqual([]);
-    await userEvent.click(within(bucket('Rest of the team')).getByRole('button', { name: /Rest of the team/ }));
+    expect(titlesIn('Rest of the Team')).toEqual([]);
+    await userEvent.click(within(bucket('Rest of the Team')).getByRole('button', { name: /Rest of the Team/ }));
 
-    expect(titlesIn('Rest of the team')).toEqual(['on carol']);
+    expect(titlesIn('Rest of the Team')).toEqual(['on carol']);
   });
 
   it('asks who the Viewer is without one, and shows what is not theirs', () => {
@@ -93,7 +93,7 @@ describe('the Inbox', () => {
     expect(screen.getByText(/I am…/)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Your turn' })).not.toBeInTheDocument();
     expect(titlesIn('No Reviewer')).toEqual(['nobody asked']);
-    expect(titlesIn('Rest of the team')).toHaveLength(4);
+    expect(titlesIn('Rest of the Team')).toHaveLength(4);
   });
 });
 

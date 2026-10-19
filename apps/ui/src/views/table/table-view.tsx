@@ -225,7 +225,7 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         <div className="flex items-center gap-3">
           <TabBar tab={tab} counts={counts} onChange={setTab} />
           {viewer === null && tab !== 'all' && (
-            <span className="text-xs text-amber-700 dark:text-amber-400">Pick who you are (top right) to use this tab.</span>
+            <span className="text-xs text-amber-700 dark:text-amber-400">Pick who you are in I am… (top right) to use this tab.</span>
           )}
           <div className="ml-auto">
             <CheckboxMenu

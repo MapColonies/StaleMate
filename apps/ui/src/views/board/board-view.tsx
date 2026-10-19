@@ -36,7 +36,7 @@ function urgencySpan(urgency: (typeof URGENCIES)[number], thresholds: readonly n
   if (to === undefined) {
     return { short: `≥ ${from}d`, long: `Age of ${from} Working Days or more` };
   }
-  return { short: `${from}–${to}d`, long: `Age of ${from} to ${to} Working Days` };
+  return { short: `${from}–${to}d`, long: `Age of ${from} to under ${to} Working Days` };
 }
 
 function Owner({ owner, viewer }: { owner: ColumnOwner; viewer: string | null }) {
@@ -60,7 +60,7 @@ function StatsStrip({ stats, thresholds, viewer }: { stats: BoardStats; threshol
       })}
       <span title="Drafts have no Urgency" className="inline-flex items-center gap-1.5 whitespace-nowrap">
         <b className="tabular-nums">{stats.drafts}</b>
-        <span className="text-xs text-muted-foreground">Draft</span>
+        <span className="text-xs text-muted-foreground">{stats.drafts === 1 ? 'Draft' : 'Drafts'}</span>
       </span>
       <div className="h-5 w-px bg-border" />
       <span
@@ -116,7 +116,7 @@ function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardCo
             <NoReviewerFlag pr={pr} />
             {others.length > 0 && (
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                also on
+                also waiting on
                 {/* The card's column is its own party; the chips name the rest. */}
                 <WaitingOnChips pr={{ ...pr, waitingOn: others }} viewer={viewer} hideViaTeam max={2} />
               </span>
@@ -161,7 +161,7 @@ function Column({ column, viewer, now }: { column: BoardColumn; viewer: string |
         {column.prs.map((pr) => (
           <BoardCard key={pr.id} pr={pr} column={column} viewer={viewer} now={now} />
         ))}
-        {column.prs.length === 0 && <li className="px-2 py-4 text-center text-sm text-muted-foreground">Nothing waits on you by name.</li>}
+        {column.prs.length === 0 && <li className="px-2 py-4 text-center text-sm text-muted-foreground">No PR is waiting on you by name.</li>}
       </ul>
     </section>
   );

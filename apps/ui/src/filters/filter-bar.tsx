@@ -81,7 +81,7 @@ export function FilterBar({
         }}
         className={SELECT_CLASS}
       >
-        {agePreset === -1 && <option value={-1}>Age: custom</option>}
+        {agePreset === -1 && <option value={-1}>Age: Custom</option>}
         {AGE_PRESETS.map((preset, index) => (
           <option key={preset.label} value={index}>
             Age: {preset.label}
@@ -99,10 +99,10 @@ export function FilterBar({
         }}
         className={SELECT_CLASS}
       >
-        {idlePreset === -1 && <option value={-1}>Idle: custom</option>}
+        {idlePreset === -1 && <option value={-1}>Idle: Custom</option>}
         {IDLE_PRESETS.map((preset, index) => (
           <option key={preset.label} value={index}>
-            {preset.label}
+            Idle: {preset.label}
           </option>
         ))}
       </select>

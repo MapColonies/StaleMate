@@ -19,7 +19,7 @@ const API_PROBLEMS: Record<ApiProblem, string> = {
   unreachable: 'API unreachable',
 };
 
-/** "updated 40 s ago", whether a sync runs, and "Refresh now", with its cooldown and any error inline. */
+/** "Updated 40 s ago", whether a sync runs, and "Refresh now", with its cooldown and any error inline. */
 export function SyncStatus({ snapshot, now, apiProblem }: { snapshot: Snapshot; now: number; apiProblem: ApiProblem | null }) {
   const refresh = useRefresh();
   const { sync, readAt } = snapshot;
@@ -31,8 +31,8 @@ export function SyncStatus({ snapshot, now, apiProblem }: { snapshot: Snapshot; 
     <div className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
       <span className="flex items-center gap-1.5">
         <span className={cn('size-1.5 rounded-full', syncing ? 'animate-pulse bg-amber-500' : sync.lastError ? 'bg-red-500' : 'bg-emerald-500')} />
-        <span>updated {formatSince(readAt, now)} ago</span>
-        {syncing && <span>· Syncing with GitHub…</span>}
+        <span>Updated {formatSince(readAt, now)} ago</span>
+        {syncing && <span>· syncing with GitHub…</span>}
       </span>
       {apiProblem !== null && (
         <span className={apiProblem === 'unreachable' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}>

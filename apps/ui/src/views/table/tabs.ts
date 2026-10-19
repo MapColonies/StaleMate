@@ -6,7 +6,7 @@ export const TABS = ['all', 'my-turn', 'my-prs', 'involving-me'] as const;
 
 export type Tab = (typeof TABS)[number];
 
-export const TAB_NAMES: Record<Tab, string> = { all: 'All', 'my-turn': 'My turn', 'my-prs': 'My PRs', 'involving-me': 'Involving me' };
+export const TAB_NAMES: Record<Tab, string> = { all: 'All', 'my-turn': 'Your turn', 'my-prs': 'Your PRs', 'involving-me': 'Involving you' };
 
 const isPerson = (people: readonly { login: string }[], login: string): boolean => people.some((person) => person.login === login);
 

@@ -37,7 +37,7 @@ function StartupState({ error }: { error: unknown }) {
   let message = 'Loading…';
   if (isWarming(error)) {
     message = error.sync.lastError
-      ? `Waiting for the first sync — it is failing: ${error.sync.lastError}`
+      ? `Waiting for the first sync with GitHub — the last attempt failed: ${error.sync.lastError}`
       : 'Waiting for the first sync with GitHub…';
   } else if (error) {
     message = 'Can’t reach the StaleMate API. Retrying…';

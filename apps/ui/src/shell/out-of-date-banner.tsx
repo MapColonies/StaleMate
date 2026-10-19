@@ -14,7 +14,7 @@ export function OutOfDateBanner({ snapshot, now }: { snapshot: Snapshot; now: nu
       className="flex items-center gap-2 border-b border-amber-300 bg-amber-50 px-5 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
     >
       <TriangleAlert className="size-4 shrink-0" />
-      Showing data from {formatSince(snapshot.readAt, now)} ago — sync failing: {lastError}
+      Showing the Snapshot from {formatSince(snapshot.readAt, now)} ago — the last sync with GitHub failed: {lastError}
     </div>
   );
 }

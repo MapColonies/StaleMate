@@ -57,7 +57,7 @@ describe('the Board', () => {
     renderBoard(snapshot, 'alice');
 
     expect(columnNames()).toEqual(['You', 'bob', 'carol', '@infra']);
-    expect(within(column('You')).getByText(/nothing waits on you/i)).toBeInTheDocument();
+    expect(within(column('You')).getByText(/no PR is waiting on you/i)).toBeInTheDocument();
     expect(titlesIn('@infra')).toEqual(['asks the Team']);
   });
 

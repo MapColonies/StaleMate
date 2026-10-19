@@ -12,15 +12,15 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
   passing: 'Passing',
   failing: 'Failing',
   pending: 'Pending',
-  none: 'None',
+  none: 'No checks',
 };
 
 export const INCLUSION_REASON_LABELS: Record<InclusionReason, string> = {
   teamRepo: 'Team Repo',
-  authoredByMember: 'Authored by member',
-  memberReviewRequested: 'Member review requested',
-  reviewedByMember: 'Reviewed by member',
-  assignedToMember: 'Assigned to member',
+  authoredByMember: 'Authored by Team Member',
+  memberReviewRequested: 'Team Member review requested',
+  reviewedByMember: 'Reviewed by Team Member',
+  assignedToMember: 'Assigned to Team Member',
   teamReviewRequested: 'Team review requested',
 };
 

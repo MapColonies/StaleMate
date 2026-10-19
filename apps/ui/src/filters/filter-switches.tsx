@@ -17,11 +17,16 @@ export function FilterSwitches({
   const slug = teamSlug(prs) ?? 'team';
   return (
     <>
-      <Switch label="Hide Bots" checked={filters.hideBots} onChange={(hideBots) => onChange({ hideBots })} />
-      <Switch label="Hide non-team authors" checked={filters.hideOutsiders} onChange={(hideOutsiders) => onChange({ hideOutsiders })} />
+      <Switch label="Hide Bots" title="Hide the PRs Bots authored" checked={filters.hideBots} onChange={(hideBots) => onChange({ hideBots })} />
       <Switch
-        label={`Hide via @${slug}`}
-        title={`Requests to @${slug} stop counting as your turn`}
+        label="Hide external authors"
+        title="Hide the PRs whose author isn’t a Team Member"
+        checked={filters.hideOutsiders}
+        onChange={(hideOutsiders) => onChange({ hideOutsiders })}
+      />
+      <Switch
+        label={`Ignore requests to @${slug}`}
+        title={`Review requests to @${slug} stop counting as your turn; their PRs still show`}
         checked={filters.hideViaTeam}
         onChange={(hideViaTeam) => onChange({ hideViaTeam })}
       />
