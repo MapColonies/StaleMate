@@ -211,12 +211,17 @@ describe('snapshot', function () {
 
       expect(snapshot.readAt).toBe(good.readAt);
       expect(withoutClocks(snapshot.prs)).toEqual(withoutClocks(good.prs));
-      expect(snapshot.sync).toEqual({ state: 'idle', lastAttemptAt: failedAt, nextAttemptAt: after(failedAt, intervalMs), lastError: 'Sync failed' });
+      expect(snapshot.sync).toEqual({
+        state: 'idle',
+        lastAttemptAt: failedAt,
+        nextAttemptAt: after(failedAt, intervalMs),
+        lastError: 'Unexpected error',
+      });
     });
 
     it.each([
       ['unreachable', 'GitHub API unreachable'],
-      ['authentication', 'App authentication failed'],
+      ['authentication', 'GitHub App authentication failed'],
       ['rateLimit', 'GitHub rate limit reached'],
     ] as const)('should report a %s failure as "%s"', async function (failure, message) {
       provider.failure = new SweepError(failure, { cause: new Error('raw') });

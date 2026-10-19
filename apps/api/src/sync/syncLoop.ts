@@ -12,10 +12,10 @@ const MS_PER_SECOND = 1000;
 // lastError is shown to every Viewer, so it is one of these and never the raw error.
 const SAFE_MESSAGES: Record<SweepFailure, string> = {
   unreachable: 'GitHub API unreachable',
-  authentication: 'App authentication failed',
+  authentication: 'GitHub App authentication failed',
   rateLimit: 'GitHub rate limit reached',
 };
-const UNRECOGNISED_FAILURE_MESSAGE = 'Sync failed';
+const UNRECOGNISED_FAILURE_MESSAGE = 'Unexpected error';
 
 function toSafeMessage(error: unknown): string {
   return error instanceof SweepError ? SAFE_MESSAGES[error.failure] : UNRECOGNISED_FAILURE_MESSAGE;
