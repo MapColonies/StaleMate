@@ -6,7 +6,7 @@ import {
   CheckStatusBadge,
   ConflictBadge,
   IdleLine,
-  InclusionReasonBadges,
+  InclusionReasonBadge,
   NoReviewerFlag,
   PersonChip,
   ReviewStatusBadge,
@@ -108,11 +108,7 @@ function tableColumns({ viewer, hideViaTeam, now }: CellContext) {
     helper.display({
       id: 'reasons',
       header: COLUMN_NAMES.reasons,
-      cell: ({ row }) => (
-        <div className="min-w-60">
-          <InclusionReasonBadges reasons={row.original.inclusionReasons} />
-        </div>
-      ),
+      cell: ({ row }) => <InclusionReasonBadge pr={row.original} viewer={viewer} />,
     }),
   ]);
 }

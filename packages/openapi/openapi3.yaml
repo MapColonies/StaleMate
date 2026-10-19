@@ -202,6 +202,7 @@ components:
             $ref: '#/components/schemas/person'
         inclusionReasons:
           type: array
+          description: Strongest first, in the order inclusionReason lists them, so the first is the main one.
           minItems: 1
           items:
             $ref: '#/components/schemas/inclusionReason'
@@ -233,14 +234,14 @@ components:
           $ref: '#/components/schemas/urgency'
     inclusionReason:
       type: string
-      description: Why the PR is a Tracked PR.
+      description: Why the PR is a Tracked PR. Listed strongest first.
       enum:
-        - teamRepo
         - authoredByMember
         - memberReviewRequested
-        - reviewedByMember
-        - assignedToMember
         - teamReviewRequested
+        - assignedToMember
+        - reviewedByMember
+        - teamRepo
     reviewStatus:
       type: string
       enum:

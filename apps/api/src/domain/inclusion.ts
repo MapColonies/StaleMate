@@ -38,18 +38,18 @@ export function toPerson(actor: Actor, roster: Roster, botLogins: readonly strin
 }
 
 /**
- * Lists why the PR is a Tracked PR, in the order the contract lists the reasons.
+ * Lists why the PR is a Tracked PR, strongest first, in the order the contract ranks the reasons.
  * Team membership decides, whatever the account's kind, so a service account in the Team counts.
  */
 export function deriveInclusionReasons(facts: PrFacts, roster: Roster, teamSlug: string): InclusionReason[] {
   const anyMember = (actors: readonly Actor[]): boolean => actors.some((actor) => isMember(actor, roster));
   const applies: Record<InclusionReason, boolean> = {
-    teamRepo: roster.repos.includes(facts.repo),
     authoredByMember: isMember(facts.author, roster),
     memberReviewRequested: anyMember(requestedReviewersOf(facts)),
-    reviewedByMember: anyMember(reviewersOf(facts)),
-    assignedToMember: anyMember(facts.assignees),
     teamReviewRequested: facts.reviewRequests.some((request) => request.type === 'team' && request.slug === teamSlug),
+    assignedToMember: anyMember(facts.assignees),
+    reviewedByMember: anyMember(reviewersOf(facts)),
+    teamRepo: roster.repos.includes(facts.repo),
   };
   return (Object.keys(applies) as InclusionReason[]).filter((reason) => applies[reason]);
 }

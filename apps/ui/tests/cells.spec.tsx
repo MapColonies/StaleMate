@@ -5,12 +5,13 @@ import {
   CheckStatusBadge,
   ConflictBadge,
   IdleLine,
-  InclusionReasonBadges,
+  InclusionReasonBadge,
   MovePills,
   NoReviewerFlag,
   ReviewStatusBadge,
   WaitingOnChips,
 } from '@/cells';
+import type { TrackedPr } from '@/snapshot/types';
 import { aPr, clock, member, outsider, waitingOnAuthor, waitingOnReviewer, waitingOnTeam, waitingOnTheTeam } from './fixtures/snapshot';
 
 const alice = member('alice');
@@ -216,11 +217,37 @@ describe('NoReviewerFlag', () => {
   });
 });
 
-describe('InclusionReasonBadges', () => {
-  it('names every Inclusion Reason', () => {
-    render(<InclusionReasonBadges reasons={['teamRepo', 'teamReviewRequested']} />);
+describe('InclusionReasonBadge', () => {
+  it('names only the strongest Inclusion Reason, and all of them on hover', () => {
+    render(<InclusionReasonBadge pr={aPr({ inclusionReasons: ['teamReviewRequested', 'teamRepo'] })} viewer={null} />);
 
-    expect(screen.getByText('Team Repo')).toBeInTheDocument();
     expect(screen.getByText('Team review requested')).toBeInTheDocument();
+    expect(screen.queryByText('Team Repo')).not.toBeInTheDocument();
+    expect(screen.getByTitle('Why tracked: Team review requested, Team Repo')).toBeInTheDocument();
+  });
+
+  it.each<[string, Partial<TrackedPr>]>([
+    ['Authored by you', { inclusionReasons: ['authoredByMember'], author: alice }],
+    ['Your review requested', { inclusionReasons: ['memberReviewRequested'], requestedReviewers: [bob, alice] }],
+    ['Assigned to you', { inclusionReasons: ['assignedToMember'], assignees: [alice] }],
+    ['Reviewed by you', { inclusionReasons: ['reviewedByMember'], reviewers: [bob, alice] }],
+  ])('says %s when the Team Member it means is the Viewer', (label, overrides) => {
+    render(<InclusionReasonBadge pr={aPr(overrides)} viewer="alice" />);
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  it('names the Team Member when they are not the Viewer', () => {
+    render(<InclusionReasonBadge pr={aPr({ inclusionReasons: ['reviewedByMember', 'teamRepo'], reviewers: [bob] })} viewer="alice" />);
+
+    expect(screen.getByText('Reviewed by Team Member')).toBeInTheDocument();
+  });
+
+  it('keeps its rank when a weaker reason names the Viewer', () => {
+    const pr = aPr({ inclusionReasons: ['authoredByMember', 'reviewedByMember'], author: bob, reviewers: [alice] });
+    render(<InclusionReasonBadge pr={pr} viewer="alice" />);
+
+    expect(screen.getByText('Authored by Team Member')).toBeInTheDocument();
+    expect(screen.getByTitle('Why tracked: Authored by Team Member, Reviewed by you')).toBeInTheDocument();
   });
 });

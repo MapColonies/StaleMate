@@ -49,12 +49,12 @@ export const DEFAULT_FILTERS: Filters = {
 export const REVIEW_STATUSES: readonly ReviewStatus[] = ['draft', 'awaitingReview', 'changesRequested', 'awaitingReReview', 'approved'];
 const CHECK_STATUSES: readonly CheckStatus[] = ['passing', 'failing', 'pending', 'none'];
 const INCLUSION_REASONS: readonly InclusionReason[] = [
-  'teamRepo',
   'authoredByMember',
   'memberReviewRequested',
-  'reviewedByMember',
-  'assignedToMember',
   'teamReviewRequested',
+  'assignedToMember',
+  'reviewedByMember',
+  'teamRepo',
 ];
 
 /** The prototype's presets, re-expressed in Working Days: a working week is 5, a month about 20, a quarter about 60. */

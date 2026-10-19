@@ -5,7 +5,7 @@ import {
   CheckStatusBadge,
   ConflictBadge,
   IdleLine,
-  InclusionReasonBadges,
+  InclusionReasonBadge,
   MovePills,
   NoReviewerFlag,
   PersonChip,
@@ -61,7 +61,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
           <ReviewStatusBadge pr={pr} />
           <CheckStatusBadge status={pr.checkStatus} />
           <ConflictBadge pr={pr} />
-          <InclusionReasonBadges reasons={pr.inclusionReasons} />
+          <InclusionReasonBadge pr={pr} viewer={viewer} />
         </div>
       </div>
       <div className="flex w-72 shrink-0 flex-col items-start gap-1 px-4 py-2.5">

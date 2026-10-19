@@ -38,7 +38,7 @@ describe('Inclusion Reasons', function () {
     expect(derive(overrides).inclusionReasons).toEqual(reasons);
   });
 
-  it('should give every reason that holds, once each, in the order the contract lists them', function () {
+  it('should give every reason that holds, once each, strongest first', function () {
     const trackedPr = derive({
       repo: 'MapColonies/opa-la',
       author: alice,
@@ -48,12 +48,12 @@ describe('Inclusion Reasons', function () {
     });
 
     expect(trackedPr.inclusionReasons).toEqual([
-      'teamRepo',
       'authoredByMember',
       'memberReviewRequested',
-      'reviewedByMember',
-      'assignedToMember',
       'teamReviewRequested',
+      'assignedToMember',
+      'reviewedByMember',
+      'teamRepo',
     ]);
   });
 

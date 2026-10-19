@@ -5,7 +5,7 @@ import {
   CheckStatusBadge,
   ConflictBadge,
   IdleLine,
-  InclusionReasonBadges,
+  InclusionReasonBadge,
   NoReviewerFlag,
   PersonChip,
   ReviewStatusBadge,
@@ -123,7 +123,7 @@ function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardCo
             )}
           </div>
         )}
-        <InclusionReasonBadges reasons={pr.inclusionReasons} />
+        <InclusionReasonBadge pr={pr} viewer={viewer} />
       </div>
     </li>
   );

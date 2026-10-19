@@ -45,7 +45,7 @@ A Snapshot whose last attempt to read the code host failed, so the Viewer is war
 _Avoid_: Stale data, stale snapshot
 
 **Inclusion Reason**:
-Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested, Team review requested). A PR can have several.
+Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested, Team review requested). A PR can have several; they rank, strongest first: authored by Team Member, Team Member review requested, Team review requested, assigned to Team Member, reviewed by Team Member, Team Repo. The strongest is the one a PR is shown with, and it names the Viewer when the Team Member it means is them.
 _Avoid_: Flag, tag, source
 
 ### Status

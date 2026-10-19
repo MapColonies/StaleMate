@@ -15,13 +15,22 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
   none: 'No checks',
 };
 
+/** Strongest first, as the contract ranks them. */
 export const INCLUSION_REASON_LABELS: Record<InclusionReason, string> = {
-  teamRepo: 'Team Repo',
   authoredByMember: 'Authored by Team Member',
   memberReviewRequested: 'Team Member review requested',
-  reviewedByMember: 'Reviewed by Team Member',
-  assignedToMember: 'Assigned to Team Member',
   teamReviewRequested: 'Team review requested',
+  assignedToMember: 'Assigned to Team Member',
+  reviewedByMember: 'Reviewed by Team Member',
+  teamRepo: 'Team Repo',
+};
+
+/** The Inclusion Reasons that name a Team Member, as they read when that Team Member is the Viewer. */
+export const VIEWER_INCLUSION_REASON_LABELS: Partial<Record<InclusionReason, string>> = {
+  authoredByMember: 'Authored by you',
+  memberReviewRequested: 'Your review requested',
+  assignedToMember: 'Assigned to you',
+  reviewedByMember: 'Reviewed by you',
 };
 
 export const MOVE_LABELS: Record<Move, string> = {

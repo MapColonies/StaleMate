@@ -122,6 +122,7 @@ export type components = {
       requestedReviewers: components['schemas']['person'][];
       /** @description The people other than the author who reviewed the PR. Bots are left out. */
       reviewers: components['schemas']['person'][];
+      /** @description Strongest first, in the order inclusionReason lists them, so the first is the main one. */
       inclusionReasons: components['schemas']['inclusionReason'][];
       reviewStatus: components['schemas']['reviewStatus'];
       /** @description The number of current approvals, shown as ×N on Approved. */
@@ -138,10 +139,10 @@ export type components = {
       urgency: components['schemas']['urgency'];
     };
     /**
-     * @description Why the PR is a Tracked PR.
+     * @description Why the PR is a Tracked PR. Listed strongest first.
      * @enum {string}
      */
-    inclusionReason: 'teamRepo' | 'authoredByMember' | 'memberReviewRequested' | 'reviewedByMember' | 'assignedToMember' | 'teamReviewRequested';
+    inclusionReason: 'authoredByMember' | 'memberReviewRequested' | 'teamReviewRequested' | 'assignedToMember' | 'reviewedByMember' | 'teamRepo';
     /** @enum {string} */
     reviewStatus: 'draft' | 'awaitingReview' | 'changesRequested' | 'awaitingReReview' | 'approved';
     /** @enum {string} */
