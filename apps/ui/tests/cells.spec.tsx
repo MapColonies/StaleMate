@@ -1,6 +1,16 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { AgeChip, CheckStatusBadge, IdleLine, InclusionReasonBadges, NoReviewerFlag, ReviewStatusBadge, WaitingOnChips } from '@/cells';
+import {
+  AgeChip,
+  CheckStatusBadge,
+  ConflictBadge,
+  IdleLine,
+  InclusionReasonBadges,
+  MovePills,
+  NoReviewerFlag,
+  ReviewStatusBadge,
+  WaitingOnChips,
+} from '@/cells';
 import { aPr, clock, member, outsider, waitingOnAuthor, waitingOnReviewer, waitingOnTeam, waitingOnTheTeam } from './fixtures/snapshot';
 
 const alice = member('alice');
@@ -25,6 +35,49 @@ describe('CheckStatusBadge', () => {
     render(<CheckStatusBadge status="failing" />);
 
     expect(screen.getByText('Failing')).toBeInTheDocument();
+  });
+});
+
+describe('ConflictBadge', () => {
+  it('flags a PR that conflicts with its base', () => {
+    render(<ConflictBadge pr={aPr({ conflicting: true })} />);
+
+    expect(screen.getByText('Conflicts')).toBeInTheDocument();
+  });
+
+  it('shows nothing for a PR that does not conflict', () => {
+    const { container } = render(<ConflictBadge pr={aPr({ conflicting: false })} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('MovePills', () => {
+  const pills = (): string[] =>
+    within(screen.getByRole('list', { name: 'Your move' }))
+      .getAllByRole('listitem')
+      .map((pill) => pill.textContent ?? '');
+
+  it('names the moves the Viewer owes, even where the Review Status points at someone else', () => {
+    const waitingOn = [waitingOnReviewer(alice, ['reReview']), waitingOnAuthor(bob, ['fixChecks', 'resolveConflict'])];
+    render(<MovePills pr={aPr({ author: bob, reviewStatus: 'awaitingReReview', waitingOn })} viewer="bob" hideViaTeam={false} />);
+
+    expect(pills()).toEqual(['Fix checks', 'Resolve conflict']);
+  });
+
+  it('names a review where a request to the Team puts the PR on the Viewer', () => {
+    render(<MovePills pr={aPr({ author: bob, waitingOn: [waitingOnTheTeam] })} viewer="alice" hideViaTeam={false} />);
+
+    expect(pills()).toEqual(['Review']);
+  });
+
+  it('shows nothing when it is not the Viewer’s turn', () => {
+    const pr = aPr({ author: bob, waitingOn: [waitingOnReviewer(alice), waitingOnTheTeam] });
+    const { container, rerender } = render(<MovePills pr={pr} viewer="carol" hideViaTeam />);
+    expect(container).toBeEmptyDOMElement();
+
+    rerender(<MovePills pr={pr} viewer={null} hideViaTeam={false} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

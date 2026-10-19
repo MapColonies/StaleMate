@@ -8,6 +8,7 @@ export type Warming = Schemas['warming'];
 export type Person = Schemas['person'];
 export type TrackedPr = Schemas['trackedPr'];
 export type WaitingOnParty = Schemas['waitingOnParty'];
+export type Move = Schemas['move'];
 export type ReviewStatus = Schemas['reviewStatus'];
 export type CheckStatus = Schemas['checkStatus'];
 export type InclusionReason = Schemas['inclusionReason'];

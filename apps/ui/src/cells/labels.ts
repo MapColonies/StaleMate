@@ -1,4 +1,4 @@
-import type { CheckStatus, InclusionReason, ReviewStatus } from '@/snapshot/types';
+import type { CheckStatus, InclusionReason, Move, ReviewStatus } from '@/snapshot/types';
 
 export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
   draft: 'Draft',
@@ -22,4 +22,16 @@ export const INCLUSION_REASON_LABELS: Record<InclusionReason, string> = {
   reviewedByMember: 'Reviewed by member',
   assignedToMember: 'Assigned to member',
   teamReviewRequested: 'Team review requested',
+};
+
+export const MOVE_LABELS: Record<Move, string> = {
+  finishDraft: 'Finish draft',
+  merge: 'Merge',
+  answerChanges: 'Answer changes',
+  reply: 'Reply',
+  findReviewer: 'Find reviewer',
+  fixChecks: 'Fix checks',
+  resolveConflict: 'Resolve conflict',
+  review: 'Review',
+  reReview: 'Re-review',
 };

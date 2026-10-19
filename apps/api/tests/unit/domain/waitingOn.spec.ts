@@ -34,6 +34,12 @@ function describeParty(party: WaitingOnParty): string {
   return party.role === 'author' ? 'author' : party.login;
 }
 
+/** The moves each person owes, keyed as describeParty names them. */
+function movesOf(overrides: Partial<PrFacts>): Record<string, string[]> {
+  const trackedPr = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), roster, aDerivationConfig(), now);
+  return Object.fromEntries(trackedPr.waitingOn.flatMap((party) => (party.type === 'person' ? [[describeParty(party), party.moves]] : [])));
+}
+
 function waitingOnOf(overrides: Partial<PrFacts>): { waitingOn: string[]; noReviewer: boolean } {
   const trackedPr = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), roster, aDerivationConfig(), now);
   return { waitingOn: trackedPr.waitingOn.map(describeParty), noReviewer: trackedPr.noReviewer };
@@ -317,5 +323,67 @@ describe('Waiting On', function () {
       expect.objectContaining({ type: 'person', login: 'bob', role: 'reviewer' }),
       expect.objectContaining({ type: 'person', login: 'alice', role: 'author' }),
     ]);
+  });
+
+  describe('moves', function () {
+    const bobsQuestion = aThreadComment({ author: bob, createdAt: reviewedAt, reviewId: 'PRR_a' });
+    const alicesReply = aThreadComment({ author: alice, createdAt: later, reviewId: 'PRR_reply' });
+    const bobsChangesRequest = aReview({ id: 'PRR_a', author: bob, state: 'changesRequested', submittedAt: reviewedAt });
+
+    it.each<[string, Partial<PrFacts>, Record<string, string[]>]>([
+      ['a draft', { isDraft: true, reviewRequests: [requested(bob)] }, { author: ['finishDraft'] }],
+      ['an approved PR', { reviews: [aReview({ author: bob, state: 'approved' })], mergeable: 'conflicting' }, { author: ['merge'] }],
+      ['a requested reviewer', { reviewRequests: [requested(bob)] }, { bob: ['review'] }],
+      ['an unanswered request for changes', { reviews: [bobsChangesRequest] }, { author: ['answerChanges'] }],
+      [
+        'an Answered request for changes',
+        { reviews: [bobsChangesRequest], reviewThreads: [aReviewThread({ comments: [bobsQuestion, alicesReply] })] },
+        { bob: ['reReview'] },
+      ],
+      [
+        'an Answered request for changes, re-requested',
+        {
+          reviews: [bobsChangesRequest],
+          reviewRequests: [requested(bob)],
+          timeline: [{ type: 'reviewRequested' as const, at: later, actor: alice, requested: requested(bob) }],
+        },
+        { bob: ['review', 'reReview'] },
+      ],
+      [
+        'a thread-less comment-only review',
+        { reviews: [aReview({ author: bob, state: 'commented', submittedAt: reviewedAt })] },
+        { author: ['reply'] },
+      ],
+      [
+        'a comment-only thread the reviewer wrote last in',
+        {
+          reviews: [aReview({ id: 'PRR_a', author: bob, state: 'commented', submittedAt: reviewedAt })],
+          reviewThreads: [aReviewThread({ comments: [bobsQuestion] })],
+        },
+        { author: ['reply'] },
+      ],
+      [
+        'a comment-only thread the author wrote last in',
+        {
+          reviews: [aReview({ id: 'PRR_a', author: bob, state: 'commented', submittedAt: reviewedAt })],
+          reviewThreads: [aReviewThread({ comments: [bobsQuestion, alicesReply] })],
+        },
+        { bob: ['reply'] },
+      ],
+      ['No Reviewer', {}, { author: ['findReviewer'] }],
+      ['No Reviewer with checks failing', withChecks('failure'), { author: ['findReviewer', 'fixChecks'] }],
+      [
+        'an Answered request for changes on a PR that conflicts and fails its checks',
+        {
+          reviews: [bobsChangesRequest],
+          reviewThreads: [aReviewThread({ comments: [bobsQuestion, alicesReply] })],
+          mergeable: 'conflicting',
+          ...withChecks('failure'),
+        },
+        { bob: ['reReview'], author: ['fixChecks', 'resolveConflict'] },
+      ],
+    ])('should name the moves owed for %s', function (_, overrides, moves) {
+      expect(movesOf(overrides)).toStrictEqual(moves);
+    });
   });
 });

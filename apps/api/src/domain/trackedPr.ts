@@ -9,5 +9,6 @@ export type InclusionReason = Schemas['inclusionReason'];
 export type ReviewStatus = Schemas['reviewStatus'];
 export type CheckStatus = Schemas['checkStatus'];
 export type WaitingOnParty = Schemas['waitingOnParty'];
+export type Move = Schemas['move'];
 export type Clock = Schemas['clock'];
 export type Urgency = Schemas['urgency'];

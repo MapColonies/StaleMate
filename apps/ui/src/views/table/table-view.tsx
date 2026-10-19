@@ -1,7 +1,17 @@
 import { useMemo } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from 'lucide-react';
 import { createColumnHelper, functionalUpdate, useTable, type Header } from '@tanstack/react-table';
-import { AgeChip, CheckStatusBadge, IdleLine, InclusionReasonBadges, NoReviewerFlag, PersonChip, ReviewStatusBadge, WaitingOnChips } from '@/cells';
+import {
+  AgeChip,
+  CheckStatusBadge,
+  ConflictBadge,
+  IdleLine,
+  InclusionReasonBadges,
+  NoReviewerFlag,
+  PersonChip,
+  ReviewStatusBadge,
+  WaitingOnChips,
+} from '@/cells';
 import { CheckboxMenu } from '@/components/checkbox-menu';
 import { FilterBar } from '@/filters/filter-bar';
 import { REVIEW_STATUSES, applyFilters } from '@/filters/filter-model';
@@ -88,7 +98,12 @@ function tableColumns({ viewer, hideViaTeam, now }: CellContext) {
       id: 'checks',
       header: COLUMN_NAMES.checks,
       sortFn: 'basic',
-      cell: ({ row }) => <CheckStatusBadge status={row.original.checkStatus} />,
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-2">
+          <CheckStatusBadge status={row.original.checkStatus} />
+          <ConflictBadge pr={row.original} />
+        </span>
+      ),
     }),
     helper.display({
       id: 'reasons',

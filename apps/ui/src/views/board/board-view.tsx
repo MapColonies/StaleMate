@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 import {
   AgeChip,
   CheckStatusBadge,
+  ConflictBadge,
   IdleLine,
   InclusionReasonBadges,
   NoReviewerFlag,
@@ -107,6 +108,7 @@ function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardCo
           <PersonChip person={pr.author} viewer={viewer} />
           <ReviewStatusBadge pr={pr} />
           <CheckStatusBadge status={pr.checkStatus} />
+          <ConflictBadge pr={pr} />
         </div>
         {(role !== null || pr.noReviewer || others.length > 0) && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">

@@ -127,6 +127,8 @@ export type components = {
       /** @description The number of current approvals, shown as ×N on Approved. */
       approvals: number;
       checkStatus: components['schemas']['checkStatus'];
+      /** @description The PR conflicts with its base. False while the code host has not worked out whether it does. */
+      conflicting: boolean;
       /** @description Who owes the next move. Never empty, and never a Bot except a Bot PR's own author. */
       waitingOn: components['schemas']['waitingOnParty'][];
       /** @description The PR is Awaiting Review and no reviewer owes a move, so it waits on its author. Set even while checks fail or the PR conflicts. */
@@ -158,7 +160,14 @@ export type components = {
        * @enum {string}
        */
       role: 'author' | 'reviewer';
+      /** @description The moves the person owes, each once, in the order the rules found them. */
+      moves: components['schemas']['move'][];
     };
+    /**
+     * @description A move a person owes on a PR. The author's: finishDraft, merge, answerChanges (an unanswered request for changes), reply (a comment-only review or its thread), findReviewer (No Reviewer), fixChecks and resolveConflict. A reviewer's: review (a request for review), reReview (an Answered request for changes) and reply (the author answered last in their comment-only thread).
+     * @enum {string}
+     */
+    move: 'finishDraft' | 'merge' | 'answerChanges' | 'reply' | 'findReviewer' | 'fixChecks' | 'resolveConflict' | 'review' | 'reReview';
     waitingOnTeam: {
       /**
        * @description discriminator enum property added by openapi-typescript

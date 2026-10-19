@@ -1,5 +1,5 @@
 import type { Actor, PrFacts, ReviewFact, Roster } from './facts';
-import type { WaitingOnParty } from './trackedPr';
+import type { Move, WaitingOnParty } from './trackedPr';
 import type { DerivationConfig } from './deriveTrackedPr';
 import type { ReviewOutcome } from './reviewStatus';
 import { isBot } from './bots';
@@ -10,7 +10,7 @@ import { authorCommentedOnPrAfter, isPrAuthor, threadsOf } from './reviewActivit
 type WaitingOnConfig = Pick<DerivationConfig, 'teamSlug' | 'botLogins'>;
 type Role = Extract<WaitingOnParty, { type: 'person' }>['role'];
 
-/** Collects the parties the rules pick, each once, in the order they were picked. */
+/** Collects the parties the rules pick, each once, in the order they were picked, with every move each one owes. */
 class Parties {
   private readonly byKey = new Map<string, WaitingOnParty>();
 
@@ -23,9 +23,17 @@ class Parties {
     return this.byKey.size;
   }
 
-  public addPerson(actor: Actor, role: Role): void {
+  public addPerson(actor: Actor, role: Role, move: Move): void {
+    const key = `person:${actor.id}`;
+    const picked = this.byKey.get(key);
+    if (picked?.type === 'person') {
+      if (!picked.moves.includes(move)) {
+        picked.moves.push(move);
+      }
+      return;
+    }
     const { login, kind } = toPerson(actor, this.roster, this.config.botLogins);
-    this.add(`person:${actor.id}`, { type: 'person', login, kind, role });
+    this.add(key, { type: 'person', login, kind, role, moves: [move] });
   }
 
   public addTeam(slug: string): void {
@@ -63,7 +71,7 @@ function addReviewParties(facts: PrFacts, review: ReviewOutcome, config: Waiting
   for (const request of facts.reviewRequests) {
     if (request.type === 'person') {
       if (isHuman(request.reviewer)) {
-        parties.addPerson(request.reviewer, 'reviewer');
+        parties.addPerson(request.reviewer, 'reviewer', 'review');
       }
     } else if (!isTeamRequestCleared(request.slug, humanReviews, facts)) {
       parties.addTeam(request.slug);
@@ -74,9 +82,9 @@ function addReviewParties(facts: PrFacts, review: ReviewOutcome, config: Waiting
   for (const verdict of review.verdicts) {
     if (verdict.verdict === 'changesRequested') {
       if (verdict.answered) {
-        parties.addPerson(verdict.reviewer, 'reviewer');
+        parties.addPerson(verdict.reviewer, 'reviewer', 'reReview');
       } else {
-        parties.addPerson(facts.author, 'author');
+        parties.addPerson(facts.author, 'author', 'answerChanges');
       }
     }
   }
@@ -85,7 +93,7 @@ function addReviewParties(facts: PrFacts, review: ReviewOutcome, config: Waiting
   for (const commentOnly of commentOnlyReviews) {
     // A review that commented only in other reviews' threads is not thread-less. Those threads pick by who wrote last, below.
     if (threadsOf(commentOnly, facts).length === 0 && !authorCommentedOnPrAfter(commentOnly.submittedAt, facts)) {
-      parties.addPerson(facts.author, 'author');
+      parties.addPerson(facts.author, 'author', 'reply');
     }
   }
 
@@ -97,9 +105,9 @@ function addReviewParties(facts: PrFacts, review: ReviewOutcome, config: Waiting
     }
     const lastHumanComment = [...thread.comments].reverse().find((comment) => isHuman(comment.author));
     if (isPrAuthor(lastHumanComment?.author ?? null, facts)) {
-      parties.addPerson(opener.author, 'reviewer');
+      parties.addPerson(opener.author, 'reviewer', 'reply');
     } else {
-      parties.addPerson(facts.author, 'author');
+      parties.addPerson(facts.author, 'author', 'reply');
     }
   }
 }
@@ -122,15 +130,21 @@ export interface WaitingOn {
 export function deriveWaitingOn(facts: PrFacts, review: ReviewOutcome, roster: Roster, config: WaitingOnConfig): WaitingOn {
   const parties = new Parties(roster, config);
   if (review.status === 'draft' || review.status === 'approved') {
-    parties.addPerson(facts.author, 'author');
+    parties.addPerson(facts.author, 'author', review.status === 'draft' ? 'finishDraft' : 'merge');
     return { parties: parties.toArray(), noReviewer: false };
   }
 
   addReviewParties(facts, review, config, parties);
   // Failing checks or a conflict give the author a move, but leave a PR that no reviewer owes a move on flagged.
   const noReviewer = parties.size === 0;
-  if (noReviewer || deriveCheckStatus(facts) === 'failing' || facts.mergeable === 'conflicting') {
-    parties.addPerson(facts.author, 'author');
+  if (noReviewer) {
+    parties.addPerson(facts.author, 'author', 'findReviewer');
+  }
+  if (deriveCheckStatus(facts) === 'failing') {
+    parties.addPerson(facts.author, 'author', 'fixChecks');
+  }
+  if (facts.mergeable === 'conflicting') {
+    parties.addPerson(facts.author, 'author', 'resolveConflict');
   }
   return { parties: parties.toArray(), noReviewer };
 }

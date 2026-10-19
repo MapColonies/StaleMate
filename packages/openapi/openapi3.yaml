@@ -163,6 +163,7 @@ components:
         - reviewStatus
         - approvals
         - checkStatus
+        - conflicting
         - waitingOn
         - noReviewer
         - age
@@ -212,6 +213,9 @@ components:
           description: The number of current approvals, shown as ×N on Approved.
         checkStatus:
           $ref: '#/components/schemas/checkStatus'
+        conflicting:
+          type: boolean
+          description: The PR conflicts with its base. False while the code host has not worked out whether it does.
         waitingOn:
           type: array
           description: Who owes the next move. Never empty, and never a Bot except a Bot PR's own author.
@@ -268,6 +272,7 @@ components:
         - login
         - kind
         - role
+        - moves
       properties:
         type:
           type: string
@@ -283,6 +288,29 @@ components:
           enum:
             - author
             - reviewer
+        moves:
+          type: array
+          description: The moves the person owes, each once, in the order the rules found them.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/move'
+    move:
+      type: string
+      description: >-
+        A move a person owes on a PR. The author's: finishDraft, merge, answerChanges (an unanswered request for changes),
+        reply (a comment-only review or its thread), findReviewer (No Reviewer), fixChecks and resolveConflict. A reviewer's:
+        review (a request for review), reReview (an Answered request for changes) and reply (the author answered last in
+        their comment-only thread).
+      enum:
+        - finishDraft
+        - merge
+        - answerChanges
+        - reply
+        - findReviewer
+        - fixChecks
+        - resolveConflict
+        - review
+        - reReview
     waitingOnTeam:
       type: object
       required:

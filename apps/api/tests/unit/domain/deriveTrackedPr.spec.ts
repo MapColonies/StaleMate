@@ -29,6 +29,16 @@ describe('deriveTrackedPr', function () {
   });
 
   it.each([
+    ['conflicting', true],
+    ['mergeable', false],
+    ['unknown', false],
+  ] as const)('should mark a PR whose mergeability is %s as conflicting: %s', function (mergeable, conflicting) {
+    const trackedPr = deriveTrackedPr(aPrFacts({ mergeable }), aRoster(), aDerivationConfig(), now);
+
+    expect(trackedPr.conflicting).toBe(conflicting);
+  });
+
+  it.each([
     ['an open PR', aPrFacts()],
     ['a draft', aPrFacts({ isDraft: true })],
   ])('should return a contract-valid Tracked PR for %s', function (_, facts) {

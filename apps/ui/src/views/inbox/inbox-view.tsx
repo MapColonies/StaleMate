@@ -3,8 +3,10 @@ import { ChevronRight, Eye, FilterX, Inbox, Send, TriangleAlert } from 'lucide-r
 import {
   AgeChip,
   CheckStatusBadge,
+  ConflictBadge,
   IdleLine,
   InclusionReasonBadges,
+  MovePills,
   NoReviewerFlag,
   PersonChip,
   ReviewStatusBadge,
@@ -46,6 +48,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
       </div>
       <div className="min-w-0 flex-1 py-2.5">
         <div className="flex items-baseline gap-2">
+          <MovePills pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
           <a id={titleId} href={pr.url} target="_blank" rel="noreferrer" className="truncate font-medium hover:underline">
             {pr.title}
           </a>
@@ -57,6 +60,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
           <PersonChip person={pr.author} viewer={viewer} />
           <ReviewStatusBadge pr={pr} />
           <CheckStatusBadge status={pr.checkStatus} />
+          <ConflictBadge pr={pr} />
           <InclusionReasonBadges reasons={pr.inclusionReasons} />
         </div>
       </div>

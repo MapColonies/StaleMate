@@ -70,6 +70,10 @@ _Avoid_: CI status, build status
 The people or teams who owe the next move on a PR — the author, one or more reviewers, or both. Never empty: when no reviewer owes a move, the PR waits on its author. Never a Bot, except a Bot PR's own author, who stands wherever an author would owe a move, because no human owes it in their place.
 _Avoid_: Turn, ball in court, blocker, assignee
 
+**Move**:
+What a person in Waiting On owes, and so why the PR is on them, which its Review Status alone may not say: an author on a PR Awaiting Re-review may still owe a fix to failing checks or a conflict. The author's are finish draft, merge, answer changes, reply, find reviewer, fix checks and resolve conflict; a reviewer's are review, re-review and reply. A person may owe several.
+_Avoid_: Reason, action, task
+
 **Age**:
 How long a PR has been up for review, counted in Working Days from when it was first ready for review; time before that as a Draft does not count. The measure StaleMate exists to shrink.
 _Avoid_: Lifetime, lead time, Waiting Time

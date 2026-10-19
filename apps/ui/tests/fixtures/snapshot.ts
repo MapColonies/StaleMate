@@ -1,4 +1,4 @@
-import type { Person, Snapshot, TrackedPr, WaitingOnParty } from '@/snapshot/types';
+import type { Move, Person, Snapshot, TrackedPr, WaitingOnParty } from '@/snapshot/types';
 
 const HOUR = 60 * 60 * 1000;
 const WORKING_DAY = 24 * HOUR;
@@ -9,8 +9,20 @@ export const member = (login: string): Person => ({ login, kind: 'member' });
 export const bot = (login: string): Person => ({ login, kind: 'bot' });
 export const outsider = (login: string): Person => ({ login, kind: 'outsider' });
 
-export const waitingOnAuthor = (person: Person): WaitingOnParty => ({ type: 'person', login: person.login, kind: person.kind, role: 'author' });
-export const waitingOnReviewer = (person: Person): WaitingOnParty => ({ type: 'person', login: person.login, kind: person.kind, role: 'reviewer' });
+export const waitingOnAuthor = (person: Person, moves: Move[] = ['merge']): WaitingOnParty => ({
+  type: 'person',
+  login: person.login,
+  kind: person.kind,
+  role: 'author',
+  moves,
+});
+export const waitingOnReviewer = (person: Person, moves: Move[] = ['review']): WaitingOnParty => ({
+  type: 'person',
+  login: person.login,
+  kind: person.kind,
+  role: 'reviewer',
+  moves,
+});
 export const waitingOnTheTeam: WaitingOnParty = { type: 'team', slug: 'infra', viaTeam: true };
 export const waitingOnTeam = (slug: string): WaitingOnParty => ({ type: 'team', slug, viaTeam: false });
 
@@ -37,6 +49,7 @@ export function aPr(overrides: Partial<TrackedPr> = {}): TrackedPr {
     reviewStatus: 'awaitingReview',
     approvals: 0,
     checkStatus: 'passing',
+    conflicting: false,
     waitingOn: [waitingOnReviewer(member('alice'))],
     noReviewer: false,
     age: clock(1),

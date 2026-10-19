@@ -37,6 +37,7 @@ export function deriveTrackedPr(facts: PrFacts, roster: Roster, config: Derivati
     reviewStatus: review.status,
     approvals: review.approvals,
     checkStatus: deriveCheckStatus(facts),
+    conflicting: facts.mergeable === 'conflicting',
     waitingOn: waitingOn.parties,
     noReviewer: waitingOn.noReviewer,
     ...clocks,
