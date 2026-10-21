@@ -83,13 +83,14 @@ export class SyncLoop {
     const endTimer = this.metrics.sweepDuration.startTimer();
 
     try {
-      const result = await this.provider.sweep();
+      const { roster, prs: discovered } = await this.provider.discover();
+      const prs = await this.provider.read(discovered.map((pr) => pr.id));
       // The sweep read the code host from when it started, so that is how fresh the Snapshot is.
-      await this.store.set({ ...result, readAt: startedAt });
+      await this.store.set({ roster, prs, readAt: startedAt });
       this.lastError = undefined;
       endTimer({ outcome: 'success' });
       this.metrics.lastSuccessfulSweep.set(startedAt.getTime() / MS_PER_SECOND);
-      this.logger.info({ msg: 'sweep succeeded', prs: result.prs.length });
+      this.logger.info({ msg: 'sweep succeeded', prs: prs.length });
     } catch (error) {
       this.lastError = toSafeMessage(error);
       endTimer({ outcome: 'failure' });

@@ -1,27 +1,66 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import 'jest-openapi';
-import type { SweepResult } from '@src/providers/prProvider';
 import type { TrackedPr } from '@domain/trackedPr';
 import { deriveTrackedPr } from '@domain/deriveTrackedPr';
 import { FixturePrProvider } from '@src/providers/fixture/fixturePrProvider';
 import { aDerivationConfig } from '@tests/utils/facts';
+import { sweep as aSweep } from '@tests/utils/sweep';
 
 const now = new Date('2026-10-14T12:00:00Z');
 const config = aDerivationConfig({ teamSlug: 'infra' });
 
 describe('FixturePrProvider', function () {
-  let sweep: SweepResult;
+  let sweep: Awaited<ReturnType<typeof aSweep>>;
+  let discovery: typeof sweep.discovery;
   let trackedPrs: TrackedPr[];
 
   beforeAll(async function () {
-    sweep = await new FixturePrProvider('infra', () => now).sweep();
+    sweep = await aSweep(new FixturePrProvider('infra', () => now));
+    discovery = sweep.discovery;
     trackedPrs = sweep.prs.map((facts) => deriveTrackedPr(facts, sweep.roster, config, now));
   });
 
   it('should emit the same facts on every sweep at the same instant', async function () {
-    const again = await new FixturePrProvider('infra', () => now).sweep();
+    const again = await aSweep(new FixturePrProvider('infra', () => now));
 
     expect(again).toEqual(sweep);
+  });
+
+  it('should discover each PR as last changed no earlier than its latest activity, and not in the future', function () {
+    expect(discovery.prs.map((discovered) => discovered.id)).toEqual(sweep.prs.map((pr) => pr.id));
+
+    for (const [index, pr] of sweep.prs.entries()) {
+      const updatedAt = discovery.prs[index]?.updatedAt ?? new Date(0);
+      const activity = [
+        pr.createdAt,
+        pr.headCommit.committedDate,
+        ...pr.headCommit.checkActivity,
+        ...pr.reviews.map((review) => review.submittedAt),
+        ...pr.reviewThreads.flatMap((thread) => thread.comments.map((comment) => comment.createdAt)),
+        ...pr.timeline.map((event) => event.at),
+      ];
+
+      expect(activity.every((at) => at <= updatedAt) && updatedAt <= now).toBe(true);
+    }
+  });
+
+  it('should read exactly the PRs it is asked for, in the order asked', async function () {
+    const ids = [discovery.prs[3]?.id, 'PR_gone', discovery.prs[1]?.id] as string[];
+
+    const prs = await new FixturePrProvider('infra', () => now).read(ids);
+
+    expect(prs.map((pr) => pr.id)).toEqual([ids[0], ids[2]]);
+  });
+
+  it('should date what it reads as of its last discovery, so a sweep reads one moment', async function () {
+    let clock = now;
+    const provider = new FixturePrProvider('infra', () => clock);
+    const discovered = await provider.discover();
+    clock = new Date(now.getTime() + 60_000);
+
+    const prs = await provider.read(discovered.prs.map((pr) => pr.id));
+
+    expect(prs).toEqual(sweep.prs);
   });
 
   it('should read a roster of Team Members, service accounts among them, and Team Repos', function () {

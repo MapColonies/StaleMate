@@ -17,6 +17,7 @@ import { Registry } from 'prom-client';
 import { jsLogger } from '@map-colonies/js-logger';
 import { createGithubPrProvider } from '@src/providers/github/githubPrProvider';
 import { createSyncMetrics } from '@src/sync/syncMetrics';
+import { sweep } from '../../utils/sweep';
 import { NODES_FIXTURE_PREFIXES, RECORDED_BATCH_SIZE, RECORDING_DIR, searchFixtureName } from './recording';
 
 const RECORDED_PRS = [
@@ -57,22 +58,28 @@ async function graphql(query: string, variables: Json = {}): Promise<Json> {
   return body.data;
 }
 
-/** Looks up the PRs' ids, refusing any in a private repo. */
-async function prIds(refs: string[]): Promise<Map<string, string>> {
-  const ids = new Map<string, string>();
+/** A PR as a search finds it. */
+interface FoundPr {
+  id: string;
+  updatedAt: string;
+}
+
+/** Looks up the PRs as a search would find them, refusing any in a private repo. */
+async function lookUpPrs(refs: string[]): Promise<FoundPr[]> {
+  const prs: FoundPr[] = [];
   for (const ref of refs) {
     const [owner, name, number] = ref.split(/[/#]/);
     const data = await graphql(
-      'query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { isPrivate pullRequest(number: $number) { id } } }',
+      'query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { isPrivate pullRequest(number: $number) { id updatedAt } } }',
       { owner, name, number: Number(number) }
     );
-    const repository = data.repository as { isPrivate: boolean; pullRequest: { id: string } };
+    const repository = data.repository as { isPrivate: boolean; pullRequest: FoundPr };
     if (repository.isPrivate) {
       throw new Error(`${ref} is in a private repo`);
     }
-    ids.set(repository.pullRequest.id, ref);
+    prs.push(repository.pullRequest);
   }
-  return ids;
+  return prs;
 }
 
 async function privateTeamRepos(teamSlug: string): Promise<Set<string>> {
@@ -142,8 +149,8 @@ class Pseudonyms {
 
 async function main(): Promise<void> {
   const teamSlug = 'infra';
-  const recorded = await prIds(RECORDED_PRS);
-  const [injectedId] = (await prIds([INJECTED_TEAM_REQUEST])).keys();
+  const recorded = new Set((await lookUpPrs(RECORDED_PRS)).map((pr) => pr.id));
+  const [injected] = await lookUpPrs([INJECTED_TEAM_REQUEST]);
   const privateRepos = await privateTeamRepos(teamSlug);
   const responses = new Map<string, Json>();
   const nodesCalls = new Map<string, number>();
@@ -157,22 +164,22 @@ async function main(): Promise<void> {
 
     if (operation === 'SearchPullRequests') {
       // Read every page, keep only the recorded PRs, and answer with them as one page.
-      const ids: string[] = [];
+      const nodes: FoundPr[] = [];
       let after: string | null = null;
       let rateLimit: unknown;
       do {
         const data = await graphql(query, { ...variables, after });
-        const search = data.search as { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: { id: string }[] };
-        ids.push(...search.nodes.map((node) => node.id).filter((id) => recorded.has(id)));
+        const search = data.search as { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: FoundPr[] };
+        nodes.push(...search.nodes.filter((node) => recorded.has(node.id)));
         rateLimit = data.rateLimit;
         after = search.pageInfo.hasNextPage ? search.pageInfo.endCursor : null;
       } while (after !== null);
       name = searchFixtureName(variables.query as string);
-      if (name === 'search-team-requests' && injectedId !== undefined) {
-        ids.push(injectedId);
+      if (name === 'search-team-requests' && injected !== undefined) {
+        nodes.push(injected);
       }
       body = {
-        data: { search: { issueCount: ids.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes: ids.map((id) => ({ id })) }, rateLimit },
+        data: { search: { issueCount: nodes.length, pageInfo: { hasNextPage: false, endCursor: null }, nodes }, rateLimit },
       };
     } else {
       const response = await fetch(input, init);
@@ -202,7 +209,7 @@ async function main(): Promise<void> {
     fetch: recordingFetch,
     batchSize: RECORDED_BATCH_SIZE,
   });
-  const { prs } = await provider.sweep();
+  const { prs } = await sweep(provider);
 
   const pseudonyms = new Pseudonyms();
   const roster = responses.get('roster') as { data: { organization: { team: { members: { nodes: { id: string; login: string }[] } } } } };

@@ -47,12 +47,15 @@ export const ROSTER_QUERY = `query Roster($org: String!, $team: String!) {
   ${RATE_LIMIT}
 }`;
 
-/** Finds PRs by id only. The details come from nodes(ids:), which is far cheaper than reading them through search. */
+/**
+ * Finds PRs by id and when GitHub last saw them change, only. The details come from nodes(ids:), which is far cheaper than
+ * reading them through search.
+ */
 export const SEARCH_QUERY = `query SearchPullRequests($query: String!, $after: String) {
   search(type: ISSUE_ADVANCED, query: $query, first: 100, after: $after) {
     issueCount
     pageInfo { hasNextPage endCursor }
-    nodes { ... on PullRequest { id } }
+    nodes { ... on PullRequest { id updatedAt } }
   }
   ${RATE_LIMIT}
 }`;
@@ -61,7 +64,7 @@ export interface SearchData {
   search: {
     issueCount: number;
     pageInfo: { hasNextPage: boolean; endCursor: string | null };
-    nodes: { id?: string }[];
+    nodes: { id?: string; updatedAt?: string }[];
   };
 }
 

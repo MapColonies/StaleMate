@@ -9,6 +9,7 @@ import type { PrFacts } from '@domain/facts';
 import { createGithubPrProvider, type GithubPrProviderOptions } from '@src/providers/github/githubPrProvider';
 import { SweepError, type SweepFailure } from '@src/providers/prProvider';
 import { createSyncMetrics, type SyncMetrics } from '@src/sync/syncMetrics';
+import { sweep } from '@tests/utils/sweep';
 import {
   aNodesResponse,
   aPerPrResponse,
@@ -60,7 +61,7 @@ describe('GithubPrProvider', function () {
         )
       );
 
-      const { roster } = await aProvider().sweep();
+      const { roster } = await sweep(aProvider());
 
       expect(roster).toEqual({
         members: [
@@ -81,7 +82,7 @@ describe('GithubPrProvider', function () {
         return response;
       });
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ truncated: ['repositories'] }));
     });
@@ -113,7 +114,7 @@ describe('GithubPrProvider', function () {
       for (const [operation, respond] of Object.entries(extra)) {
         github.on(operation, ({ variables }) => respond?.(requestedIds(variables)));
       }
-      const { prs } = await aProvider().sweep();
+      const { prs } = await sweep(aProvider());
 
       expect(prs).toHaveLength(1);
 
@@ -360,7 +361,7 @@ describe('GithubPrProvider', function () {
           ])
         );
 
-      const { prs } = await aProvider().sweep();
+      const { prs } = await sweep(aProvider());
 
       expect(github.requestsFor('ReviewThreads').map((request) => requestedIds(request.variables))).toEqual([['PR_2']]);
       expect(prs.map((pr) => pr.reviewThreads)).toEqual([
@@ -405,7 +406,7 @@ describe('GithubPrProvider', function () {
           aPerPrResponse([{ id: 'PR_2', reviews: { nodes: [{ id: 'PRR_2', onBehalfOf: { nodes: [{ slug: 'infra' }, { slug: '3d' }] } }] } }])
         );
 
-      const { prs } = await aProvider().sweep();
+      const { prs } = await sweep(aProvider());
 
       expect(github.requestsFor('ReviewTeams').map((request) => requestedIds(request.variables))).toEqual([['PR_2']]);
       expect(prs.map((pr) => pr.reviews.map((prReview) => prReview.onBehalfOf))).toEqual([[[]], [['infra', '3d']]]);
@@ -424,7 +425,7 @@ describe('GithubPrProvider', function () {
           ])
         );
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect(github.requestsFor('ReviewThreads').map((request) => request.variables)).toEqual([
         { id0: 'PR_1', threads0: 8, id1: 'PR_3', threads1: 100 },
@@ -456,7 +457,7 @@ describe('GithubPrProvider', function () {
           ])
         );
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       // A PR without reviews has none to read the teams of.
       expect(github.requestsFor('ReviewTeams').map((request) => request.variables)).toEqual([{ id0: 'PR_2', reviews0: 7 }]);
@@ -510,7 +511,7 @@ describe('GithubPrProvider', function () {
     });
 
     it('should authenticate with the token when no App is configured', async function () {
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect(github.requests.every((request) => request.authorization === 'bearer ghp_test')).toBe(true);
       expect(github.restRequests).toEqual([]);
@@ -519,7 +520,7 @@ describe('GithubPrProvider', function () {
     it('should authenticate as the App installation when an App is configured, rather than with the token', async function () {
       github.onRest('POST /app/installations/42/access_tokens', () => ({ token: 'ghs_installation', expires_at: '2099-01-01T00:00:00Z' }));
 
-      await aProvider({ githubApp: { appId: 7, installationId: 42, privateKeyPath } }).sweep();
+      await sweep(aProvider({ githubApp: { appId: 7, installationId: 42, privateKeyPath } }));
 
       expect(github.restRequests).toEqual([
         { route: 'POST /app/installations/42/access_tokens', authorization: expect.stringMatching(/^bearer ey/) as unknown },
@@ -532,7 +533,7 @@ describe('GithubPrProvider', function () {
         Response.json({ message: 'A JSON web token could not be decoded' }, { status: 401 })
       );
 
-      await expect(aProvider({ githubApp: { appId: 7, installationId: 42, privateKeyPath } }).sweep()).rejects.toEqual(
+      await expect(sweep(aProvider({ githubApp: { appId: 7, installationId: 42, privateKeyPath } }))).rejects.toEqual(
         new SweepError('authentication')
       );
     });
@@ -574,35 +575,49 @@ describe('GithubPrProvider', function () {
     ])('should fail the sweep as %s', async function (_, respond, failure) {
       github.on('Roster', respond);
 
-      await expect(aProvider().sweep()).rejects.toEqual(new SweepError(failure));
+      await expect(sweep(aProvider())).rejects.toEqual(new SweepError(failure));
     });
 
     it('should fail the sweep with GitHub’s message when a query fails for another reason', async function () {
       github.on('Roster', () => ({ data: null, errors: [{ type: 'MAX_NODE_LIMIT_EXCEEDED', message: 'This query requests too many nodes' }] }));
 
-      const sweep = aProvider().sweep();
+      const swept = sweep(aProvider());
 
-      await expect(sweep).rejects.toThrow('This query requests too many nodes');
-      await expect(sweep).rejects.not.toBeInstanceOf(SweepError);
+      await expect(swept).rejects.toThrow('This query requests too many nodes');
+      await expect(swept).rejects.not.toBeInstanceOf(SweepError);
     });
 
     it('should fail the sweep when the Team is not found', async function () {
       github.on('Roster', () => ({ data: { organization: { team: null }, rateLimit: aRateLimit() } }));
 
-      await expect(aProvider().sweep()).rejects.toThrow('team MapColonies/infra not found');
+      await expect(sweep(aProvider())).rejects.toThrow('team MapColonies/infra not found');
     });
 
-    it('should carry on past a PR that is gone by the time its details are read', async function () {
-      github
-        .on('SearchPullRequests', () => aSearchResponse(['PR_1', 'PR_gone']))
-        .on('PullRequestDetails', () => ({
-          data: { nodes: [aPrNode(), null], rateLimit: aRateLimit() },
-          errors: [{ type: 'NOT_FOUND', path: ['nodes', 1], message: "Could not resolve to a node with the global id of 'PR_gone'" }],
-        }));
+    it('should leave out a PR that is gone by the time it is read', async function () {
+      github.on('PullRequestDetails', () => ({
+        data: { nodes: [aPrNode(), null], rateLimit: aRateLimit() },
+        errors: [{ type: 'NOT_FOUND', path: ['nodes', 1], message: "Could not resolve to a node with the global id of 'PR_gone'" }],
+      }));
 
-      const { prs } = await aProvider().sweep();
+      const prs = await aProvider().read(['PR_1', 'PR_gone']);
 
       expect(prs.map((pr) => pr.id)).toEqual(['PR_1']);
+    });
+
+    it.each<[string, () => unknown, SweepFailure]>([
+      [
+        'the network fails',
+        () => {
+          throw new TypeError('fetch failed');
+        },
+        'unreachable',
+      ],
+      ['the credentials are refused', () => Response.json({ message: 'Bad credentials' }, { status: 401 }), 'authentication'],
+      ['too many requests are made', () => new Response('', { status: 429 }), 'rateLimit'],
+    ])('should fail a read as %s, as it does discovery', async function (_, respond, failure) {
+      github.on('PullRequestDetails', respond);
+
+      await expect(aProvider().read(['PR_1'])).rejects.toEqual(new SweepError(failure));
     });
   });
 
@@ -619,7 +634,7 @@ describe('GithubPrProvider', function () {
         data: { ...(aSearchResponse([]) as { data: object }).data, rateLimit: aRateLimit({ remaining: --remaining }) },
       }));
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect((await metrics.graphqlPointsRemaining.get()).values[0]?.value).toBe(3997);
     });
@@ -634,16 +649,32 @@ describe('GithubPrProvider', function () {
       }));
       const provider = aProvider();
 
-      await expect(provider.sweep()).rejects.toEqual(new SweepError('rateLimit'));
+      await expect(sweep(provider)).rejects.toEqual(new SweepError('rateLimit'));
       expect(github.requests.map((request) => request.operation)).toEqual(['Roster']);
 
-      await expect(provider.sweep()).rejects.toEqual(new SweepError('rateLimit'));
+      await expect(sweep(provider)).rejects.toEqual(new SweepError('rateLimit'));
       expect(github.requests).toHaveLength(1);
 
       vi.setSystemTime(new Date(resetAt));
       github.on('Roster', () => aRosterResponse([{ id: 'U_alice', login: 'alice' }], []));
 
-      await expect(provider.sweep()).resolves.toBeDefined();
+      await expect(sweep(provider)).resolves.toBeDefined();
+    });
+
+    it('should not read PRs once discovery left fewer than 10% of the points', async function () {
+      vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-15T06:30:00Z') });
+      // The search for requests to the Team is discovery's last query.
+      github.on('SearchPullRequests', ({ variables }) => ({
+        data: {
+          ...(aSearchResponse(['PR_1']) as { data: object }).data,
+          rateLimit: aRateLimit(String(variables.query).includes('team-review') ? { remaining: 499, resetAt } : {}),
+        },
+      }));
+      const provider = aProvider();
+      const { prs } = await provider.discover();
+
+      await expect(provider.read(prs.map((pr) => pr.id))).rejects.toEqual(new SweepError('rateLimit'));
+      expect(github.requestsFor('PullRequestDetails')).toEqual([]);
     });
 
     it('should keep querying while at least 10% of the points are left', async function () {
@@ -651,36 +682,43 @@ describe('GithubPrProvider', function () {
         data: { ...(aRosterResponse([{ id: 'U_alice', login: 'alice' }], []) as { data: object }).data, rateLimit: aRateLimit({ remaining: 500 }) },
       }));
 
-      await expect(aProvider().sweep()).resolves.toBeDefined();
+      await expect(sweep(aProvider())).resolves.toBeDefined();
     });
   });
 
   describe('summary', function () {
-    it('should log how long the sweep took, the points it spent and how many PRs it read', async function () {
+    const durationMs = expect.any(Number) as unknown;
+
+    it('should log how long discovery and the read each took, the points each spent and how many PRs each found or read', async function () {
       github
         .on('SearchPullRequests', () => aSearchResponse(['PR_1']))
         .on('PullRequestDetails', () => ({ data: { nodes: [aPrNode()], rateLimit: aRateLimit({ cost: 3 }) } }));
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       // The roster and the three searches cost a point each.
-      expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ points: 7, prs: 1, durationMs: expect.any(Number) as unknown }));
+      expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ msg: 'discovered PRs on GitHub', points: 4, prs: 1, durationMs }));
+      expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ msg: 'read PRs from GitHub', points: 3, prs: 1, durationMs }));
     });
 
-    it('should log the time, points and requests of each step of the sweep', async function () {
+    it('should log the time, points and requests of each step of discovery and of the read', async function () {
       github
         .on('SearchPullRequests', () => aSearchResponse(['PR_1']))
         .on('PullRequestDetails', () => ({ data: { nodes: [aPrNode({ reviewThreads: { totalCount: 1 } })], rateLimit: aRateLimit({ cost: 3 }) } }));
 
-      await aProvider().sweep();
-
-      const durationMs = expect.any(Number) as unknown;
+      await sweep(aProvider());
 
       expect(logger.info).toHaveBeenCalledWith(
         expect.objectContaining({
           steps: {
             roster: { durationMs, points: 1, requests: 1 },
             search: { durationMs, points: 3, requests: 3 },
+          },
+        })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          steps: {
             details: { durationMs, points: 3, requests: 1 },
             threads: { durationMs, points: 1, requests: 1 },
             reviewTeams: { durationMs, points: 0, requests: 0 },
@@ -709,7 +747,7 @@ describe('GithubPrProvider', function () {
     });
 
     it('should search the Team Repos, the Team Members and requests to the Team for open PRs', async function () {
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect(searchQueries()).toEqual([
         'is:pr is:open (repo:MapColonies/opa-la OR repo:MapColonies/config)',
@@ -718,22 +756,41 @@ describe('GithubPrProvider', function () {
       ]);
     });
 
-    it('should read the details of each PR found once, however many searches found it', async function () {
-      github
-        .on('SearchPullRequests', ({ variables }) => aSearchResponse(String(variables.query).includes('team-review') ? ['PR_2'] : ['PR_1', 'PR_2']))
-        .on('PullRequestDetails', ({ variables }) => aNodesResponse((variables.ids as string[]).map((id) => aPrNode({ id }))));
+    it('should discover the Roster and each PR found once, with when GitHub last saw it change, without reading it', async function () {
+      github.on('SearchPullRequests', ({ variables }) =>
+        aSearchResponse(
+          String(variables.query).includes('team-review')
+            ? [{ id: 'PR_2', updatedAt: '2026-10-14T10:00:00Z' }]
+            : [
+                { id: 'PR_1', updatedAt: '2026-10-13T09:00:00Z' },
+                { id: 'PR_2', updatedAt: '2026-10-14T10:00:00Z' },
+              ]
+        )
+      );
 
-      const { prs } = await aProvider().sweep();
+      const discovery = await aProvider().discover();
 
-      expect(github.requestsFor('PullRequestDetails').map((request) => request.variables.ids)).toEqual([['PR_1', 'PR_2']]);
-      expect(prs.map((pr) => pr.id)).toEqual(['PR_1', 'PR_2']);
+      expect(discovery).toEqual({
+        roster: {
+          members: [
+            { id: 'U_alice', login: 'alice', isBot: false },
+            { id: 'U_bob', login: 'bob', isBot: false },
+          ],
+          repos: ['MapColonies/opa-la', 'MapColonies/config'],
+        },
+        prs: [
+          { id: 'PR_1', updatedAt: new Date('2026-10-13T09:00:00Z') },
+          { id: 'PR_2', updatedAt: new Date('2026-10-14T10:00:00Z') },
+        ],
+      });
+      expect(new Set(github.requests.map((request) => request.operation))).toEqual(new Set(['Roster', 'SearchPullRequests']));
     });
 
     it('should split a search over many Team Repos into queries of at most 50 repos', async function () {
       const repos = Array.from({ length: 60 }, (_, index) => ({ nameWithOwner: `MapColonies/repo${index}`, isArchived: false }));
       github.on('Roster', () => aRosterResponse([{ id: 'U_alice', login: 'alice' }], repos));
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       const repoQueries = searchQueries().filter((query) => String(query).includes('repo:'));
 
@@ -753,7 +810,7 @@ describe('GithubPrProvider', function () {
       const members = Array.from({ length: 13 }, (_, index) => ({ id: `U_${index}`, login: `member${index}` }));
       github.on('Roster', () => aRosterResponse(members, [{ nameWithOwner: 'MapColonies/opa-la', isArchived: false }]));
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       const memberQueries = searchQueries().filter((query) => String(query).includes('author:'));
 
@@ -764,22 +821,37 @@ describe('GithubPrProvider', function () {
       );
     });
 
-    it('should read the details 50 PRs at a time', async function () {
+    it('should read the details, threads and teams of only the PRs it is given, 50 PRs at a time', async function () {
       const ids = Array.from({ length: 51 }, (_, index) => `PR_${index}`);
-      github
-        .on('SearchPullRequests', () => aSearchResponse(ids))
-        .on('PullRequestDetails', ({ variables }) => aNodesResponse((variables.ids as string[]).map((id) => aPrNode({ id }))));
+      const teamRequest = {
+        pageInfo: { hasNextPage: false },
+        nodes: [{ asCodeOwner: false, requestedReviewer: { __typename: 'Team', slug: 'infra' } }],
+      };
+      const reviews = {
+        pageInfo: { hasPreviousPage: false },
+        nodes: [{ id: 'PRR_1', state: 'APPROVED', submittedAt: '2026-10-13T08:00:00Z', author: null, commit: { oid: 'c0ffee' } }],
+      };
+      github.on('PullRequestDetails', ({ variables }) =>
+        aNodesResponse(
+          (variables.ids as string[]).map((id) => aPrNode({ id, reviewThreads: { totalCount: 1 }, reviewRequests: teamRequest, reviews }))
+        )
+      );
 
-      const { prs } = await aProvider().sweep();
+      const prs = await aProvider().read(ids);
 
-      expect(github.requestsFor('PullRequestDetails').map((request) => request.variables.ids)).toEqual([ids.slice(0, 50), ids.slice(50)]);
-      expect(prs).toHaveLength(51);
+      expect(github.requests.map((request) => request.operation)).not.toContain('SearchPullRequests');
+
+      for (const operation of ['PullRequestDetails', 'ReviewThreads', 'ReviewTeams']) {
+        expect(github.requestsFor(operation).map((request) => requestedIds(request.variables))).toEqual([ids.slice(0, 50), ids.slice(50)]);
+      }
+
+      expect(prs.map((pr) => pr.id)).toEqual(ids);
     });
 
     it('should warn when a search nears its cap of 1,000 results', async function () {
       github.on('SearchPullRequests', ({ variables }) => aSearchResponse([], { issueCount: String(variables.query).includes('repo:') ? 801 : 800 }));
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ query: expect.stringContaining('repo:') as unknown, results: 801 })
@@ -791,7 +863,7 @@ describe('GithubPrProvider', function () {
         variables.after === null ? aSearchResponse(['PR_1'], { issueCount: 2, endCursor: 'cursor1' }) : aSearchResponse(['PR_2'], { issueCount: 2 })
       );
 
-      await aProvider().sweep();
+      await sweep(aProvider());
 
       expect(github.requestsFor('SearchPullRequests').map((request) => request.variables.after)).toEqual([
         null,

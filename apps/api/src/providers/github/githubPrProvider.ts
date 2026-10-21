@@ -1,7 +1,7 @@
 import type { Logger } from '@map-colonies/js-logger';
 import type { PrFacts, Roster } from '@domain/facts';
 import type { SyncMetrics } from '../../sync/syncMetrics';
-import type { PrProvider, SweepResult } from '../prProvider';
+import type { DiscoveredPr, Discovery, PrProvider } from '../prProvider';
 import { createGetToken, type GithubAuthConfig } from './auth';
 import { GraphqlClient } from './graphqlClient';
 import {
@@ -77,7 +77,7 @@ interface StepCost {
   requests: number;
 }
 
-/** Records how long each step of a sweep took, and the points and requests it spent. */
+/** Records how long each step of an operation took, and the points and requests it spent. */
 class StepCosts {
   public readonly steps: Record<string, StepCost> = {};
 
@@ -96,7 +96,7 @@ class StepCosts {
   }
 }
 
-/** Reads the Team and its Tracked PRs from GitHub in one full GraphQL sweep. */
+/** Discovers the Team and its Tracked PRs on GitHub, and reads chosen PRs, through GraphQL. */
 class GithubPrProvider implements PrProvider {
   public constructor(
     private readonly client: GraphqlClient,
@@ -105,21 +105,35 @@ class GithubPrProvider implements PrProvider {
     private readonly batchSize: number
   ) {}
 
-  public async sweep(): Promise<SweepResult> {
+  public async discover(): Promise<Discovery> {
+    return this.logged('discovered PRs on GitHub', async (costs) => {
+      const roster = await costs.measure('roster', async () => this.readRoster());
+      const prs = await costs.measure('search', async () => this.searchTracked(roster));
+      return { result: { roster, prs }, prs: prs.length };
+    });
+  }
+
+  public async read(ids: readonly string[]): Promise<PrFacts[]> {
+    return this.logged('read PRs from GitHub', async (costs) => {
+      const prs = await this.readDetails(ids, costs);
+      return { result: prs, prs: prs.length };
+    });
+  }
+
+  /** Runs one operation, then logs how long it took, the points it spent, how many PRs it found or read, and the cost of each step. */
+  private async logged<T>(msg: string, run: (costs: StepCosts) => Promise<{ result: T; prs: number }>): Promise<T> {
     const startedAt = performance.now();
     const pointsBefore = this.client.pointsSpent;
     const costs = new StepCosts(this.client);
-    const roster = await costs.measure('roster', async () => this.readRoster());
-    const ids = await costs.measure('search', async () => this.discover(roster));
-    const prs = await this.readDetails(ids, costs);
+    const { result, prs } = await run(costs);
     this.logger.info({
-      msg: 'swept GitHub',
+      msg,
       durationMs: Math.round(performance.now() - startedAt),
       points: this.client.pointsSpent - pointsBefore,
-      prs: prs.length,
+      prs,
       steps: costs.steps,
     });
-    return { roster, prs };
+    return result;
   }
 
   /** Reads the PRs, then the threads and review teams of the PRs that have them. */
@@ -181,7 +195,7 @@ class GithubPrProvider implements PrProvider {
   }
 
   /** Finds the open PRs in the Team Repos, those a Team Member is involved in, and those that ask the Team for review. */
-  private async discover(roster: Roster): Promise<string[]> {
+  private async searchTracked(roster: Roster): Promise<DiscoveredPr[]> {
     const open = 'is:pr is:open';
     const inLiveOrgRepos = `${open} org:${ORG} archived:false`;
     const queries = [
@@ -195,28 +209,30 @@ class GithubPrProvider implements PrProvider {
       ),
       `${inLiveOrgRepos} team-review-requested:${ORG}/${this.teamSlug}`,
     ];
-    // A PR found by several searches is read once.
-    const ids = new Set<string>();
+    // A PR found by several searches is discovered once.
+    const prs = new Map<string, DiscoveredPr>();
     for (const query of queries) {
-      for (const id of await this.search(query)) {
-        ids.add(id);
+      for (const pr of await this.search(query)) {
+        prs.set(pr.id, pr);
       }
     }
-    return [...ids];
+    return [...prs.values()];
   }
 
-  private async search(query: string): Promise<string[]> {
-    const ids: string[] = [];
+  private async search(query: string): Promise<DiscoveredPr[]> {
+    const prs: DiscoveredPr[] = [];
     let after: string | null = null;
     do {
       const { search }: SearchData = await this.client.query<SearchData>(SEARCH_QUERY, { query, after });
       if (after === null && search.issueCount > SEARCH_RESULTS_WARNING) {
         this.logger.warn({ msg: 'search nears its cap of 1,000 results, so PRs past it would be missed', query, results: search.issueCount });
       }
-      ids.push(...search.nodes.flatMap((node) => (node.id === undefined ? [] : [node.id])));
+      prs.push(
+        ...search.nodes.flatMap(({ id, updatedAt }) => (id === undefined || updatedAt === undefined ? [] : [{ id, updatedAt: new Date(updatedAt) }]))
+      );
       after = search.pageInfo.hasNextPage ? search.pageInfo.endCursor : null;
     } while (after !== null);
-    return ids;
+    return prs;
   }
 
   private async readRoster(): Promise<Roster> {

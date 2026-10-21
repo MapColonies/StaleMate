@@ -79,11 +79,16 @@ export function aRosterResponse(members: { id: string; login: string }[], repos:
   };
 }
 
-export function aSearchResponse(ids: string[], options: { issueCount?: number; endCursor?: string | null } = {}): object {
-  const { issueCount = ids.length, endCursor = null } = options;
+/** Finds these PRs, given by id alone or with when GitHub last saw them change. */
+export function aSearchResponse(
+  prs: (string | { id: string; updatedAt: string })[],
+  options: { issueCount?: number; endCursor?: string | null } = {}
+): object {
+  const { issueCount = prs.length, endCursor = null } = options;
+  const nodes = prs.map((pr) => (typeof pr === 'string' ? { id: pr, updatedAt: '2026-10-13T12:00:00Z' } : pr));
   return {
     data: {
-      search: { issueCount, pageInfo: { hasNextPage: endCursor !== null, endCursor }, nodes: ids.map((id) => ({ id })) },
+      search: { issueCount, pageInfo: { hasNextPage: endCursor !== null, endCursor }, nodes },
       rateLimit: aRateLimit(),
     },
   };

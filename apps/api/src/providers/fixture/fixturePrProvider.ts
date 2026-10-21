@@ -13,7 +13,7 @@ import type {
 } from '@domain/facts';
 import { deriveJiraTickets } from '@domain/jiraTickets';
 import { deriveInclusionReasons } from '@domain/inclusion';
-import type { PrProvider, SweepResult } from '../prProvider';
+import type { Discovery, PrProvider } from '../prProvider';
 import {
   BOTS,
   DEPENDENCIES,
@@ -360,22 +360,44 @@ class PrGenerator {
   }
 }
 
+/** When a PR last changed: its latest activity. */
+function lastChangedAt(facts: PrFacts): Date {
+  const activity = [
+    facts.createdAt,
+    facts.headCommit.committedDate,
+    ...facts.headCommit.checkActivity,
+    ...facts.reviews.map((review) => review.submittedAt),
+    ...facts.reviewThreads.flatMap((thread) => thread.comments.map((comment) => comment.createdAt)),
+    ...facts.timeline.map((event) => event.at),
+  ];
+  return new Date(Math.max(...activity.map((at) => at.getTime())));
+}
+
 /**
  * Serves canned facts translated from the dashboard prototype's mock data, for local development.
- * Every sweep emits the same PRs, dated relative to when it runs.
+ * Every sweep emits the same PRs, dated relative to when its discovery ran, so what it reads matches what it discovered.
  */
 export class FixturePrProvider implements PrProvider {
+  private discoveredAt: Date | undefined;
+
   public constructor(
     private readonly teamSlug: string,
     private readonly now: () => Date = (): Date => new Date()
   ) {}
 
-  public async sweep(): Promise<SweepResult> {
-    const generator = new PrGenerator(new Random(SEED), this.teamSlug, this.now());
-    const prs = Array.from({ length: PR_COUNT }, (_, index) => generator.generate(index));
-    return Promise.resolve({
-      roster: ROSTER,
-      prs,
-    });
+  public async discover(): Promise<Discovery> {
+    this.discoveredAt = this.now();
+    const prs = this.generate(this.discoveredAt).map((facts) => ({ id: facts.id, updatedAt: lastChangedAt(facts) }));
+    return Promise.resolve({ roster: ROSTER, prs });
+  }
+
+  public async read(ids: readonly string[]): Promise<PrFacts[]> {
+    const byId = new Map(this.generate(this.discoveredAt ?? this.now()).map((facts) => [facts.id, facts]));
+    return Promise.resolve(ids.flatMap((id) => byId.get(id) ?? []));
+  }
+
+  private generate(now: Date): PrFacts[] {
+    const generator = new PrGenerator(new Random(SEED), this.teamSlug, now);
+    return Array.from({ length: PR_COUNT }, (_, index) => generator.generate(index));
   }
 }

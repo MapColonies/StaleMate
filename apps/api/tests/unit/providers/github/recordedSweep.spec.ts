@@ -5,10 +5,10 @@ import { jsLogger } from '@map-colonies/js-logger';
 import type { PrFacts } from '@domain/facts';
 import { deriveTrackedPr } from '@domain/deriveTrackedPr';
 import { createGithubPrProvider } from '@src/providers/github/githubPrProvider';
-import type { SweepResult } from '@src/providers/prProvider';
 import { createSyncMetrics } from '@src/sync/syncMetrics';
 import { RECORDED_BATCH_SIZE } from '@tests/fixtures/github/recording';
 import { aDerivationConfig } from '@tests/utils/facts';
+import { sweep as aSweep } from '@tests/utils/sweep';
 import { aRecordedGithub } from './helpers/recordedGithub';
 
 // Over a real sweep of MapColonies, recorded on 2026-10-15 by tests/fixtures/github/record.ts with people pseudonymized.
@@ -19,7 +19,7 @@ const devops = { id: 'U_kgDOCIdygg', login: 'mapcolonies-devops', isBot: false }
 const person = (login: string): object => ({ id: `U_${login.replace('-', '_')}`, login, isBot: false });
 
 describe('GithubPrProvider over a recorded sweep', function () {
-  let sweep: SweepResult;
+  let sweep: Awaited<ReturnType<typeof aSweep>>;
 
   function pr(url: string): PrFacts {
     const found = sweep.prs.find((candidate) => candidate.url === url);
@@ -40,7 +40,15 @@ describe('GithubPrProvider over a recorded sweep', function () {
       fetch: github.fetch,
       batchSize: RECORDED_BATCH_SIZE,
     });
-    sweep = await provider.sweep();
+    sweep = await aSweep(provider);
+  });
+
+  it('should discover each PR the searches found once, with when GitHub last saw it change', function () {
+    expect(sweep.discovery.prs.map((discovered) => discovered.id).sort()).toEqual(sweep.prs.map((facts) => facts.id).sort());
+    expect(sweep.discovery.prs).toContainEqual({
+      id: pr('https://github.com/MapColonies/opa-la/pull/160').id,
+      updatedAt: new Date('2026-10-08T13:03:32Z'),
+    });
   });
 
   it('should read the Team, service accounts included, and its live public Team Repos', function () {
