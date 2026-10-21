@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/MapColonies/StaleMate/compare/v1.1.0...v1.2.0) (2026-10-21)
+
+
+### 🎉 Features
+
+* **stalemate-ui:** count the Viewer's new Notifications on a bell in the header ([48cc019](https://github.com/MapColonies/StaleMate/commit/48cc019a12eafd0d8342bb109a5d9d5eff4bd710)), closes [#50](https://github.com/MapColonies/StaleMate/issues/50)
+* **stalemate-ui:** default the Inbox and Board to newest first and remember the order ([a3b7198](https://github.com/MapColonies/StaleMate/commit/a3b7198e3e02010b77e0a8fc20bb6f5d7f13d2c0)), closes [#44](https://github.com/MapColonies/StaleMate/issues/44)
+* **stalemate-ui:** default the Table to newest first, remember its sort, and add Reset sort ([c5f8bca](https://github.com/MapColonies/StaleMate/commit/c5f8bcaaf84f02259906e737b1dd3267232e1c15)), closes [#45](https://github.com/MapColonies/StaleMate/issues/45)
+* **stalemate-ui:** keep polling from a background tab while OS notifications are on ([3dda978](https://github.com/MapColonies/StaleMate/commit/3dda978d3553dd2addd32c33874e10b79d6c2c31)), closes [#54](https://github.com/MapColonies/StaleMate/issues/54)
+* **stalemate-ui:** keep the Viewer's Notifications in sync across tabs ([e96f0ac](https://github.com/MapColonies/StaleMate/commit/e96f0ac566eadd1b6aeb787930f05d262c8761f0)), closes [#52](https://github.com/MapColonies/StaleMate/issues/52)
+* **stalemate-ui:** list the Viewer's Notifications in a drawer to dismiss them ([23f65d8](https://github.com/MapColonies/StaleMate/commit/23f65d89caf2805d2d35b12f9327bedde7754357)), closes [#51](https://github.com/MapColonies/StaleMate/issues/51)
+* **stalemate-ui:** send the Viewer's new Notifications to the OS from the drawer's checkbox ([5f9571e](https://github.com/MapColonies/StaleMate/commit/5f9571ee66dd38c2aedff1d99a0d0f4446445a14)), closes [#53](https://github.com/MapColonies/StaleMate/issues/53)
+* **stalemate-ui:** serve the UI so a reload always gets the deployed build ([9cde325](https://github.com/MapColonies/StaleMate/commit/9cde3259d65b4e3e49645db0d24346e650d41bbe)), closes [#46](https://github.com/MapColonies/StaleMate/issues/46)
+* **stalemate-ui:** tell the Viewer a new version is deployed and offer a Reload ([c0b1bed](https://github.com/MapColonies/StaleMate/commit/c0b1bedcb846f179601c51e4041ef6a4e0c59730)), closes [#47](https://github.com/MapColonies/StaleMate/issues/47)
+
+
+### 📝 Documentation
+
+* **global:** define Notification and record deriving Notifications in the browser ([ad46197](https://github.com/MapColonies/StaleMate/commit/ad461979d16b583cf80fa1ec029493e8034ab411))
+
 ## [1.1.0](https://github.com/MapColonies/StaleMate/compare/v1.0.0...v1.1.0) (2026-10-21)
 
 
