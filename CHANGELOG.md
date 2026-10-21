@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0](https://github.com/MapColonies/StaleMate/compare/v1.0.0...v1.1.0) (2026-10-21)
+
+
+### 🎉 Features
+
+* **stalemate-api:** give the probes slack, raise the CPU limit to 1 core ([83c062a](https://github.com/MapColonies/StaleMate/commit/83c062a5a9819476992e8037a0aacc88b1c37ac3)), closes [#33](https://github.com/MapColonies/StaleMate/issues/33)
+* **stalemate-api:** let the chart mount an existing Secret for the GitHub App key ([011e3c6](https://github.com/MapColonies/StaleMate/commit/011e3c659f84e328d9abb413ee461da58a26878b)), closes [#38](https://github.com/MapColonies/StaleMate/issues/38)
+* **stalemate-ui:** give the UI an SVG favicon ([0052d36](https://github.com/MapColonies/StaleMate/commit/0052d36990d2287f28decff7f672dcac695fb93d)), closes [#39](https://github.com/MapColonies/StaleMate/issues/39)
+
+
+### 🐛 Bug Fixes
+
+* **stalemate-api:** ship no Team-specific extra days off by default ([037c846](https://github.com/MapColonies/StaleMate/commit/037c846378e8b326fdf2b991fcbe56fb72e7aaf0)), closes [#40](https://github.com/MapColonies/StaleMate/issues/40)
+
+
+### ⚡ Performance Improvements
+
+* **stalemate-api:** cache the Snapshot response per minute, with ETag and 304 ([02040dc](https://github.com/MapColonies/StaleMate/commit/02040dc0b6b0ddabc6c9c1ac07ce175c0a332b31)), closes [#37](https://github.com/MapColonies/StaleMate/issues/37)
+* **stalemate-api:** count Working Days from a cumulative table ([a4e944d](https://github.com/MapColonies/StaleMate/commit/a4e944dafd8b80938e00471722ca49e9844bc245)), closes [#31](https://github.com/MapColonies/StaleMate/issues/31)
+* **stalemate-api:** derive Tracked PRs at sweep time, count only clocks per request ([7aabab4](https://github.com/MapColonies/StaleMate/commit/7aabab488a4d8da14daa0849c9958b962b9103a1)), closes [#35](https://github.com/MapColonies/StaleMate/issues/35)
+* **stalemate-api:** re-read Tracked PRs by Idle Time tier ([f12b643](https://github.com/MapColonies/StaleMate/commit/f12b643b157b2fbfa46876116ac2874f80b33fe6)), closes [#36](https://github.com/MapColonies/StaleMate/issues/36)
+* **stalemate-ui:** poll the Snapshot at most every 10 s while busy ([c2c4f39](https://github.com/MapColonies/StaleMate/commit/c2c4f39896c9b039742656541ad5b30ade0cfcd2)), closes [#32](https://github.com/MapColonies/StaleMate/issues/32)
+
 ## 1.0.0 (2026-10-21)
 
 
