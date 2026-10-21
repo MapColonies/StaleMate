@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import 'jest-openapi';
 import 'jest-extended';
 import supertest from 'supertest';
-import { jsLogger } from '@map-colonies/js-logger';
+import { jsLogger, type Logger } from '@map-colonies/js-logger';
 import { trace } from '@opentelemetry/api';
 import { StatusCodes } from 'http-status-codes';
 import type { Application } from 'express';
@@ -17,6 +17,7 @@ import { SYNC_LOOP, type SyncLoop } from '@src/sync/syncLoop';
 import { SERVICES } from '@common/constants';
 import { getConfig, initConfig } from '@common/config';
 import { OPENAPI_PATH } from '@tests/utils/paths.mjs';
+import type { PrFacts } from '@domain/facts';
 import { anActor, aPrFacts } from '@tests/utils/facts';
 import { FixturePrProvider } from '@src/providers/fixture/fixturePrProvider';
 import { ScriptedProvider } from './helpers/scriptedProvider';
@@ -301,6 +302,151 @@ describe('snapshot', function () {
 
       expect(byCarol(snapshot)).toMatchObject({ inclusionReasons: ['teamRepo'], waitingOn: [{ type: 'person', login: 'dave', kind: 'outsider' }] });
       expect(snapshot.team.map(({ login }) => login)).not.toContain('carol');
+    });
+  });
+
+  describe('tiered reads', function () {
+    const DAY = 24 * HOUR;
+
+    /** A PR a person last acted on at `at`, when it was opened and pushed. */
+    function aPrIdleSince(id: string, at: Date, overrides: Partial<PrFacts> = {}): PrFacts {
+      return aPrFacts({ id, createdAt: at, headCommit: { ...aPrFacts().headCommit, committedDate: at, firstCheckSuiteAt: at }, ...overrides });
+    }
+
+    /** Sweeps with the clock at `ms` after Monday morning, and says which PRs that sweep read. */
+    async function sweepAt(ms: number): Promise<string[]> {
+      vi.setSystemTime(mondayMorning.getTime() + ms);
+      await requestSender.refresh();
+      await untilIdle();
+      return provider.reads.at(-1) ?? [];
+    }
+
+    // Hot: idle under 10 Working Days. Warm: up to 60. Cold: beyond.
+    const hot = aPrIdleSince('PR_hot', mondayMorning);
+    const warm = aPrIdleSince('PR_warm', new Date(mondayMorning.getTime() - 30 * DAY));
+    const cold = aPrIdleSince('PR_cold', new Date(mondayMorning.getTime() - 365 * DAY));
+
+    beforeEach(function () {
+      [hot, warm, cold].forEach((pr) => provider.add(pr, pr.createdAt));
+    });
+
+    it('should read every discovered PR on the first sweep', async function () {
+      await syncLoop.start();
+
+      const discovered = (await provider.discover()).prs.map(({ id }) => id);
+
+      expect(provider.reads).toHaveLength(1);
+      expect(provider.reads[0]).toIncludeSameMembers(discovered);
+    });
+
+    it('should read Hot PRs every sweep, and Warm and Cold ones only once their interval has passed', async function () {
+      await syncLoop.start();
+
+      const soon = await sweepAt(cooldownMs);
+
+      expect(soon).toContain(hot.id);
+      expect(soon).not.toIncludeAnyMembers([warm.id, cold.id]);
+
+      const afterWarmInterval = await sweepAt(15 * MINUTE);
+
+      expect(afterWarmInterval).toIncludeAllMembers([hot.id, warm.id]);
+      expect(afterWarmInterval).not.toContain(cold.id);
+
+      const afterColdInterval = await sweepAt(60 * MINUTE);
+
+      expect(afterColdInterval).toIncludeAllMembers([hot.id, warm.id, cold.id]);
+    });
+
+    it('should read a Cold PR in the next sweep once it changed', async function () {
+      await syncLoop.start();
+
+      provider.touch(cold.id, mondayMorning);
+      const changed = await sweepAt(cooldownMs);
+
+      expect(changed).toContain(cold.id);
+      await expect(sweepAt(2 * cooldownMs)).resolves.not.toContain(cold.id);
+    });
+
+    it('should cool down a PR whose only activity since a person acted on it is a Bot’s', async function () {
+      const devops = anActor({ id: 'U_devops', login: 'mapcolonies-devops' });
+      const botTouched = aPrIdleSince('PR_bot_touched', mondayMorning);
+      provider.add(botTouched, mondayMorning);
+      await syncLoop.start();
+
+      // Three weeks on, a Bot comments: it is read once, then idles as Warm.
+      const threeWeeks = 21 * DAY;
+      const botCommented = new Date(mondayMorning.getTime() + threeWeeks);
+      provider.add({ ...botTouched, timeline: [{ type: 'comment', actor: devops, at: botCommented }] }, botCommented);
+
+      await expect(sweepAt(threeWeeks)).resolves.toContain(botTouched.id);
+      await expect(sweepAt(threeWeeks + MINUTE)).resolves.not.toContain(botTouched.id);
+      await expect(sweepAt(threeWeeks + 15 * MINUTE)).resolves.toContain(botTouched.id);
+
+      // Four months on, it is Cold.
+      const fourMonths = 120 * DAY;
+
+      await expect(sweepAt(fourMonths)).resolves.toContain(botTouched.id);
+      await expect(sweepAt(fourMonths + 15 * MINUTE)).resolves.not.toContain(botTouched.id);
+      await expect(sweepAt(fourMonths + 60 * MINUTE)).resolves.toContain(botTouched.id);
+    });
+
+    it('should drop a PR chosen to read that was gone by the time it was read', async function () {
+      await syncLoop.start();
+
+      provider.closeBeforeRead(hot.id);
+      const read = await sweepAt(cooldownMs);
+      const snapshot = await getSnapshot();
+
+      expect(read).toContain(hot.id);
+      expect(snapshot.prs.map(({ id }) => id)).not.toContain(hot.id);
+    });
+
+    it('should log how many PRs the sweep discovered, read by reason, and dropped', async function () {
+      const info = vi.spyOn(container.resolve<Logger>(SERVICES.LOGGER), 'info');
+      await syncLoop.start();
+      const discovered = provider.reads[0]!.length;
+      info.mockClear();
+
+      provider.touch(cold.id, mondayMorning);
+      provider.remove(warm.id);
+      provider.add(aPrIdleSince('PR_new', mondayMorning), mondayMorning);
+      await sweepAt(cooldownMs);
+
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          msg: 'sweep succeeded',
+          discovered,
+          read: expect.objectContaining({ new: 1, changed: 1, warm: 0, cold: 0 }) as unknown,
+          dropped: 1,
+        })
+      );
+    });
+
+    it('should re-derive a Cold PR not re-read when the Roster changes', async function () {
+      const carol = anActor({ id: 'U_carol', login: 'carol' });
+      const dave = anActor({ id: 'U_dave', login: 'dave' });
+      const { roster } = await new FixturePrProvider('infra').discover();
+      const reviewRequests = [{ type: 'person' as const, reviewer: dave, asCodeOwner: false }];
+      provider.add(aPrIdleSince(cold.id, cold.createdAt, { repo: roster.repos[0], author: carol, reviewRequests }), cold.createdAt);
+      await syncLoop.start();
+      const coldPr = (snapshot: Snapshot): Snapshot['prs'][number] | undefined => snapshot.prs.find(({ id }) => id === cold.id);
+
+      expect(coldPr(await getSnapshot())).toMatchObject({
+        author: { login: 'carol', kind: 'outsider' },
+        inclusionReasons: ['teamRepo'],
+        waitingOn: [{ type: 'person', login: 'dave', kind: 'outsider' }],
+      });
+
+      provider.roster = { ...roster, members: [...roster.members, carol, dave] };
+      const read = await sweepAt(cooldownMs);
+      const snapshot = await getSnapshot();
+
+      expect(read).not.toContain(cold.id);
+      expect(coldPr(snapshot)).toMatchObject({
+        author: { login: 'carol', kind: 'member' },
+        inclusionReasons: ['authoredByMember', 'memberReviewRequested', 'teamRepo'],
+        waitingOn: [{ type: 'person', login: 'dave', kind: 'member' }],
+      });
     });
   });
 

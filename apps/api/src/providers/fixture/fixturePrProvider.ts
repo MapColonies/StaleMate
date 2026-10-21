@@ -375,10 +375,11 @@ function lastChangedAt(facts: PrFacts): Date {
 
 /**
  * Serves canned facts translated from the dashboard prototype's mock data, for local development.
- * Every sweep emits the same PRs, dated relative to when its discovery ran, so what it reads matches what it discovered.
+ * Every sweep emits the same PRs, dated relative to when the first discovery ran, so they age as time passes
+ * and only change when a sweep's tier says to re-read them, like real ones.
  */
 export class FixturePrProvider implements PrProvider {
-  private discoveredAt: Date | undefined;
+  private firstDiscoveredAt: Date | undefined;
 
   public constructor(
     private readonly teamSlug: string,
@@ -386,13 +387,13 @@ export class FixturePrProvider implements PrProvider {
   ) {}
 
   public async discover(): Promise<Discovery> {
-    this.discoveredAt = this.now();
-    const prs = this.generate(this.discoveredAt).map((facts) => ({ id: facts.id, updatedAt: lastChangedAt(facts) }));
+    this.firstDiscoveredAt ??= this.now();
+    const prs = this.generate(this.firstDiscoveredAt).map((facts) => ({ id: facts.id, updatedAt: lastChangedAt(facts) }));
     return Promise.resolve({ roster: ROSTER, prs });
   }
 
   public async read(ids: readonly string[]): Promise<PrFacts[]> {
-    const byId = new Map(this.generate(this.discoveredAt ?? this.now()).map((facts) => [facts.id, facts]));
+    const byId = new Map(this.generate(this.firstDiscoveredAt ?? this.now()).map((facts) => [facts.id, facts]));
     return Promise.resolve(ids.flatMap((id) => byId.get(id) ?? []));
   }
 

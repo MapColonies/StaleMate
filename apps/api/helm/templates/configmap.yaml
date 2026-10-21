@@ -23,6 +23,10 @@ data:
   JIRA_PROJECT_KEYS: {{ .Values.jira.projectKeys | toJson | quote }}
   SYNC_INTERVAL_MS: {{ .Values.sync.intervalMs | int64 | quote }}
   SYNC_REFRESH_COOLDOWN_MS: {{ .Values.sync.refreshCooldownMs | int64 | quote }}
+  SYNC_TIERS_WARM_FROM_WORKING_DAYS: {{ .Values.sync.tiers.warmFromWorkingDays | quote }}
+  SYNC_TIERS_COLD_FROM_WORKING_DAYS: {{ .Values.sync.tiers.coldFromWorkingDays | quote }}
+  SYNC_TIERS_WARM_READ_INTERVAL_MS: {{ .Values.sync.tiers.warmReadIntervalMs | int64 | quote }}
+  SYNC_TIERS_COLD_READ_INTERVAL_MS: {{ .Values.sync.tiers.coldReadIntervalMs | int64 | quote }}
   PROVIDER: github
   GITHUB_APP_ID: {{ required "githubApp.appId is required" .Values.githubApp.appId | int64 | quote }}
   GITHUB_APP_INSTALLATION_ID: {{ required "githubApp.installationId is required" .Values.githubApp.installationId | int64 | quote }}

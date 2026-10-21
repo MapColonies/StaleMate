@@ -48,7 +48,13 @@
   },
   "sync": {
     "intervalMs": 120000,
-    "refreshCooldownMs": 30000
+    "refreshCooldownMs": 30000,
+    "tiers": {
+      "warmFromWorkingDays": 10,
+      "coldFromWorkingDays": 60,
+      "warmReadIntervalMs": 900000,
+      "coldReadIntervalMs": 3600000
+    }
   },
   "provider": "fixture",
   "githubApp": {}

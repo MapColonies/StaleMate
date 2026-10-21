@@ -83,6 +83,16 @@ sync:
   intervalMs: 120000
   # How long after a sweep starts before "Refresh now" can start another.
   refreshCooldownMs: 30000
+  # How often a sweep re-reads a Tracked PR, by its Idle Time. Hot PRs, idle under warmFromWorkingDays, are re-read every sweep.
+  tiers:
+    # The Idle Time in Working Days from which a PR is Warm.
+    warmFromWorkingDays: 10
+    # The Idle Time in Working Days, about 3 months, from which a PR is Cold.
+    coldFromWorkingDays: 60
+    # How long after a Warm PR was read before a sweep re-reads it.
+    warmReadIntervalMs: 900000
+    # How long after a Cold PR was read before a sweep re-reads it.
+    coldReadIntervalMs: 3600000
 
 githubApp:
   appId:

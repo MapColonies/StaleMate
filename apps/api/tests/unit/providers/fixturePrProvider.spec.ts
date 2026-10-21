@@ -52,15 +52,15 @@ describe('FixturePrProvider', function () {
     expect(prs.map((pr) => pr.id)).toEqual([ids[0], ids[2]]);
   });
 
-  it('should date what it reads as of its last discovery, so a sweep reads one moment', async function () {
+  it('should date its PRs as of its first discovery, so they keep their dates and age like real ones', async function () {
     let clock = now;
     const provider = new FixturePrProvider('infra', () => clock);
-    const discovered = await provider.discover();
-    clock = new Date(now.getTime() + 60_000);
+    await provider.discover();
+    clock = new Date(now.getTime() + 60 * 60_000);
 
-    const prs = await provider.read(discovered.prs.map((pr) => pr.id));
+    const later = await aSweep(provider);
 
-    expect(prs).toEqual(sweep.prs);
+    expect(later).toEqual(sweep);
   });
 
   it('should read a roster of Team Members, service accounts among them, and Team Repos', function () {

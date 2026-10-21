@@ -1,8 +1,10 @@
 # Every sync is a full GraphQL sweep, with no incremental sync
 
+_The full sweep is superseded by ADR 0004 (tiered reads by Idle Time). The GraphQL-only reading and the query design below still hold._
+
 Each cycle (~2 min) the backend re-reads every Tracked PR from scratch, using GraphQL only. A sweep has two steps. Discovery runs one roster query, then searches that return each PR's id and `updatedAt` only. The read then fetches the discovered PRs in `nodes(ids:)` detail batches of 50. A PR that closed simply stops appearing, so there is nothing to reconcile and no state to keep between sweeps. That fits the no-database design in ADR 0001.
 
-The provider offers discovery and the read as separate operations, so StaleMate, not the provider, chooses which discovered PRs to read. For now it reads every one.
+The provider offers discovery and the read as separate operations, so StaleMate, not the provider, chooses which discovered PRs to read.
 
 GraphQL charges a connection nested in a list once per item of that list, so reading every PR's review-thread comments and review `onBehalfOf` in the detail batches would cost ~300 points per sweep. The detail batches leave them out. Two follow-up queries read them only for the PRs that need them: threads for PRs that have threads, and `onBehalfOf` for PRs that ask a team for review and have reviews. GitHub charges for the items a query asks for, not for those it gets, so each follow-up reads every PR under its own alias and asks for only as many threads or reviews as the detail batch counted, plus a few for any that turn up in between. Asking every PR for 100 threads cost ~9× as much.
 

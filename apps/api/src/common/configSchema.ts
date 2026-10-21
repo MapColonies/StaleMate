@@ -103,7 +103,7 @@ const stalemateSchema = {
     sync: {
       type: 'object',
       default: {},
-      required: ['intervalMs', 'refreshCooldownMs'],
+      required: ['intervalMs', 'refreshCooldownMs', 'tiers'],
       additionalProperties: false,
       properties: {
         intervalMs: {
@@ -119,6 +119,43 @@ const stalemateSchema = {
           minimum: 0,
           description: 'How long after a sweep starts before "Refresh now" can start another',
           'x-env-value': 'SYNC_REFRESH_COOLDOWN_MS',
+        },
+        tiers: {
+          type: 'object',
+          default: {},
+          required: ['warmFromWorkingDays', 'coldFromWorkingDays', 'warmReadIntervalMs', 'coldReadIntervalMs'],
+          additionalProperties: false,
+          description: 'How often a sweep re-reads a Tracked PR it has, by its Idle Time. Hot PRs are re-read every sweep',
+          properties: {
+            warmFromWorkingDays: {
+              type: 'number',
+              default: 10,
+              minimum: 0,
+              description: 'The Idle Time in Working Days from which a PR is Warm rather than Hot',
+              'x-env-value': 'SYNC_TIERS_WARM_FROM_WORKING_DAYS',
+            },
+            coldFromWorkingDays: {
+              type: 'number',
+              default: 60,
+              minimum: 0,
+              description: 'The Idle Time in Working Days, about 3 months, from which a PR is Cold rather than Warm',
+              'x-env-value': 'SYNC_TIERS_COLD_FROM_WORKING_DAYS',
+            },
+            warmReadIntervalMs: {
+              type: 'integer',
+              default: 900000,
+              minimum: 0,
+              description: 'How long after a Warm PR was read before a sweep re-reads it',
+              'x-env-value': 'SYNC_TIERS_WARM_READ_INTERVAL_MS',
+            },
+            coldReadIntervalMs: {
+              type: 'integer',
+              default: 3600000,
+              minimum: 0,
+              description: 'How long after a Cold PR was read before a sweep re-reads it',
+              'x-env-value': 'SYNC_TIERS_COLD_READ_INTERVAL_MS',
+            },
+          },
         },
       },
     },

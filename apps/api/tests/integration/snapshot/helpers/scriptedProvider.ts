@@ -21,6 +21,7 @@ export class ScriptedProvider implements PrProvider {
   /** PRs a test opened, or put in place of a fixture's PR of the same id. */
   private readonly added = new Map<string, { facts: PrFacts; updatedAt: Date }>();
   private readonly removed = new Set<string>();
+  private readonly closedAtRead = new Set<string>();
   private readonly touchedAt = new Map<string, Date>();
   private gate: Promise<void> | undefined;
 
@@ -42,7 +43,9 @@ export class ScriptedProvider implements PrProvider {
       throw this.readFailure;
     }
     const fixture = new Map((await this.fixture.read(ids)).map((facts) => [facts.id, facts]));
-    return ids.filter((id) => !this.removed.has(id)).flatMap((id) => this.added.get(id)?.facts ?? fixture.get(id) ?? []);
+    return ids
+      .filter((id) => !this.removed.has(id) && !this.closedAtRead.has(id))
+      .flatMap((id) => this.added.get(id)?.facts ?? fixture.get(id) ?? []);
   }
 
   /** Opens a PR, last changed at updatedAt, or replaces the open PR of the same id. */
@@ -55,6 +58,11 @@ export class ScriptedProvider implements PrProvider {
   /** Closes a PR, so it is neither discovered nor read. */
   public remove(id: string): void {
     this.removed.add(id);
+  }
+
+  /** Closes a PR as if mid-sweep: discovery still finds it, but it is gone by the time it is read. */
+  public closeBeforeRead(id: string): void {
+    this.closedAtRead.add(id);
   }
 
   /** Says a PR last changed at updatedAt, as when someone acts on it. */

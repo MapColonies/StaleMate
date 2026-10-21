@@ -1,13 +1,16 @@
+import { isDeepStrictEqual } from 'node:util';
 import { inject, injectable } from 'tsyringe';
 import type { Logger } from '@map-colonies/js-logger';
 import type { components } from 'stalemate-openapi';
 import type { ConfigType } from '@common/config';
 import { SERVICES } from '@common/constants';
 import { DERIVATION_CONFIG } from '@common/derivationConfig';
+import { TIER_CONFIG, type TierConfig } from '@common/tierConfig';
 import { type DerivationConfig, deriveClockFreePr, deriveTeam } from '@domain/deriveTrackedPr';
 import { PR_PROVIDER, type PrProvider, SweepError, type SweepFailure } from '../providers/prProvider';
 import { type PrRecord, SNAPSHOT_STORE, type SnapshotStore } from '../cache/snapshotStore';
 import { SYNC_METRICS, type SyncMetrics } from './syncMetrics';
+import { planReads, type ReadReason } from './readPlan';
 
 const MS_PER_SECOND = 1000;
 
@@ -23,10 +26,18 @@ function toSafeMessage(error: unknown): string {
   return error instanceof SweepError ? SAFE_MESSAGES[error.failure] : UNRECOGNISED_FAILURE_MESSAGE;
 }
 
+/** How many PRs the sweep chose to read for each reason. */
+function countReasons(plan: ReadonlyMap<string, ReadReason>): Record<ReadReason, number> {
+  const counts: Record<ReadReason, number> = { new: 0, changed: 0, hot: 0, warm: 0, cold: 0 };
+  plan.forEach((reason) => counts[reason]++);
+  return counts;
+}
+
 export type SyncState = components['schemas']['syncState'];
 
 /**
  * Sweeps the code host into the SnapshotStore, in the API process, deriving each PR it reads but for its clocks.
+ * A sweep reads only the PRs whose details may have changed, choosing by each PR's Idle Time (ADR 0004).
  * Each sweep schedules the next one sync.intervalMs after it ends, so sweeps never overlap.
  */
 @injectable()
@@ -43,6 +54,7 @@ export class SyncLoop {
     @inject(SNAPSHOT_STORE) private readonly store: SnapshotStore,
     @inject(SERVICES.CONFIG) private readonly config: ConfigType,
     @inject(DERIVATION_CONFIG) private readonly derivationConfig: DerivationConfig,
+    @inject(TIER_CONFIG) private readonly tierConfig: TierConfig,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SYNC_METRICS) private readonly metrics: SyncMetrics
   ) {}
@@ -87,16 +99,26 @@ export class SyncLoop {
 
     try {
       const { roster, prs: discovered } = await this.provider.discover();
-      const readById = new Map((await this.provider.read(discovered.map((pr) => pr.id))).map((facts) => [facts.id, facts]));
+      const stored = await this.store.getRecords();
+      const plan = planReads(discovered, stored, { ...this.tierConfig, extraNonWorkingDays: this.derivationConfig.extraNonWorkingDays }, startedAt);
+      const readById = new Map((await this.provider.read([...plan.keys()])).map((facts) => [facts.id, facts]));
 
-      // Every discovered PR is read, so each is derived with this sweep's Roster.
       // The sweep read the code host from when it started, so that is how fresh what it read is.
-      const records = discovered.flatMap(({ id, updatedAt }): PrRecord[] => {
+      const readRecords = discovered.flatMap(({ id, updatedAt }): PrRecord[] => {
         const facts = readById.get(id);
         return facts ? [{ facts, readAt: startedAt, updatedAt, derived: deriveClockFreePr(facts, roster, this.derivationConfig) }] : [];
       });
       // A PR is gone once discovery no longer finds it, or it was gone by the time it was read.
-      const gone = (await this.store.getRecords()).map(({ facts }) => facts.id).filter((id) => !readById.has(id));
+      const discoveredIds = new Set(discovered.map(({ id }) => id));
+      const gone = stored.map(({ facts }) => facts.id).filter((id) => !discoveredIds.has(id) || (plan.has(id) && !readById.has(id)));
+      // A PR not read this sweep still has Waiting On and Inclusion Reasons that depend on the Roster, so they are re-derived when it changes.
+      const previousRoster = (await this.store.getSnapshotWide())?.roster;
+      const rederived = isDeepStrictEqual(previousRoster, roster)
+        ? []
+        : stored
+            .filter(({ facts }) => discoveredIds.has(facts.id) && !plan.has(facts.id))
+            .map((record) => ({ ...record, derived: deriveClockFreePr(record.facts, roster, this.derivationConfig) }));
+      const records = [...readRecords, ...rederived];
 
       // The in-memory store applies these writes with no request served in between.
       // A networked store would have to apply them as one transaction, or a request could see half a sweep.
@@ -107,7 +129,13 @@ export class SyncLoop {
       this.lastError = undefined;
       endTimer({ outcome: 'success' });
       this.metrics.lastSuccessfulSweep.set(startedAt.getTime() / MS_PER_SECOND);
-      this.logger.info({ msg: 'sweep succeeded', prs: records.length, dropped: gone.length });
+      this.logger.info({
+        msg: 'sweep succeeded',
+        discovered: discovered.length,
+        read: countReasons(plan),
+        rederived: rederived.length,
+        dropped: gone.length,
+      });
     } catch (error) {
       this.lastError = toSafeMessage(error);
       endTimer({ outcome: 'failure' });

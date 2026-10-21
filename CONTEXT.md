@@ -37,7 +37,7 @@ A PR StaleMate shows: any PR in a Team Repo, or any PR in the org that a Team Me
 _Avoid_: Watched PR, relevant PR
 
 **Snapshot**:
-Every Tracked PR as StaleMate last read it from the code host, stamped with when it was read. A Viewer always sees one Snapshot; there is no history.
+Every Tracked PR as StaleMate last read it from the code host, stamped with when the last successful sweep started. A Viewer always sees one Snapshot; there is no history. Each sweep finds every open Tracked PR, but re-reads long-idle PRs less often, by their Tier, so their details can be behind by up to their Tier's interval.
 _Avoid_: Cache, sync result, data
 
 **Out-of-date Snapshot**:
@@ -89,6 +89,10 @@ _Avoid_: Lifetime, lead time, Waiting Time
 **Idle Time**:
 How long since a person last acted on a PR — opened it, pushed, reviewed, commented, asked for a review or marked it ready — counted in Working Days. Bot activity does not count.
 _Avoid_: Waiting Time, staleness, inactivity
+
+**Tier**:
+How often StaleMate re-reads a Tracked PR's details, by its Idle Time: **Hot** (recently acted on) every sweep, **Warm** less often, **Cold** (idle for months) least often. The boundaries and intervals are set by the Team. A PR that changed on the code host is re-read in the next sweep whatever its Tier.
+_Avoid_: Priority, bucket, freshness
 
 **Working Day**:
 A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off the Team declares (e.g. election day). Chol hamoed is a Working Day; Yom HaZikaron is not.
