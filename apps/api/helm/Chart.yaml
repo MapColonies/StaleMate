@@ -2,7 +2,7 @@ apiVersion: v2
 name: stalemate-api
 description: A Helm chart for the StaleMate API
 type: application
-version: 1.1.0 # x-release-please-version
+version: 1.2.0 # x-release-please-version
 dependencies:
   - name: mclabels
     version: 1.1.0
