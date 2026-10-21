@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { Snapshot } from '@/snapshot/types';
 import { TableView } from '@/views/table/table-view';
 import { aPr, aSnapshot, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
@@ -35,12 +35,89 @@ describe('the Table', () => {
     ],
   });
 
-  it('sorts by Age, oldest first, by default', () => {
+  it('sorts by Age, newest first, by default', () => {
     renderTable(snapshot);
 
-    expect(rowTitles()).toEqual(['old', 'middling in b', 'middling in a', 'young, idle long']);
-    expect(header('Age')).toHaveAttribute('aria-sort', 'descending');
+    expect(rowTitles()).toEqual(['young, idle long', 'middling in a', 'middling in b', 'old']);
+    expect(header('Age')).toHaveAttribute('aria-sort', 'ascending');
     expect(window.location.search).toBe('');
+    expect(screen.queryByRole('button', { name: 'Reset sort' })).not.toBeInTheDocument();
+  });
+
+  it('remembers the sort, sort levels included, in this browser', async () => {
+    const user = userEvent.setup();
+    const first = renderTable(snapshot);
+
+    await user.click(sortButton('Repo'));
+    await user.keyboard('{Shift>}');
+    await user.click(sortButton('Idle'));
+    await user.keyboard('{/Shift}');
+    first.unmount();
+    window.history.replaceState(null, '', '/');
+
+    renderTable(snapshot);
+    expect(rowTitles()).toEqual(['middling in a', 'middling in b', 'young, idle long', 'old']);
+    expect(window.localStorage.getItem('stalemate.table.sort')).toBe('repo.asc,idle.desc');
+  });
+
+  it('prefers the URL’s sort over the saved one, leaving the saved one alone', () => {
+    window.localStorage.setItem('stalemate.table.sort', 'idle.desc');
+    window.history.replaceState(null, '', '/?sort=repo.desc,age.asc');
+
+    renderTable(snapshot);
+
+    expect(rowTitles()).toEqual(['old', 'young, idle long', 'middling in b', 'middling in a']);
+    expect(window.localStorage.getItem('stalemate.table.sort')).toBe('idle.desc');
+  });
+
+  it('falls back to the default when the saved sort is unusable', () => {
+    window.localStorage.setItem('stalemate.table.sort', 'sideways.up');
+
+    renderTable(snapshot);
+
+    expect(rowTitles()).toEqual(['young, idle long', 'middling in a', 'middling in b', 'old']);
+  });
+
+  it('resets the sort to the default and forgets the saved one', async () => {
+    window.localStorage.setItem('stalemate.table.sort', 'idle.desc');
+    renderTable(snapshot);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset sort' }));
+
+    expect(rowTitles()).toEqual(['young, idle long', 'middling in a', 'middling in b', 'old']);
+    expect(window.localStorage.getItem('stalemate.table.sort')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset sort' })).not.toBeInTheDocument();
+  });
+
+  it('resets a sort from the URL, keeping the default in the URL so the link opens newest first', async () => {
+    window.history.replaceState(null, '', '/?sort=idle.desc');
+    renderTable(snapshot);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset sort' }));
+
+    expect(rowTitles()).toEqual(['young, idle long', 'middling in a', 'middling in b', 'old']);
+    expect(new URLSearchParams(window.location.search).get('sort')).toBe('age.asc');
+  });
+
+  it('still sorts and resets when the browser blocks storage', async () => {
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    onTestFinished(() => vi.restoreAllMocks());
+    renderTable(snapshot);
+
+    await userEvent.click(sortButton('Idle'));
+    expect(rowTitles()).toEqual(['middling in b', 'old', 'middling in a', 'young, idle long']);
+    expect(new URLSearchParams(window.location.search).get('sort')).toBe('idle.desc');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset sort' }));
+    expect(rowTitles()).toEqual(['young, idle long', 'middling in a', 'middling in b', 'old']);
   });
 
   it('sorts by Idle Time, longest first, and keeps the sort in the URL', async () => {

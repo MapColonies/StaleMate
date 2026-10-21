@@ -23,7 +23,7 @@ import type { CheckStatus, Snapshot, TrackedPr } from '@/snapshot/types';
 import { COLUMN_NAMES, type ColumnId, features } from './table-model';
 import { TAB_NAMES, TABS, type Tab, prsInTab } from './tabs';
 import { useHiddenColumns } from './use-hidden-columns';
-import { useTableUrlState } from './table-url';
+import { isDefaultSorting, useTableUrlState } from './table-url';
 
 const helper = createColumnHelper<typeof features, TrackedPr>();
 
@@ -202,7 +202,7 @@ const ARIA_SORT = { asc: 'ascending', desc: 'descending' } as const;
  */
 export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
   const { filters, setFilters, resetFilters } = useFilters();
-  const { tab, setTab, sorting, setSorting } = useTableUrlState();
+  const { tab, setTab, sorting, setSorting, resetSorting } = useTableUrlState();
   const [columnVisibility, setColumnVisibility] = useHiddenColumns();
 
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
@@ -297,6 +297,14 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         {rows.length === 0 && <p className="p-16 text-center text-muted-foreground">No Tracked PRs match these filters.</p>}
         <p className="px-5 py-3 text-xs text-muted-foreground">
           {rows.length} of {snapshot.prs.length} Tracked PRs · Shift+click a column header to add a sort level
+          {!isDefaultSorting(sorting) && (
+            <>
+              {' · '}
+              <button type="button" onClick={resetSorting} className="underline-offset-2 hover:text-foreground hover:underline">
+                Reset sort
+              </button>
+            </>
+          )}
         </p>
       </div>
     </section>
