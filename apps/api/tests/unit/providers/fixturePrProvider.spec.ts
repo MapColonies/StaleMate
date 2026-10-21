@@ -91,9 +91,16 @@ describe('FixturePrProvider', function () {
   });
 
   it('should only emit Tracked PRs, each of which derives a contract-valid Tracked PR', function () {
-    for (const trackedPr of trackedPrs) {
-      expect(trackedPr).toSatisfySchemaInApiSpec('trackedPr');
-    }
+    // One call for all of them: the matcher rebuilds its validator on every call, which costs ~10ms per Tracked PR.
+    const snapshot = {
+      readAt: now.toISOString(),
+      sync: { state: 'idle' },
+      config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 0 },
+      team: [],
+      prs: trackedPrs,
+    };
+
+    expect(snapshot).toSatisfySchemaInApiSpec('snapshot');
   });
 
   it.each<[string, (pr: TrackedPr) => boolean]>([
