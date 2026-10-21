@@ -202,6 +202,120 @@ describe('snapshot', function () {
     });
   });
 
+  describe('GET /snapshot caching', function () {
+    /** Asks for the Snapshot as a browser holding `etag` would. */
+    async function getSnapshotIfNoneMatch(etag?: string): Promise<supertest.Response> {
+      const request = supertest(app).get('/snapshot');
+      return etag === undefined ? request : request.set('If-None-Match', etag);
+    }
+
+    async function getEtag(): Promise<string> {
+      const response = await getSnapshotIfNoneMatch();
+
+      expect(response.status).toBe(StatusCodes.OK);
+
+      return response.headers.etag as string;
+    }
+
+    it('should answer twice in the same minute with the same body and a strong ETag', async function () {
+      await syncLoop.start();
+
+      const first = await getSnapshotIfNoneMatch();
+      vi.setSystemTime(mondayMorning.getTime() + MINUTE - 1);
+      const second = await getSnapshotIfNoneMatch();
+
+      expect(first.status).toBe(StatusCodes.OK);
+      expect(first.headers.etag).toMatch(/^"[^"]+"$/);
+      expect(second.headers.etag).toBe(first.headers.etag);
+      expect(second.text).toBe(first.text);
+    });
+
+    it('should answer 304 with no body to a request with the current ETag', async function () {
+      await syncLoop.start();
+      const etag = await getEtag();
+
+      const response = await getSnapshotIfNoneMatch(etag);
+
+      expect(response.status).toBe(StatusCodes.NOT_MODIFIED);
+      expect(response.text).toBe('');
+    });
+
+    it('should answer 200 with a new ETag in a new minute', async function () {
+      await syncLoop.start();
+      const etag = await getEtag();
+
+      vi.setSystemTime(mondayMorning.getTime() + MINUTE);
+      const response = await getSnapshotIfNoneMatch(etag);
+
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.headers.etag).not.toBe(etag);
+    });
+
+    it('should answer 200 with a new ETag once a sweep landed', async function () {
+      await syncLoop.start();
+      // Pass the cooldown first, so the only change between the two requests is the sweep.
+      vi.setSystemTime(mondayMorning.getTime() + cooldownMs);
+      const etag = await getEtag();
+
+      const release = provider.hold();
+      await requestSender.refresh();
+      const whileSyncing = await getEtag();
+      release();
+      await untilIdle();
+      // The sweep landing changes the store, and the sync state back to idle.
+      const afterSweep = await getEtag();
+
+      expect(whileSyncing).not.toBe(etag);
+      expect(afterSweep).not.toBe(whileSyncing);
+      expect(afterSweep).not.toBe(etag);
+    });
+
+    it('should answer 200 with a new ETag once a sweep failed', async function () {
+      await syncLoop.start();
+      vi.setSystemTime(mondayMorning.getTime() + cooldownMs);
+      const etag = await getEtag();
+
+      provider.failure = new SweepError('unreachable');
+      await requestSender.refresh();
+      await untilIdle();
+      const response = await getSnapshotIfNoneMatch(etag);
+
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.headers.etag).not.toBe(etag);
+      expect((response.body as Snapshot).sync.lastError).toBe('GitHub API unreachable');
+    });
+
+    it('should answer 503 to every request while warming, never cached', async function () {
+      const first = await getSnapshotIfNoneMatch();
+      const second = await getSnapshotIfNoneMatch(first.headers.etag);
+
+      [first, second].forEach((response) => {
+        expect(response.status).toBe(StatusCodes.SERVICE_UNAVAILABLE);
+        expect(response.headers['cache-control']).toBe('no-store');
+        expect(response.body).toEqual({ status: 'warming', sync: { state: 'idle' } });
+      });
+    });
+
+    it('should record how long building the Snapshot took, only when it was not cached', async function () {
+      await syncLoop.start();
+      const server = createHttpServer(app, container);
+      const buildCount = async (): Promise<string | undefined> =>
+        /^stalemate_snapshot_build_duration_seconds_count(?:\{.*\})? (\d+)$/m.exec((await supertest(server).get('/metrics')).text)?.[1];
+
+      const etag = await getEtag();
+      await getEtag();
+      const notModified = await getSnapshotIfNoneMatch(etag);
+
+      expect(notModified.status).toBe(StatusCodes.NOT_MODIFIED);
+      await expect(buildCount()).resolves.toBe('1');
+
+      vi.setSystemTime(mondayMorning.getTime() + MINUTE);
+      await getEtag();
+
+      await expect(buildCount()).resolves.toBe('2');
+    });
+  });
+
   describe('POST /refresh', function () {
     it('should sweep at once when idle and past the cooldown', async function () {
       await syncLoop.start();
