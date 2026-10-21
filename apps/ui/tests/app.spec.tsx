@@ -42,7 +42,7 @@ describe('before the first sync', () => {
     renderApp();
 
     await screen.findByText(/waiting for the first sync/i);
-    expect(requests()).toEqual(['GET /api/snapshot']);
+    expect(requests().filter((request) => request !== 'GET /version.json')).toEqual(['GET /api/snapshot']);
   });
 
   it('says why the first sync is failing', async () => {
@@ -191,6 +191,19 @@ describe('the Out-of-date Snapshot banner', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Showing the Snapshot from 14 min ago — the last sync with GitHub failed: GitHub API unreachable'
     );
+  });
+});
+
+describe('the new version banner', () => {
+  it('shows under the header once another version is deployed, even before the first sync', async () => {
+    onRequest('GET', '/api/snapshot', { status: 503, body: { status: 'warming', sync: { state: 'syncing' } } });
+    onRequest('GET', '/version.json', { status: 200, body: { version: '9.9.9' } });
+
+    renderApp();
+
+    const banner = await screen.findByRole('status');
+    expect(banner).toHaveTextContent('A new version of StaleMate is available — Reload');
+    expect(banner.previousElementSibling?.tagName).toBe('HEADER');
   });
 });
 

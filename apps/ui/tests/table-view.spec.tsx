@@ -109,7 +109,9 @@ describe('the Table', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked');
     });
-    onTestFinished(() => vi.restoreAllMocks());
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
     renderTable(snapshot);
 
     await userEvent.click(sortButton('Idle'));

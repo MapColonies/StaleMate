@@ -4,6 +4,7 @@ import { useNow } from '@/lib/use-now';
 import { viewerOptions } from '@/snapshot/selectors';
 import { isWarming, useSnapshot } from '@/snapshot/use-snapshot';
 import { HeaderCounts } from '@/shell/header-counts';
+import { NewVersionBanner } from '@/shell/new-version-banner';
 import { OutOfDateBanner } from '@/shell/out-of-date-banner';
 import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
 import { ThemeToggle } from '@/shell/theme-toggle';
@@ -69,6 +70,7 @@ export default function App() {
           {snapshot && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
         </div>
       </header>
+      <NewVersionBanner />
       {snapshot && <OutOfDateBanner snapshot={snapshot} now={now} />}
       <main className="min-h-0 flex-1 overflow-auto bg-muted/40">
         {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
