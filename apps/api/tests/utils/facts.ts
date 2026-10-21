@@ -22,7 +22,7 @@ export function aPrFacts(overrides: Partial<PrFacts> = {}): PrFacts {
       oid: 'c0ffee',
       committedDate: new Date('2026-10-12T07:59:00Z'),
       firstCheckSuiteAt: new Date('2026-10-12T07:59:07Z'),
-      checkRollup: 'success',
+      checks: [{ name: 'build', state: 'passed' }],
       checkActivity: [],
     },
     reviews: [],
@@ -67,6 +67,8 @@ export function aDerivationConfig(overrides: Partial<DerivationConfig> = {}): De
     botLogins: ['mapcolonies-devops', 'mapcolonies-org'],
     urgencyThresholds: [2, 4, 8],
     extraNonWorkingDays: ['2026-10-27'],
+    excludedChecks: ['jira/issue-validation', 'jira-validation'],
+    jiraProjectKeys: ['MAPCO'],
     ...overrides,
   };
 }

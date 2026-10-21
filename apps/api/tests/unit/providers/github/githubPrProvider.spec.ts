@@ -92,6 +92,22 @@ describe('GithubPrProvider', function () {
     const bob = { __typename: 'User', id: 'U_bob', login: 'bob' };
     const copilot = { __typename: 'Bot', id: 'BOT_kgDOCnlnWA', login: 'copilot-pull-request-reviewer' };
 
+    /** A head commit with these check runs and status contexts. */
+    function withContexts(nodes: Record<string, unknown>[], hasNextPage = false): Record<string, unknown> {
+      return {
+        nodes: [
+          {
+            commit: {
+              oid: 'c0ffee',
+              committedDate: '2026-10-12T07:59:00Z',
+              checkSuites: { nodes: [{ createdAt: '2026-10-12T07:59:07Z' }] },
+              statusCheckRollup: { contexts: { pageInfo: { hasNextPage }, nodes } },
+            },
+          },
+        ],
+      };
+    }
+
     async function sweepOne(node: Record<string, unknown>, extra: Partial<Record<string, (ids: string[]) => unknown>> = {}): Promise<PrFacts> {
       github.on('SearchPullRequests', () => aSearchResponse([String(node.id)])).on('PullRequestDetails', () => aNodesResponse([node]));
       for (const [operation, respond] of Object.entries(extra)) {
@@ -118,13 +134,12 @@ describe('GithubPrProvider', function () {
                   committedDate: '2026-10-12T07:00:00Z',
                   checkSuites: { nodes: [{ createdAt: '2026-10-12T07:05:00Z' }, { createdAt: '2026-10-12T07:01:00Z' }] },
                   statusCheckRollup: {
-                    state: 'FAILURE',
                     contexts: {
                       pageInfo: { hasNextPage: false },
                       nodes: [
-                        { __typename: 'CheckRun', completedAt: '2026-10-12T07:10:00Z' },
-                        { __typename: 'CheckRun', completedAt: null },
-                        { __typename: 'StatusContext', createdAt: '2026-10-12T07:02:00Z' },
+                        { __typename: 'CheckRun', name: 'build', status: 'COMPLETED', conclusion: 'FAILURE', completedAt: '2026-10-12T07:10:00Z' },
+                        { __typename: 'CheckRun', name: 'test', status: 'IN_PROGRESS', conclusion: null, completedAt: null },
+                        { __typename: 'StatusContext', context: 'jira/issue-validation', state: 'ERROR', createdAt: '2026-10-12T07:02:00Z' },
                       ],
                     },
                   },
@@ -184,7 +199,11 @@ describe('GithubPrProvider', function () {
           oid: 'beef',
           committedDate: new Date('2026-10-12T07:00:00Z'),
           firstCheckSuiteAt: new Date('2026-10-12T07:01:00Z'),
-          checkRollup: 'failure',
+          checks: [
+            { name: 'build', state: 'failed' },
+            { name: 'test', state: 'pending' },
+            { name: 'jira/issue-validation', state: 'failed' },
+          ],
           checkActivity: [new Date('2026-10-12T07:10:00Z'), new Date('2026-10-12T07:02:00Z')],
         },
         reviews: [
@@ -228,7 +247,44 @@ describe('GithubPrProvider', function () {
       expect(facts.assignees).toEqual([{ id: 'BOT_kgDOC9w8XQ', login: 'Copilot', isBot: true }]);
     });
 
-    it('should report a PR without checks as having no rollup and no check suite', async function () {
+    it.each<[string, string | null, 'passed' | 'failed' | 'pending']>([
+      ['COMPLETED', 'SUCCESS', 'passed'],
+      ['COMPLETED', 'NEUTRAL', 'passed'],
+      ['COMPLETED', 'SKIPPED', 'passed'],
+      ['COMPLETED', 'STALE', 'failed'],
+      ['COMPLETED', 'FAILURE', 'failed'],
+      ['COMPLETED', 'CANCELLED', 'failed'],
+      ['COMPLETED', 'TIMED_OUT', 'failed'],
+      ['COMPLETED', 'ACTION_REQUIRED', 'failed'],
+      ['COMPLETED', 'STARTUP_FAILURE', 'failed'],
+      ['QUEUED', null, 'pending'],
+      ['IN_PROGRESS', null, 'pending'],
+      ['WAITING', null, 'pending'],
+    ])('should report a %s check run concluded %s as %s', async function (status, conclusion, state) {
+      const facts = await sweepOne(
+        aPrNode({ commits: withContexts([{ __typename: 'CheckRun', name: 'build', status, conclusion, completedAt: null }]) })
+      );
+
+      expect(facts.headCommit.checks).toEqual([{ name: 'build', state }]);
+    });
+
+    it.each<[string, 'passed' | 'failed' | 'pending']>([
+      ['SUCCESS', 'passed'],
+      ['FAILURE', 'failed'],
+      ['ERROR', 'failed'],
+      ['PENDING', 'pending'],
+      ['EXPECTED', 'pending'],
+    ])('should report a %s status context as %s', async function (state, expected) {
+      const facts = await sweepOne(
+        aPrNode({
+          commits: withContexts([{ __typename: 'StatusContext', context: 'jira/issue-validation', state, createdAt: '2026-10-12T07:02:00Z' }]),
+        })
+      );
+
+      expect(facts.headCommit.checks).toEqual([{ name: 'jira/issue-validation', state: expected }]);
+    });
+
+    it('should report a PR without checks as having no checks and no check suite', async function () {
       const facts = await sweepOne(
         aPrNode({
           commits: {
@@ -241,7 +297,7 @@ describe('GithubPrProvider', function () {
         oid: 'beef',
         committedDate: new Date('2026-10-12T07:00:00Z'),
         firstCheckSuiteAt: null,
-        checkRollup: null,
+        checks: [],
         checkActivity: [],
       });
     });
@@ -409,6 +465,7 @@ describe('GithubPrProvider', function () {
     it('should warn when it reads only part of what a PR has', async function () {
       await sweepOne(
         aPrNode({
+          commits: withContexts([], true),
           reviews: { pageInfo: { hasPreviousPage: true }, nodes: [] },
           timelineItems: { pageInfo: { hasNextPage: true }, nodes: [] },
           reviewThreads: { totalCount: 1 },
@@ -430,7 +487,7 @@ describe('GithubPrProvider', function () {
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           url: 'https://github.com/MapColonies/opa-la/pull/1',
-          truncated: ['reviews', 'timelineItems', 'reviewThreads', 'comments'],
+          truncated: ['checks', 'reviews', 'timelineItems', 'reviewThreads', 'comments'],
         })
       );
     });

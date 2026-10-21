@@ -6,6 +6,7 @@ import {
   ConflictBadge,
   IdleLine,
   InclusionReasonBadge,
+  JiraTickets,
   NoReviewerFlag,
   PersonChip,
   ReviewStatusBadge,
@@ -83,7 +84,19 @@ function StatsStrip({ stats, thresholds, viewer }: { stats: BoardStats; threshol
   );
 }
 
-function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardColumn; viewer: string | null; now: number }) {
+function BoardCard({
+  pr,
+  column,
+  viewer,
+  now,
+  jiraBaseUrl,
+}: {
+  pr: TrackedPr;
+  column: BoardColumn;
+  viewer: string | null;
+  now: number;
+  jiraBaseUrl: string | undefined;
+}) {
   const titleId = useId();
   const own = pr.waitingOn.find((party) => partyKey(party) === column.key);
   const role = own?.type === 'person' ? own.role : null;
@@ -93,8 +106,13 @@ function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardCo
       <UrgencyBar pr={pr} />
       <div className="min-w-0 flex-1 space-y-1.5 p-2.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate font-mono text-[11px] text-muted-foreground">
-            {pr.repo}#{pr.number}
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate font-mono text-[11px] text-muted-foreground">
+              {pr.repo}#{pr.number}
+            </span>
+            <span className="shrink-0">
+              <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
+            </span>
           </span>
           <span className="flex shrink-0 items-center gap-1.5">
             <IdleLine pr={pr} />
@@ -129,7 +147,7 @@ function BoardCard({ pr, column, viewer, now }: { pr: TrackedPr; column: BoardCo
   );
 }
 
-function Column({ column, viewer, now }: { column: BoardColumn; viewer: string | null; now: number }) {
+function Column({ column, viewer, now, jiraBaseUrl }: { column: BoardColumn; viewer: string | null; now: number; jiraBaseUrl: string | undefined }) {
   const mine = isViewersColumn(column.owner, viewer);
   const oldest = Math.max(0, ...column.prs.map((pr) => wholeWorkingDays(pr.age)));
   return (
@@ -159,7 +177,7 @@ function Column({ column, viewer, now }: { column: BoardColumn; viewer: string |
       </div>
       <ul className="min-h-0 space-y-2 overflow-y-auto px-2 pb-2">
         {column.prs.map((pr) => (
-          <BoardCard key={pr.id} pr={pr} column={column} viewer={viewer} now={now} />
+          <BoardCard key={pr.id} pr={pr} column={column} viewer={viewer} now={now} jiraBaseUrl={jiraBaseUrl} />
         ))}
         {column.prs.length === 0 && <li className="px-2 py-4 text-center text-sm text-muted-foreground">No PR is waiting on you by name.</li>}
       </ul>
@@ -196,7 +214,7 @@ export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
       ) : (
         <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto p-4">
           {columns.map((column) => (
-            <Column key={column.key} column={column} viewer={viewer} now={now} />
+            <Column key={column.key} column={column} viewer={viewer} now={now} jiraBaseUrl={snapshot.config.jiraBaseUrl} />
           ))}
         </div>
       )}

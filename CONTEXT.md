@@ -44,6 +44,10 @@ _Avoid_: Cache, sync result, data
 A Snapshot whose last attempt to read the code host failed, so the Viewer is warned that what they see may be behind.
 _Avoid_: Stale data, stale snapshot
 
+**Jira Ticket**:
+A Jira issue a PR's title names by its key (e.g. MAPCO-1234), linked to Jira. Only the configured Jira projects' keys count. A PR may name several, or none, which is shown but changes nothing else.
+_Avoid_: Jira link, issue, story
+
 **Inclusion Reason**:
 Why a PR is a Tracked PR (e.g. Team Repo, authored by Team Member, Team Member review requested, Team review requested). A PR can have several; they rank, strongest first: authored by Team Member, Team Member review requested, Team review requested, assigned to Team Member, reviewed by Team Member, Team Repo. The strongest is the one a PR is shown with, and it names the Viewer when the Team Member it means is them.
 _Avoid_: Flag, tag, source
@@ -63,8 +67,12 @@ The Review Status of a PR whose every outstanding request for changes is Answere
 _Avoid_: Changes addressed, ready for review
 
 **Check Status**:
-The combined result of all of a PR's CI checks: Passing, Failing (any check failed, errored, was cancelled or timed out), Pending, or None (no checks at all).
+The combined result of a PR's CI checks, leaving out the Excluded Checks: Passing, Failing (any check failed, errored, was cancelled, timed out or needs action), Pending, or None (no checks left).
 _Avoid_: CI status, build status
+
+**Excluded Check**:
+A check that Check Status leaves out because it says nothing about whether the code works — by default the Jira validation, so a PR whose only failure is a missing Jira Ticket is Passing.
+_Avoid_: Ignored check, skipped check
 
 **Waiting On**:
 The people or teams who owe the next move on a PR — the author, one or more reviewers, or both. Never empty: when no reviewer owes a move, the PR waits on its author. Never a Bot, except a Bot PR's own author, who stands wherever an author would owe a move, because no human owes it in their place.

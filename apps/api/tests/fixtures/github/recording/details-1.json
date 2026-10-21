@@ -58,7 +58,6 @@
                   ]
                 },
                 "statusCheckRollup": {
-                  "state": "SUCCESS",
                   "contexts": {
                     "pageInfo": {
                       "hasNextPage": false
@@ -66,38 +65,64 @@
                     "nodes": [
                       {
                         "__typename": "CheckRun",
+                        "name": "jira-validation",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:54:43Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "jira-validation",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T12:55:57Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run TS Project eslint (24.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:54:57Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run OpenAPI lint Check",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:55:02Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run Tests (24.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:54:57Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run knip to detect unused dependencies",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:55:00Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "lint-rego",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:54:43Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "test-rego",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-08T08:54:42Z"
                       },
                       {
                         "__typename": "StatusContext",
+                        "context": "jira/issue-validation",
+                        "state": "SUCCESS",
                         "createdAt": "2026-10-08T12:55:53Z"
                       }
                     ]
@@ -266,7 +291,6 @@
                   ]
                 },
                 "statusCheckRollup": {
-                  "state": "FAILURE",
                   "contexts": {
                     "pageInfo": {
                       "hasNextPage": false
@@ -274,34 +298,57 @@
                     "nodes": [
                       {
                         "__typename": "CheckRun",
+                        "name": "Run TS Project eslint (24.13.0)",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-06-29T12:54:01Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "jira-validation",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-06-29T12:53:24Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run OpenAPI lint Check (24.13.0)",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-06-29T12:54:00Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run Helm lint Check",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-06-29T12:53:36Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run Tests (24.13.0)",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-06-29T12:54:09Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run End-to-End Tests",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-06-29T12:54:29Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "build_docker_image",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-06-29T12:54:24Z"
                       },
                       {
                         "__typename": "StatusContext",
+                        "context": "jira/issue-validation",
+                        "state": "ERROR",
                         "createdAt": "2026-06-29T12:53:21Z"
                       }
                     ]
@@ -542,7 +589,6 @@
                   ]
                 },
                 "statusCheckRollup": {
-                  "state": "FAILURE",
                   "contexts": {
                     "pageInfo": {
                       "hasNextPage": false
@@ -550,42 +596,70 @@
                     "nodes": [
                       {
                         "__typename": "CheckRun",
+                        "name": "Run TS Project eslint (24.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-10-12T17:24:35Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "check-catalog-usage",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-12T17:24:00Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "jira-validation",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2026-10-12T17:24:00Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run TS Project prettier",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-10-12T17:24:41Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run Tests (24.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-10-12T17:24:39Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Check package distributions",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-10-12T17:24:37Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run knip to detect unused dependencies",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-10-12T17:24:34Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run API Extractor",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
                         "completedAt": "2026-10-12T17:24:57Z"
                       },
                       {
                         "__typename": "StatusContext",
+                        "context": "jira/issue-validation",
+                        "state": "SUCCESS",
                         "createdAt": "2026-10-12T17:23:58Z"
                       },
                       {
                         "__typename": "StatusContext",
+                        "context": "renovate/stability-days",
+                        "state": "SUCCESS",
                         "createdAt": "2026-10-12T17:23:52Z"
                       }
                     ]

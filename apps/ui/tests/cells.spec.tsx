@@ -6,13 +6,24 @@ import {
   ConflictBadge,
   IdleLine,
   InclusionReasonBadge,
+  JiraTickets,
   MovePills,
   NoReviewerFlag,
   ReviewStatusBadge,
   WaitingOnChips,
 } from '@/cells';
 import type { TrackedPr } from '@/snapshot/types';
-import { aPr, clock, member, outsider, waitingOnAuthor, waitingOnReviewer, waitingOnTeam, waitingOnTheTeam } from './fixtures/snapshot';
+import {
+  JIRA_BASE_URL,
+  aPr,
+  clock,
+  member,
+  outsider,
+  waitingOnAuthor,
+  waitingOnReviewer,
+  waitingOnTeam,
+  waitingOnTheTeam,
+} from './fixtures/snapshot';
 
 const alice = member('alice');
 const bob = member('bob');
@@ -48,6 +59,43 @@ describe('ConflictBadge', () => {
 
   it('shows nothing for a PR that does not conflict', () => {
     const { container } = render(<ConflictBadge pr={aPr({ conflicting: false })} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('JiraTickets', () => {
+  it('links the Jira Ticket to Jira, in a new tab', () => {
+    render(<JiraTickets pr={aPr({ jiraTickets: ['MAPCO-1234'] })} jiraBaseUrl={JIRA_BASE_URL} />);
+
+    const link = screen.getByRole('link', { name: 'MAPCO-1234' });
+
+    expect(link).toHaveAttribute('href', 'https://mapcolonies.atlassian.net/browse/MAPCO-1234');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('links the first of several Jira Tickets and folds the rest, naming them on hover', () => {
+    render(<JiraTickets pr={aPr({ jiraTickets: ['MAPCO-1', 'MAPCO-2', 'MAPCO-3'] })} jiraBaseUrl={JIRA_BASE_URL} />);
+
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'MAPCO-1' })).toBeInTheDocument();
+    expect(screen.getByText('+2')).toHaveAttribute('title', 'Also MAPCO-2, MAPCO-3');
+  });
+
+  it('says a PR has no Jira Ticket', () => {
+    render(<JiraTickets pr={aPr({ jiraTickets: [] })} jiraBaseUrl={JIRA_BASE_URL} />);
+
+    expect(screen.getByText('No ticket')).toHaveAttribute('title', 'No Jira ticket');
+  });
+
+  it('says it with a dash where it is short of room', () => {
+    render(<JiraTickets pr={aPr({ jiraTickets: [] })} jiraBaseUrl={JIRA_BASE_URL} compact />);
+
+    expect(screen.getByText('—')).toHaveAttribute('title', 'No Jira ticket');
+  });
+
+  it('shows nothing without a Jira site', () => {
+    const { container } = render(<JiraTickets pr={aPr({ jiraTickets: [] })} jiraBaseUrl={undefined} />);
 
     expect(container).toBeEmptyDOMElement();
   });

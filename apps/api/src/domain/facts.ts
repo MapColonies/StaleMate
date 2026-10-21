@@ -56,8 +56,12 @@ export type TimelineEventFact =
   /** A top-level PR comment. */
   | { type: 'comment'; at: Date; actor: Actor | null };
 
-/** The combined state of every check on the head commit. */
-export type CheckRollupState = 'success' | 'failure' | 'error' | 'pending' | 'expected';
+/** A check on the head commit. Neutral and skipped checks count as passed; any other finished check that did not succeed, as failed. */
+export interface CheckFact {
+  /** The check run's name or the status context's context, e.g. `build` or `jira/issue-validation`. */
+  name: string;
+  state: 'passed' | 'failed' | 'pending';
+}
 
 /** Whether the PR merges cleanly into its base. `unknown` counts as no conflict. */
 export type Mergeability = 'mergeable' | 'conflicting' | 'unknown';
@@ -67,8 +71,8 @@ export interface HeadCommitFact {
   committedDate: Date;
   /** When the earliest check suite on the commit was created, which is when it was pushed. */
   firstCheckSuiteAt: Date | null;
-  /** Null when the PR has no checks. */
-  checkRollup: CheckRollupState | null;
+  /** Every check run and status context on the commit. */
+  checks: CheckFact[];
   /** When each check run completed and each status context was created. */
   checkActivity: Date[];
 }

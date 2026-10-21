@@ -38,8 +38,36 @@ describe('deriveTrackedPr', function () {
     expect(trackedPr.conflicting).toBe(conflicting);
   });
 
+  it.each<[string, string, string[]]>([
+    ['a key at the end', 'feat: add retry policy MAPCO-1234', ['MAPCO-1234']],
+    ['a bracketed key at the start', '[MAPCO-7] fix: cache headers', ['MAPCO-7']],
+    ['several keys, in title order', 'MAPCO-20 MAPCO-3: split the job', ['MAPCO-20', 'MAPCO-3']],
+    ['the same key twice', 'MAPCO-5: fix MAPCO-5 again', ['MAPCO-5']],
+    ['no key', 'fix: cache headers', []],
+    ['a key of another project', 'fix: cache headers OTHER-12', []],
+    ['an issue-key-like token', 'fix: read UTF-8 and SHA-256', []],
+    ['a key inside a longer word', 'fix: XMAPCO-12 and MAPCO-12a', []],
+    ['a lowercase key', 'fix: cache headers mapco-12', []],
+  ])('should read the Jira Tickets of a title with %s', function (_, title, jiraTickets) {
+    const trackedPr = deriveTrackedPr(aPrFacts({ title }), aRoster(), aDerivationConfig({ jiraProjectKeys: ['MAPCO', 'SHIELD'] }), now);
+
+    expect(trackedPr.jiraTickets).toStrictEqual(jiraTickets);
+  });
+
+  it('should read the Jira Tickets of every configured project', function () {
+    const trackedPr = deriveTrackedPr(
+      aPrFacts({ title: 'SHIELD-1: MAPCO-2' }),
+      aRoster(),
+      aDerivationConfig({ jiraProjectKeys: ['MAPCO', 'SHIELD'] }),
+      now
+    );
+
+    expect(trackedPr.jiraTickets).toStrictEqual(['SHIELD-1', 'MAPCO-2']);
+  });
+
   it.each([
     ['an open PR', aPrFacts()],
+    ['a PR with Jira Tickets', aPrFacts({ title: 'feat: add retry policy MAPCO-1234' })],
     ['a draft', aPrFacts({ isDraft: true })],
   ])('should return a contract-valid Tracked PR for %s', function (_, facts) {
     const trackedPr = deriveTrackedPr(facts, aRoster(), aDerivationConfig(), now);

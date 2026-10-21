@@ -156,6 +156,13 @@ describe('applyFilters', () => {
     expect(applyFilters([pr], show({ q: 'vector' }))).toEqual([]);
   });
 
+  it('searches by Jira Ticket, which the title names', () => {
+    const ticketed = aPr({ title: 'Bump Helm chart MAPCO-10930', jiraTickets: ['MAPCO-10930'] });
+    const other = aPr({ title: 'Bump Helm chart MAPCO-1', jiraTickets: ['MAPCO-1'] });
+
+    expect(applyFilters([ticketed, other], show({ q: 'mapco-10930' }))).toEqual([ticketed]);
+  });
+
   it('keeps a PR matching any value of a filter, and only PRs matching every filter', () => {
     const a = aPr({ repo: 'MapColonies/a', author: member('bob') });
     const b = aPr({ repo: 'MapColonies/b', author: member('carol') });

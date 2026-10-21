@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Actor, CheckRollupState, PrFacts, ReviewRequestFact } from '@domain/facts';
+import type { Actor, CheckFact, PrFacts, ReviewRequestFact } from '@domain/facts';
 import type { ReviewStatus } from '@domain/trackedPr';
 import { deriveReviewStatus } from '@domain/reviewStatus';
 import { anActor, aPrFacts, aReview, aReviewThread, aThreadComment } from '@tests/utils/facts';
@@ -15,14 +15,16 @@ const dave = anActor({ id: 'U_dave', login: 'dave' });
 const serviceAccount = anActor({ id: 'U_devops', login: 'mapcolonies-devops' });
 
 const requested = (reviewer: Actor): ReviewRequestFact => ({ type: 'person', reviewer, asCodeOwner: false });
-const withChecks = (checkRollup: CheckRollupState): Partial<PrFacts> => ({ headCommit: { ...aPrFacts().headCommit, checkRollup } });
+const withChecks = (state: CheckFact['state']): Partial<PrFacts> => ({
+  headCommit: { ...aPrFacts().headCommit, checks: [{ name: 'build', state }] },
+});
 
 describe('deriveReviewStatus', function () {
   // The Review Status column of the worked scenarios in "Rules for Review Status, Check Status and Waiting On" (#4).
   // A is bob, B is carol and C is dave.
   it.each<[string, Partial<PrFacts>, ReviewStatus, number]>([
     ['a new PR with A requested', { reviewRequests: [requested(bob)] }, 'awaitingReview', 0],
-    ['A requested and checks failing', { reviewRequests: [requested(bob)], ...withChecks('failure') }, 'awaitingReview', 0],
+    ['A requested and checks failing', { reviewRequests: [requested(bob)], ...withChecks('failed') }, 'awaitingReview', 0],
     [
       'A asking for changes with B still requested',
       { reviews: [aReview({ author: bob, state: 'changesRequested' })], reviewRequests: [requested(carol)] },
@@ -61,7 +63,7 @@ describe('deriveReviewStatus', function () {
       'approved',
       1,
     ],
-    ['an approved PR with checks failing', { reviews: [aReview({ author: bob, state: 'approved' })], ...withChecks('failure') }, 'approved', 1],
+    ['an approved PR with checks failing', { reviews: [aReview({ author: bob, state: 'approved' })], ...withChecks('failed') }, 'approved', 1],
     ['an approved PR conflicting with its base', { reviews: [aReview({ author: bob, state: 'approved' })], mergeable: 'conflicting' }, 'approved', 1],
     ['only @infra requested', { reviewRequests: [{ type: 'team', slug: 'infra', asCodeOwner: false }] }, 'awaitingReview', 0],
     ['only Copilot requested', { reviewRequests: [requested(copilot)] }, 'awaitingReview', 0],

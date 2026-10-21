@@ -6,6 +6,7 @@ import {
   ConflictBadge,
   IdleLine,
   InclusionReasonBadge,
+  JiraTickets,
   MovePills,
   NoReviewerFlag,
   PersonChip,
@@ -35,9 +36,10 @@ interface RowContext {
   viewer: string | null;
   hideViaTeam: boolean;
   now: number;
+  jiraBaseUrl: string | undefined;
 }
 
-function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr; context: RowContext }) {
+function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl } }: { pr: TrackedPr; context: RowContext }) {
   const titleId = useId();
   return (
     <li aria-labelledby={titleId} className="flex items-stretch hover:bg-accent/60">
@@ -54,6 +56,9 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now } }: { pr: TrackedPr
           </a>
           <span className="shrink-0 font-mono text-xs text-muted-foreground">
             {pr.repo}#{pr.number}
+          </span>
+          <span className="shrink-0">
+            <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
           </span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -106,7 +111,7 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const [order, setOrder] = usePrOrder();
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
   const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters, order), [filtered, viewer, filters, order]);
-  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now };
+  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl };
   const active = activeFilterCount(filters);
 
   return (

@@ -39,6 +39,13 @@
   "urgency": {
     "thresholds": [2, 4, 8]
   },
+  "checks": {
+    "excluded": ["jira/issue-validation", "jira-validation"]
+  },
+  "jira": {
+    "baseUrl": "https://mapcolonies.atlassian.net",
+    "projectKeys": ["MAPCO"]
+  },
   "sync": {
     "intervalMs": 120000,
     "refreshCooldownMs": 30000

@@ -60,6 +60,17 @@ extraNonWorkingDays:
 # The Age in Working Days at which Urgency rises to levels 1, 2 and 3.
 urgency:
   thresholds: [2, 4, 8]
+# Check runs and status contexts that Check Status leaves out: the Jira validation's verdict and its always-green run.
+checks:
+  excluded:
+    - jira/issue-validation
+    - jira-validation
+jira:
+  # The Jira site Jira Tickets link to. Empty hides them, and whether a PR lacks one.
+  baseUrl: https://mapcolonies.atlassian.net
+  # The project keys whose issue keys in a PR title count as Jira Tickets.
+  projectKeys:
+    - MAPCO
 sync:
   # How long to wait after a sweep ends before starting the next.
   intervalMs: 120000

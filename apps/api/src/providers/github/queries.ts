@@ -98,10 +98,13 @@ export const DETAILS_QUERY = `query PullRequestDetails($ids: [ID!]!) {
             oid committedDate
             checkSuites(first: 20) { nodes { createdAt } }
             statusCheckRollup {
-              state
               contexts(first: 100) {
                 pageInfo { hasNextPage }
-                nodes { __typename ... on CheckRun { completedAt } ... on StatusContext { createdAt } }
+                nodes {
+                  __typename
+                  ... on CheckRun { name status conclusion completedAt }
+                  ... on StatusContext { context state createdAt }
+                }
               }
             }
           }
@@ -139,6 +142,11 @@ export type TimelineNode =
   | { __typename: 'ReviewRequestedEvent'; createdAt: string; actor: ActorNode | null; requestedReviewer: ReviewerNode | null }
   | { __typename: 'IssueComment'; createdAt: string; author: ActorNode | null };
 
+/** A check on a commit: a check run, from GitHub Actions or an App, or a status context, from the commit status API. */
+export type CheckContextNode =
+  | { __typename: 'CheckRun'; name: string; status: string; conclusion: string | null; completedAt: string | null }
+  | { __typename: 'StatusContext'; context: string; state: 'SUCCESS' | 'FAILURE' | 'ERROR' | 'PENDING' | 'EXPECTED'; createdAt: string };
+
 export interface PullRequestNode {
   id: string;
   number: number;
@@ -157,10 +165,7 @@ export interface PullRequestNode {
         oid: string;
         committedDate: string;
         checkSuites: { nodes: { createdAt: string }[] };
-        statusCheckRollup: {
-          state: 'SUCCESS' | 'FAILURE' | 'ERROR' | 'PENDING' | 'EXPECTED';
-          contexts: Page<{ __typename: string; completedAt?: string | null; createdAt?: string }>;
-        } | null;
+        statusCheckRollup: { contexts: Page<CheckContextNode> } | null;
       };
     }[];
   };

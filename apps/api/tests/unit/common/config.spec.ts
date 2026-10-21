@@ -15,6 +15,9 @@ describe('config', function () {
       expect(config.get('bots.logins')).toBeArray();
       expect(config.get('extraNonWorkingDays')).toBeArray();
       expect(config.get('urgency.thresholds')).toHaveLength(3);
+      expect(config.get('checks.excluded')).toStrictEqual(['jira/issue-validation', 'jira-validation']);
+      expect(config.get('jira.baseUrl')).toBe('https://mapcolonies.atlassian.net');
+      expect(config.get('jira.projectKeys')).toStrictEqual(['MAPCO']);
       expect(config.get('sync.intervalMs')).toBePositive();
       expect(config.get('sync.refreshCooldownMs')).toBePositive();
       expect(['github', 'fixture']).toContain(config.get('provider'));
@@ -34,6 +37,9 @@ describe('config', function () {
       vi.stubEnv('BOTS_LOGINS', '["jarvis","friday"]');
       vi.stubEnv('EXTRA_NON_WORKING_DAYS', '["2026-11-03"]');
       vi.stubEnv('URGENCY_THRESHOLDS', '[1,3,5]');
+      vi.stubEnv('EXCLUDED_CHECKS', '["lint"]');
+      vi.stubEnv('JIRA_BASE_URL', 'https://avengers.atlassian.net');
+      vi.stubEnv('JIRA_PROJECT_KEYS', '["SHIELD","HYDRA"]');
       vi.stubEnv('SYNC_INTERVAL_MS', '60000');
       vi.stubEnv('SYNC_REFRESH_COOLDOWN_MS', '10000');
       vi.stubEnv('PROVIDER', 'github');
@@ -48,6 +54,9 @@ describe('config', function () {
       expect(config.get('bots.logins')).toStrictEqual(['jarvis', 'friday']);
       expect(config.get('extraNonWorkingDays')).toStrictEqual(['2026-11-03']);
       expect(config.get('urgency.thresholds')).toStrictEqual([1, 3, 5]);
+      expect(config.get('checks.excluded')).toStrictEqual(['lint']);
+      expect(config.get('jira.baseUrl')).toBe('https://avengers.atlassian.net');
+      expect(config.get('jira.projectKeys')).toStrictEqual(['SHIELD', 'HYDRA']);
       expect(config.get('sync.intervalMs')).toBe(60000);
       expect(config.get('sync.refreshCooldownMs')).toBe(10000);
       expect(config.get('provider')).toBe('github');

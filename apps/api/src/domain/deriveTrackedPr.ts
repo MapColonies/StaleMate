@@ -4,6 +4,7 @@ import { deriveReviewStatus } from './reviewStatus';
 import { deriveCheckStatus } from './checkStatus';
 import { deriveWaitingOn } from './waitingOn';
 import { deriveClocks } from './clocks';
+import { deriveJiraTickets } from './jiraTickets';
 import { deriveInclusionReasons, deriveParticipants, toPerson } from './inclusion';
 
 /** The configuration the derivation rules read. */
@@ -16,6 +17,10 @@ export interface DerivationConfig {
   urgencyThresholds: readonly [number, number, number];
   /** Extra days off, as `YYYY-MM-DD` in Asia/Jerusalem. */
   extraNonWorkingDays: readonly string[];
+  /** The names of the checks Check Status leaves out. */
+  excludedChecks: readonly string[];
+  /** The Jira project keys whose issue keys in a PR title are its Jira Tickets, e.g. `MAPCO`. */
+  jiraProjectKeys: readonly string[];
 }
 
 /** Derives a Tracked PR from its facts. Age and Idle Time are counted up to `now`. */
@@ -36,8 +41,9 @@ export function deriveTrackedPr(facts: PrFacts, roster: Roster, config: Derivati
     inclusionReasons: deriveInclusionReasons(facts, roster, config.teamSlug),
     reviewStatus: review.status,
     approvals: review.approvals,
-    checkStatus: deriveCheckStatus(facts),
+    checkStatus: deriveCheckStatus(facts, config.excludedChecks),
     conflicting: facts.mergeable === 'conflicting',
+    jiraTickets: deriveJiraTickets(facts.title, config.jiraProjectKeys),
     waitingOn: waitingOn.parties,
     noReviewer: waitingOn.noReviewer,
     ...clocks,

@@ -55,7 +55,6 @@
                   ]
                 },
                 "statusCheckRollup": {
-                  "state": "SUCCESS",
                   "contexts": {
                     "pageInfo": {
                       "hasNextPage": false
@@ -63,22 +62,36 @@
                     "nodes": [
                       {
                         "__typename": "CheckRun",
+                        "name": "example",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2025-10-30T06:44:23Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run TS Project eslint (20.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2025-10-30T06:44:38Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Check that TypeScript is built and dist is up-to-date (20.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2025-10-30T06:44:39Z"
                       },
                       {
                         "__typename": "CheckRun",
+                        "name": "Run Tests (20.x)",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
                         "completedAt": "2025-10-30T06:44:40Z"
                       },
                       {
                         "__typename": "StatusContext",
+                        "context": "jira/issue-validation",
+                        "state": "SUCCESS",
                         "createdAt": "2025-10-30T06:44:20Z"
                       }
                     ]

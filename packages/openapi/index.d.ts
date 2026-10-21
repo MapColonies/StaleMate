@@ -94,6 +94,12 @@ export type components = {
        * @example 30000
        */
       refreshCooldownMs: number;
+      /**
+       * Format: uri
+       * @description The Jira site a Jira Ticket links to, as <jiraBaseUrl>/browse/<key>. Absent when not configured, so Jira Tickets are hidden.
+       * @example https://mapcolonies.atlassian.net
+       */
+      jiraBaseUrl?: string;
     };
     person: {
       login: string;
@@ -130,6 +136,8 @@ export type components = {
       checkStatus: components['schemas']['checkStatus'];
       /** @description The PR conflicts with its base. False while the code host has not worked out whether it does. */
       conflicting: boolean;
+      /** @description The keys of the Jira issues the PR's title names, in title order. Empty when it names none. */
+      jiraTickets: string[];
       /** @description Who owes the next move. Never empty, and never a Bot except a Bot PR's own author. */
       waitingOn: components['schemas']['waitingOnParty'][];
       /** @description The PR is Awaiting Review and no reviewer owes a move, so it waits on its author. Set even while checks fail or the PR conflicts. */
@@ -145,7 +153,10 @@ export type components = {
     inclusionReason: 'authoredByMember' | 'memberReviewRequested' | 'teamReviewRequested' | 'assignedToMember' | 'reviewedByMember' | 'teamRepo';
     /** @enum {string} */
     reviewStatus: 'draft' | 'awaitingReview' | 'changesRequested' | 'awaitingReReview' | 'approved';
-    /** @enum {string} */
+    /**
+     * @description Over the head commit's checks, leaving out the Excluded Checks. none when no checks are left.
+     * @enum {string}
+     */
     checkStatus: 'passing' | 'failing' | 'pending' | 'none';
     waitingOnParty: components['schemas']['waitingOnPerson'] | components['schemas']['waitingOnTeam'];
     waitingOnPerson: {

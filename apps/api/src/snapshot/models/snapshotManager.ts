@@ -15,6 +15,8 @@ export type SnapshotResult = { status: 'warming'; sync: SyncState } | { status: 
 export class SnapshotManager {
   private readonly derivationConfig: DerivationConfig;
   private readonly refreshCooldownMs: number;
+  /** Undefined when configured empty, which hides Jira Tickets. */
+  private readonly jiraBaseUrl: string | undefined;
 
   public constructor(
     @inject(SNAPSHOT_STORE) private readonly store: SnapshotStore,
@@ -27,8 +29,12 @@ export class SnapshotManager {
       // The config schema pins exactly three thresholds.
       urgencyThresholds: config.get('urgency.thresholds') as unknown as DerivationConfig['urgencyThresholds'],
       extraNonWorkingDays: config.get('extraNonWorkingDays'),
+      excludedChecks: config.get('checks.excluded'),
+      jiraProjectKeys: config.get('jira.projectKeys'),
     };
     this.refreshCooldownMs = config.get('sync.refreshCooldownMs');
+    const jiraBaseUrl = config.get('jira.baseUrl');
+    this.jiraBaseUrl = jiraBaseUrl === '' ? undefined : jiraBaseUrl.replace(/\/+$/, '');
   }
 
   /** Age and Idle Time are counted up to `now`, the request time, so they stay current between sweeps. */
@@ -45,7 +51,11 @@ export class SnapshotManager {
       snapshot: {
         readAt: readAt.toISOString(),
         sync,
-        config: { urgencyThresholds: [...this.derivationConfig.urgencyThresholds], refreshCooldownMs: this.refreshCooldownMs },
+        config: {
+          urgencyThresholds: [...this.derivationConfig.urgencyThresholds],
+          refreshCooldownMs: this.refreshCooldownMs,
+          ...(this.jiraBaseUrl !== undefined && { jiraBaseUrl: this.jiraBaseUrl }),
+        },
         team: deriveTeam(roster, this.derivationConfig),
         prs: prs.map((facts) => deriveTrackedPr(facts, roster, this.derivationConfig, now)),
       },

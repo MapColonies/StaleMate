@@ -68,7 +68,7 @@ describe('GithubPrProvider over a recorded sweep', function () {
     expect(facts.isDraft).toBe(true);
     expect(facts.author).toEqual(copilotAgent);
     expect(facts.assignees).toContainEqual({ ...copilotAgent, login: 'Copilot' });
-    expect(facts.headCommit.checkRollup).toBeNull();
+    expect(facts.headCommit.checks).toEqual([]);
   });
 
   it('should read a request for changes with its thread', function () {
@@ -105,7 +105,8 @@ describe('GithubPrProvider over a recorded sweep', function () {
     const facts = pr('https://github.com/MapColonies/jobnik-manager/pull/247');
 
     expect(facts.mergeable).toBe('conflicting');
-    expect(facts.headCommit.checkRollup).toBe('failure');
+    expect(facts.headCommit.checks).toContainEqual({ name: 'Run Tests (24.13.0)', state: 'failed' });
+    expect(facts.headCommit.checks).toContainEqual({ name: 'jira/issue-validation', state: 'failed' });
     expect(facts.headCommit.firstCheckSuiteAt).not.toBeNull();
     expect(facts.reviewRequests.map((request) => request.type === 'person' && request.reviewer.login)).toEqual(['member-3', 'member-6']);
   });

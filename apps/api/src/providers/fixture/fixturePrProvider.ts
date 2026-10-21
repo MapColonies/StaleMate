@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the fixture's odds and ranges */
 import type {
   Actor,
-  CheckRollupState,
+  CheckFact,
   HeadCommitFact,
   Mergeability,
   PrFacts,
@@ -11,6 +11,7 @@ import type {
   Roster,
   TimelineEventFact,
 } from '@domain/facts';
+import { deriveJiraTickets } from '@domain/jiraTickets';
 import { deriveInclusionReasons } from '@domain/inclusion';
 import type { PrProvider, SweepResult } from '../prProvider';
 import {
@@ -72,21 +73,22 @@ class Random {
 
 type ReviewFlow = 'draft' | 'requested' | 'changesRequested' | 'approved' | 'commented' | 'nobody';
 
-const CHECK_ODDS: Record<'bot' | 'human', [CheckRollupState | null, number][]> = {
+const CHECK_ODDS: Record<'bot' | 'human', [CheckFact['state'] | null, number][]> = {
   bot: [
-    ['success', 0.55],
-    ['failure', 0.25],
-    ['error', 0.05],
+    ['passed', 0.55],
+    ['failed', 0.3],
     ['pending', 0.15],
   ],
   human: [
-    ['success', 0.6],
-    ['failure', 0.15],
-    ['pending', 0.07],
-    ['expected', 0.03],
+    ['passed', 0.6],
+    ['failed', 0.15],
+    ['pending', 0.1],
     [null, 0.15],
   ],
 };
+
+/** The share of human PRs whose title names a Jira Ticket. */
+const JIRA_TICKET_ODDS = 0.85;
 
 const byTime =
   <T>(at: (item: T) => Date) =>
@@ -145,6 +147,10 @@ class PrGenerator {
       timeline,
     };
     facts.url = `https://github.com/${facts.repo}/pull/${facts.number}`;
+    // Like MapColonies' Jira validation, which fails a human PR whose title names no Jira Ticket.
+    if (!byBot && headCommit.checks.length > 0) {
+      headCommit.checks.push({ name: 'jira/issue-validation', state: deriveJiraTickets(facts.title, ['MAPCO']).length > 0 ? 'passed' : 'failed' });
+    }
 
     this.addReviews(facts, flow, reviewerPool, inTeamRepo, index);
     this.ensureTracked(facts, index);
@@ -208,26 +214,26 @@ class PrGenerator {
 
   private headCommit(index: number, readyAt: Date, byBot: boolean): HeadCommitFact {
     const pushedAt = this.random.between(readyAt, this.now, 2);
-    const checkRollup = this.pickCheckRollup(byBot);
+    const checkState = this.pickCheckState(byBot);
     return {
       oid: `c0ffee${index}`,
       committedDate: new Date(Math.max(readyAt.getTime(), pushedAt.getTime() - PUSH_TO_CHECK_SUITE_MS)),
-      firstCheckSuiteAt: checkRollup === null ? null : pushedAt,
-      checkRollup,
-      checkActivity: checkRollup === null || checkRollup === 'pending' || checkRollup === 'expected' ? [] : [pushedAt],
+      firstCheckSuiteAt: checkState === null ? null : pushedAt,
+      checks: checkState === null ? [] : [{ name: 'build', state: checkState }],
+      checkActivity: checkState === null || checkState === 'pending' ? [] : [pushedAt],
     };
   }
 
-  private pickCheckRollup(byBot: boolean): CheckRollupState | null {
+  private pickCheckState(byBot: boolean): CheckFact['state'] | null {
     let roll = this.random.next();
     const odds = CHECK_ODDS[byBot ? 'bot' : 'human'];
-    for (const [rollup, probability] of odds) {
+    for (const [state, probability] of odds) {
       roll -= probability;
       if (roll < 0) {
-        return rollup;
+        return state;
       }
     }
-    return 'success';
+    return 'passed';
   }
 
   private addReviews(facts: PrFacts, flow: ReviewFlow, reviewerPool: readonly Actor[], inTeamRepo: boolean, index: number): void {
@@ -340,7 +346,8 @@ class PrGenerator {
     const { random } = this;
     const version = (): string => `${random.int(1, 9)}.${random.int(0, 20)}.${random.int(0, 9)}`;
     if (!byBot) {
-      return random.pick(HUMAN_TITLES);
+      const title = random.pick(HUMAN_TITLES);
+      return random.chance(JIRA_TICKET_ODDS) ? `${title} MAPCO-${random.int(10000, 11000)}` : title;
     }
     if (author.isBot) {
       return `chore(deps): bump ${random.pick(DEPENDENCIES)} from ${version()} to ${version()}`;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Actor, CheckRollupState, PrFacts, ReviewRequestFact } from '@domain/facts';
+import type { Actor, CheckFact, PrFacts, ReviewRequestFact } from '@domain/facts';
 import type { WaitingOnParty } from '@domain/trackedPr';
 import { deriveTrackedPr } from '@domain/deriveTrackedPr';
 import { aDerivationConfig, anActor, aPrFacts, aReview, aReviewThread, aRoster, aThreadComment } from '@tests/utils/facts';
@@ -24,7 +24,9 @@ const latest = new Date('2026-10-13T10:00:00Z');
 
 const requested = (reviewer: Actor): ReviewRequestFact => ({ type: 'person', reviewer, asCodeOwner: false });
 const teamRequested = (slug: string): ReviewRequestFact => ({ type: 'team', slug, asCodeOwner: false });
-const withChecks = (checkRollup: CheckRollupState): Partial<PrFacts> => ({ headCommit: { ...aPrFacts().headCommit, checkRollup } });
+const withChecks = (state: CheckFact['state'], name = 'build'): Partial<PrFacts> => ({
+  headCommit: { ...aPrFacts().headCommit, checks: [{ name, state }] },
+});
 
 /** Names each party: `author` for the author, the login for a reviewer and `@slug` for a team. */
 function describeParty(party: WaitingOnParty): string {
@@ -53,7 +55,7 @@ describe('Waiting On', function () {
 
   it.each<[string, Partial<PrFacts>, string[], boolean]>([
     ['a new PR with A requested', { reviewRequests: [requested(bob)] }, ['bob'], false],
-    ['A requested and checks failing', { reviewRequests: [requested(bob)], ...withChecks('failure') }, ['bob', 'author'], false],
+    ['A requested and checks failing', { reviewRequests: [requested(bob)], ...withChecks('failed') }, ['bob', 'author'], false],
     [
       'A asking for changes with B still requested',
       { reviews: [aReview({ author: bob, state: 'changesRequested' })], reviewRequests: [requested(carol)] },
@@ -112,7 +114,7 @@ describe('Waiting On', function () {
       ['author'],
       false,
     ],
-    ['an approved PR with checks failing', { reviews: [aReview({ author: bob, state: 'approved' })], ...withChecks('failure') }, ['author'], false],
+    ['an approved PR with checks failing', { reviews: [aReview({ author: bob, state: 'approved' })], ...withChecks('failed') }, ['author'], false],
     [
       'an approved PR conflicting with its base',
       { reviews: [aReview({ author: bob, state: 'approved' })], mergeable: 'conflicting' },
@@ -125,7 +127,7 @@ describe('Waiting On', function () {
     ['unrequested reviewer C asking for changes', { reviews: [aReview({ author: dave, state: 'changesRequested' })] }, ['author'], false],
     [
       'a draft, even with reviewers requested and checks failing',
-      { isDraft: true, reviewRequests: [requested(bob)], ...withChecks('failure') },
+      { isDraft: true, reviewRequests: [requested(bob)], ...withChecks('failed') },
       ['author'],
       false,
     ],
@@ -279,8 +281,7 @@ describe('Waiting On', function () {
 
   describe('checks and conflicts', function () {
     it.each<[string, Partial<PrFacts>]>([
-      ['checks fail', withChecks('failure')],
-      ['a check errors', withChecks('error')],
+      ['checks fail', withChecks('failed')],
       ['the PR conflicts with its base', { mergeable: 'conflicting' }],
     ])('should wait on both the author and the reviewer when %s', function (_, overrides) {
       expect(waitingOnOf({ reviewRequests: [requested(bob)], ...overrides })).toStrictEqual({ waitingOn: ['bob', 'author'], noReviewer: false });
@@ -289,13 +290,14 @@ describe('Waiting On', function () {
     it.each<[string, Partial<PrFacts>]>([
       ['mergeability is unknown', { mergeable: 'unknown' }],
       ['checks are pending', withChecks('pending')],
-      ['there are no checks', { headCommit: { ...aPrFacts().headCommit, checkRollup: null } }],
+      ['there are no checks', { headCommit: { ...aPrFacts().headCommit, checks: [] } }],
+      ['only the Jira check fails', withChecks('failed', 'jira/issue-validation')],
     ])('should not wait on the author when %s', function (_, overrides) {
       expect(waitingOnOf({ reviewRequests: [requested(bob)], ...overrides })).toStrictEqual({ waitingOn: ['bob'], noReviewer: false });
     });
 
     it('should still flag No Reviewer when checks fail and no reviewer owes a move', function () {
-      expect(waitingOnOf(withChecks('failure'))).toStrictEqual({ waitingOn: ['author'], noReviewer: true });
+      expect(waitingOnOf(withChecks('failed'))).toStrictEqual({ waitingOn: ['author'], noReviewer: true });
     });
   });
 
@@ -305,7 +307,7 @@ describe('Waiting On', function () {
       reviews: [aReview({ id: 'PRR_a', author: bob, state: 'commented', submittedAt: reviewedAt })],
       reviewThreads: [aReviewThread({ comments: [bobsQuestion, alicesReply] })],
       mergeable: 'conflicting',
-      ...withChecks('failure'),
+      ...withChecks('failed'),
     });
 
     expect(derived).toStrictEqual({ waitingOn: ['bob', 'author'], noReviewer: false });
@@ -313,7 +315,7 @@ describe('Waiting On', function () {
 
   it('should name the author with their role and each reviewer with theirs', function () {
     const trackedPr = deriveTrackedPr(
-      aPrFacts({ author: alice, reviewRequests: [requested(bob)], ...withChecks('failure') }),
+      aPrFacts({ author: alice, reviewRequests: [requested(bob)], ...withChecks('failed') }),
       roster,
       aDerivationConfig(),
       now
@@ -371,14 +373,14 @@ describe('Waiting On', function () {
         { bob: ['reply'] },
       ],
       ['No Reviewer', {}, { author: ['findReviewer'] }],
-      ['No Reviewer with checks failing', withChecks('failure'), { author: ['findReviewer', 'fixChecks'] }],
+      ['No Reviewer with checks failing', withChecks('failed'), { author: ['findReviewer', 'fixChecks'] }],
       [
         'an Answered request for changes on a PR that conflicts and fails its checks',
         {
           reviews: [bobsChangesRequest],
           reviewThreads: [aReviewThread({ comments: [bobsQuestion, alicesReply] })],
           mergeable: 'conflicting',
-          ...withChecks('failure'),
+          ...withChecks('failed'),
         },
         { bob: ['reReview'], author: ['fixChecks', 'resolveConflict'] },
       ],

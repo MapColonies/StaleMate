@@ -1,6 +1,6 @@
 import type {
   Actor,
-  CheckRollupState,
+  CheckFact,
   HeadCommitFact,
   Mergeability,
   PrFacts,
@@ -10,7 +10,7 @@ import type {
   ReviewThreadFact,
   TimelineEventFact,
 } from '@domain/facts';
-import type { ActorNode, PullRequestNode, ReviewTeamsNode, ReviewerNode, ThreadsNode, TimelineNode } from './queries';
+import type { ActorNode, CheckContextNode, PullRequestNode, ReviewTeamsNode, ReviewerNode, ThreadsNode, TimelineNode } from './queries';
 
 /** GitHub's placeholder for a deleted account, which GraphQL reports as a null actor. */
 const GHOST: Actor = { id: 'MDQ6VXNlcjEwMTM3', login: 'ghost', isBot: false };
@@ -28,7 +28,18 @@ const MERGEABILITY: Record<PullRequestNode['mergeable'], Mergeability> = {
   CONFLICTING: 'conflicting',
   UNKNOWN: 'unknown',
 };
+
+const STATUS_CONTEXT_STATES: Record<Extract<CheckContextNode, { __typename: 'StatusContext' }>['state'], CheckFact['state']> = {
+  SUCCESS: 'passed',
+  FAILURE: 'failed',
+  ERROR: 'failed',
+  PENDING: 'pending',
+  EXPECTED: 'pending',
+};
 /* eslint-enable @typescript-eslint/naming-convention */
+
+/** The conclusions of a completed check run that count as passed. Every other conclusion counts as failed. */
+const PASSED_CONCLUSIONS = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
 
 /** GitHub's global ids name the type of their object, and a Bot's start with this, even where GitHub types it as a User. */
 const BOT_ID_PREFIX = 'BOT_';
@@ -87,21 +98,31 @@ function toTimelineEvent(node: TimelineNode): TimelineEventFact {
   }
 }
 
+function toCheck(node: CheckContextNode): CheckFact {
+  if (node.__typename === 'StatusContext') {
+    return { name: node.context, state: STATUS_CONTEXT_STATES[node.state] };
+  }
+  if (node.status !== 'COMPLETED') {
+    return { name: node.name, state: 'pending' };
+  }
+  return { name: node.name, state: node.conclusion !== null && PASSED_CONCLUSIONS.has(node.conclusion) ? 'passed' : 'failed' };
+}
+
 function toHeadCommit(node: PullRequestNode): HeadCommitFact {
   const head = node.commits.nodes[0]?.commit;
   if (head === undefined) {
     throw new Error(`PR ${node.url} has no commits`);
   }
   const suiteTimes = head.checkSuites.nodes.map((suite) => new Date(suite.createdAt).getTime());
-  const rollup = head.statusCheckRollup;
+  const contexts = head.statusCheckRollup?.contexts.nodes ?? [];
   return {
     oid: head.oid,
     committedDate: new Date(head.committedDate),
     firstCheckSuiteAt: suiteTimes.length === 0 ? null : new Date(Math.min(...suiteTimes)),
-    checkRollup: rollup === null ? null : (rollup.state.toLowerCase() as CheckRollupState),
-    checkActivity: (rollup?.contexts.nodes ?? []).flatMap((context) => {
-      const at = context.completedAt ?? context.createdAt;
-      return at === undefined ? [] : [new Date(at)];
+    checks: contexts.map(toCheck),
+    checkActivity: contexts.flatMap((context) => {
+      const at = context.__typename === 'CheckRun' ? context.completedAt : context.createdAt;
+      return at === null ? [] : [new Date(at)];
     }),
   };
 }
@@ -162,6 +183,7 @@ export function whichTruncated(hasMore: Record<string, boolean>): string[] {
 /** The connections of a PR that GitHub had more of than the queries read. */
 export function truncatedConnections(node: PullRequestNode, threads: ThreadsNode | undefined): string[] {
   return whichTruncated({
+    checks: node.commits.nodes[0]?.commit.statusCheckRollup?.contexts.pageInfo.hasNextPage ?? false,
     assignees: node.assignees.pageInfo.hasNextPage,
     reviews: node.reviews.pageInfo.hasPreviousPage,
     reviewRequests: node.reviewRequests.pageInfo.hasNextPage,

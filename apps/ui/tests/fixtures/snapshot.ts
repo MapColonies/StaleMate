@@ -5,6 +5,8 @@ const WORKING_DAY = 24 * HOUR;
 
 const readAt = '2026-10-14T09:00:00Z';
 
+export const JIRA_BASE_URL = 'https://mapcolonies.atlassian.net';
+
 export const member = (login: string): Person => ({ login, kind: 'member' });
 export const bot = (login: string): Person => ({ login, kind: 'bot' });
 export const outsider = (login: string): Person => ({ login, kind: 'outsider' });
@@ -50,6 +52,7 @@ export function aPr(overrides: Partial<TrackedPr> = {}): TrackedPr {
     approvals: 0,
     checkStatus: 'passing',
     conflicting: false,
+    jiraTickets: [],
     waitingOn: [waitingOnReviewer(member('alice'))],
     noReviewer: false,
     age: clock(1),
@@ -63,7 +66,7 @@ export function aSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
     readAt,
     sync: { state: 'idle', lastAttemptAt: readAt },
-    config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 30_000 },
+    config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 30_000, jiraBaseUrl: JIRA_BASE_URL },
     team: [member('alice'), member('bob'), member('carol'), bot('mapcolonies-devops')],
     prs: [],
     ...overrides,

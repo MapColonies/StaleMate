@@ -127,12 +127,41 @@ describe('snapshot', function () {
       expect(snapshot).toMatchObject({
         readAt: mondayMorning.toISOString(),
         sync: { state: 'idle', lastAttemptAt: mondayMorning.toISOString(), nextAttemptAt: after(mondayMorning, intervalMs) },
-        config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: cooldownMs },
+        config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: cooldownMs, jiraBaseUrl: 'https://mapcolonies.atlassian.net' },
       });
       expect(snapshot.sync).not.toHaveProperty('lastError');
       expect(snapshot.team).toContainEqual({ login: 'CptSchnitz', kind: 'member' });
       expect(snapshot.team).toContainEqual({ login: 'mapcolonies-devops', kind: 'bot' });
       expect(snapshot.prs.length).toBeGreaterThan(0);
+    });
+
+    it('should leave the Jira site out when it is configured empty', async function () {
+      vi.stubEnv('JIRA_BASE_URL', '');
+      await initConfig(true);
+      try {
+        const [jiraless, jiralessContainer] = await getApp({
+          override: [
+            { token: SERVICES.LOGGER, provider: { useValue: await jsLogger({ enabled: false }) } },
+            { token: SERVICES.TRACER, provider: { useValue: trace.getTracer('testTracer') } },
+            { token: PR_PROVIDER, provider: { useValue: provider } },
+          ],
+          useChild: true,
+        });
+        const sender = await createRequestSender<paths, operations>(OPENAPI_PATH, jiraless);
+        const jiralessSyncLoop = jiralessContainer.resolve<SyncLoop>(SYNC_LOOP);
+        await jiralessSyncLoop.start();
+
+        const response = await sender.getSnapshot();
+        jiralessSyncLoop.stop();
+
+        expectResponseStatus(response, StatusCodes.OK);
+
+        expect(response).toSatisfyApiSpec();
+        expect(response.body.config).not.toHaveProperty('jiraBaseUrl');
+      } finally {
+        vi.unstubAllEnvs();
+        await initConfig(true);
+      }
     });
 
     it('should count Age and Idle Time up to the request time', async function () {

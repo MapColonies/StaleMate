@@ -17,9 +17,10 @@ export const COLUMN_NAMES = {
   author: 'Author',
   review: 'Review',
   checks: 'Checks',
+  jira: 'Jira',
   reasons: 'Why tracked',
 } as const;
 
 export type ColumnId = keyof typeof COLUMN_NAMES;
 
-export const SORTABLE_COLUMNS: readonly ColumnId[] = ['age', 'idle', 'repo', 'title', 'author', 'review', 'checks'];
+export const SORTABLE_COLUMNS: readonly ColumnId[] = ['age', 'idle', 'repo', 'title', 'author', 'review', 'checks', 'jira'];

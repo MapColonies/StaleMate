@@ -18,6 +18,9 @@ data:
   BOTS_LOGINS: {{ .Values.bots.logins | toJson | quote }}
   EXTRA_NON_WORKING_DAYS: {{ .Values.extraNonWorkingDays | toJson | quote }}
   URGENCY_THRESHOLDS: {{ .Values.urgency.thresholds | toJson | quote }}
+  EXCLUDED_CHECKS: {{ .Values.checks.excluded | toJson | quote }}
+  JIRA_BASE_URL: {{ .Values.jira.baseUrl | quote }}
+  JIRA_PROJECT_KEYS: {{ .Values.jira.projectKeys | toJson | quote }}
   SYNC_INTERVAL_MS: {{ .Values.sync.intervalMs | int64 | quote }}
   SYNC_REFRESH_COOLDOWN_MS: {{ .Values.sync.refreshCooldownMs | int64 | quote }}
   PROVIDER: github

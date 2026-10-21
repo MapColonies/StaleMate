@@ -7,7 +7,7 @@ import { deriveCheckStatus } from './checkStatus';
 import { toPerson } from './inclusion';
 import { authorCommentedOnPrAfter, isPrAuthor, threadsOf } from './reviewActivity';
 
-type WaitingOnConfig = Pick<DerivationConfig, 'teamSlug' | 'botLogins'>;
+type WaitingOnConfig = Pick<DerivationConfig, 'teamSlug' | 'botLogins' | 'excludedChecks'>;
 type Role = Extract<WaitingOnParty, { type: 'person' }>['role'];
 
 /** Collects the parties the rules pick, each once, in the order they were picked, with every move each one owes. */
@@ -140,7 +140,7 @@ export function deriveWaitingOn(facts: PrFacts, review: ReviewOutcome, roster: R
   if (noReviewer) {
     parties.addPerson(facts.author, 'author', 'findReviewer');
   }
-  if (deriveCheckStatus(facts) === 'failing') {
+  if (deriveCheckStatus(facts, config.excludedChecks) === 'failing') {
     parties.addPerson(facts.author, 'author', 'fixChecks');
   }
   if (facts.mergeable === 'conflicting') {

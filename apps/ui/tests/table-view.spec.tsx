@@ -19,7 +19,7 @@ const rowTitles = (): string[] =>
   screen
     .getAllByRole('row')
     .slice(1)
-    .map((row) => within(row).getByRole('link').textContent ?? '');
+    .map((row) => within(row).getByRole('link', { name: /^(?!MAPCO-)/ }).textContent ?? '');
 
 const header = (name: string) => screen.getByRole('columnheader', { name: new RegExp(`^${name}`) });
 
@@ -89,6 +89,39 @@ describe('the Table', () => {
     renderTable(snapshot);
     expect(screen.queryByRole('columnheader', { name: /Why tracked/ })).not.toBeInTheDocument();
     expect(header('Age')).toBeInTheDocument();
+  });
+
+  it('sorts by Jira Ticket, PRs without one first', async () => {
+    renderTable(
+      aSnapshot({
+        prs: [
+          aPr({ title: 'second ticket', jiraTickets: ['MAPCO-10'], age: clock(3) }),
+          aPr({ title: 'no ticket', jiraTickets: [], age: clock(2) }),
+          aPr({ title: 'first ticket', jiraTickets: ['MAPCO-9'], age: clock(1) }),
+        ],
+      })
+    );
+
+    await userEvent.click(sortButton('Jira'));
+
+    expect(rowTitles()).toEqual(['no ticket', 'first ticket', 'second ticket']);
+    expect(new URLSearchParams(window.location.search).get('sort')).toBe('jira.asc');
+  });
+
+  it('links each PR’s Jira Ticket, or says it has none', () => {
+    renderTable(aSnapshot({ prs: [aPr({ title: 'ticketed', jiraTickets: ['MAPCO-7'] }), aPr({ title: 'unticketed', jiraTickets: [] })] }));
+
+    expect(within(screen.getByRole('row', { name: /\bticketed/ })).getByRole('link', { name: 'MAPCO-7' })).toHaveAttribute(
+      'href',
+      'https://mapcolonies.atlassian.net/browse/MAPCO-7'
+    );
+    expect(within(screen.getByRole('row', { name: /unticketed/ })).getByTitle('No Jira ticket')).toHaveTextContent('—');
+  });
+
+  it('leaves the Jira column out without a Jira site', () => {
+    renderTable(aSnapshot({ config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 30_000 }, prs: [aPr()] }));
+
+    expect(screen.queryByRole('columnheader', { name: /^Jira/ })).not.toBeInTheDocument();
   });
 
   it('flags the No Reviewer PRs', () => {

@@ -9,7 +9,7 @@ import { typeSymbol } from '@map-colonies/schemas/build/schemas/symbol';
 
 const stalemateSchema = {
   type: 'object',
-  required: ['team', 'bots', 'extraNonWorkingDays', 'urgency', 'sync', 'provider', 'githubApp'],
+  required: ['team', 'bots', 'extraNonWorkingDays', 'urgency', 'checks', 'jira', 'sync', 'provider', 'githubApp'],
   properties: {
     team: {
       type: 'object',
@@ -58,6 +58,44 @@ const stalemateSchema = {
           maxItems: 3,
           items: { type: 'number', minimum: 0 },
           'x-env-value': 'URGENCY_THRESHOLDS',
+          'x-env-format': 'json',
+        },
+      },
+    },
+    checks: {
+      type: 'object',
+      default: {},
+      required: ['excluded'],
+      additionalProperties: false,
+      properties: {
+        excluded: {
+          type: 'array',
+          default: ['jira/issue-validation', 'jira-validation'],
+          description: 'Names of the check runs and status contexts that Check Status leaves out',
+          items: { type: 'string' },
+          'x-env-value': 'EXCLUDED_CHECKS',
+          'x-env-format': 'json',
+        },
+      },
+    },
+    jira: {
+      type: 'object',
+      default: {},
+      required: ['baseUrl', 'projectKeys'],
+      additionalProperties: false,
+      properties: {
+        baseUrl: {
+          type: 'string',
+          default: 'https://mapcolonies.atlassian.net',
+          description: 'The Jira site Jira Tickets link to. Empty hides them, and whether a PR lacks one',
+          'x-env-value': 'JIRA_BASE_URL',
+        },
+        projectKeys: {
+          type: 'array',
+          default: ['MAPCO'],
+          description: 'The Jira project keys whose issue keys in a PR title count as Jira Tickets',
+          items: { type: 'string', pattern: '^[A-Z][A-Z0-9]+$' },
+          'x-env-value': 'JIRA_PROJECT_KEYS',
           'x-env-format': 'json',
         },
       },

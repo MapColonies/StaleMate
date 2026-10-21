@@ -109,7 +109,12 @@ export function aPrNode(overrides: Record<string, unknown> = {}): Record<string,
             oid: 'c0ffee',
             committedDate: '2026-10-12T07:59:00Z',
             checkSuites: { nodes: [{ createdAt: '2026-10-12T07:59:07Z' }] },
-            statusCheckRollup: { state: 'SUCCESS', contexts: { pageInfo: { hasNextPage: false }, nodes: [] } },
+            statusCheckRollup: {
+              contexts: {
+                pageInfo: { hasNextPage: false },
+                nodes: [{ __typename: 'CheckRun', name: 'build', status: 'COMPLETED', conclusion: 'SUCCESS', completedAt: '2026-10-12T07:59:40Z' }],
+              },
+            },
           },
         },
       ],

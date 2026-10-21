@@ -7,6 +7,7 @@ import {
   ConflictBadge,
   IdleLine,
   InclusionReasonBadge,
+  JiraTickets,
   NoReviewerFlag,
   PersonChip,
   ReviewStatusBadge,
@@ -34,9 +35,10 @@ interface CellContext {
   viewer: string | null;
   hideViaTeam: boolean;
   now: number;
+  jiraBaseUrl: string | undefined;
 }
 
-function tableColumns({ viewer, hideViaTeam, now }: CellContext) {
+function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl }: CellContext) {
   return helper.columns([
     helper.accessor((pr) => pr.age.workingMs, {
       id: 'age',
@@ -105,6 +107,18 @@ function tableColumns({ viewer, hideViaTeam, now }: CellContext) {
         </span>
       ),
     }),
+    // Ascending puts the PRs without a Jira Ticket first. Without a Jira site there is nothing to show.
+    ...(jiraBaseUrl === undefined
+      ? []
+      : [
+          // Padding the number sorts MAPCO-9 before MAPCO-10.
+          helper.accessor((pr) => pr.jiraTickets[0]?.replace(/\d+$/, (number) => number.padStart(12, '0')) ?? '', {
+            id: 'jira',
+            header: COLUMN_NAMES.jira,
+            sortFn: 'text',
+            cell: ({ row }) => <JiraTickets pr={row.original} jiraBaseUrl={jiraBaseUrl} compact />,
+          }),
+        ]),
     helper.display({
       id: 'reasons',
       header: COLUMN_NAMES.reasons,
@@ -198,7 +212,11 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
       Object.fromEntries((viewer === null ? (['all'] as const) : TABS).map((value) => [value, prsInTab(filtered, value, viewer, filters).length])),
     [filtered, viewer, filters]
   );
-  const columns = useMemo(() => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, now }), [viewer, filters.hideViaTeam, now]);
+  const { jiraBaseUrl } = snapshot.config;
+  const columns = useMemo(
+    () => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl }),
+    [viewer, filters.hideViaTeam, now, jiraBaseUrl]
+  );
 
   const table = useTable({
     features,

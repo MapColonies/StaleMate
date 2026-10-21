@@ -129,6 +129,11 @@ components:
             How long after a sweep starts a refresh is ignored, in milliseconds. Counted from sync.lastAttemptAt, so the UI
             can show when "Refresh now" is available again.
           example: 30000
+        jiraBaseUrl:
+          type: string
+          format: uri
+          description: The Jira site a Jira Ticket links to, as <jiraBaseUrl>/browse/<key>. Absent when not configured, so Jira Tickets are hidden.
+          example: https://mapcolonies.atlassian.net
     person:
       type: object
       required:
@@ -164,6 +169,7 @@ components:
         - approvals
         - checkStatus
         - conflicting
+        - jiraTickets
         - waitingOn
         - noReviewer
         - age
@@ -217,6 +223,12 @@ components:
         conflicting:
           type: boolean
           description: The PR conflicts with its base. False while the code host has not worked out whether it does.
+        jiraTickets:
+          type: array
+          description: The keys of the Jira issues the PR's title names, in title order. Empty when it names none.
+          items:
+            type: string
+            example: MAPCO-1234
         waitingOn:
           type: array
           description: Who owes the next move. Never empty, and never a Bot except a Bot PR's own author.
@@ -252,6 +264,7 @@ components:
         - approved
     checkStatus:
       type: string
+      description: Over the head commit's checks, leaving out the Excluded Checks. none when no checks are left.
       enum:
         - passing
         - failing
