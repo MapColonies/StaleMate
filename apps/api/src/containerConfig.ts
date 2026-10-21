@@ -8,6 +8,7 @@ import { type InjectionObject, registerDependencies } from '@common/dependencyRe
 import { SERVICES, SERVICE_NAME } from '@common/constants';
 import { getTracing } from '@common/tracing';
 import { type ConfigType, getConfig } from '@common/config';
+import { DERIVATION_CONFIG, getDerivationConfig } from '@common/derivationConfig';
 import { snapshotRouterFactory, SNAPSHOT_ROUTER_SYMBOL } from './snapshot/routes/snapshotRouter';
 import { PR_PROVIDER, type PrProvider } from './providers/prProvider';
 import { FixturePrProvider } from './providers/fixture/fixturePrProvider';
@@ -54,6 +55,7 @@ export const registerExternalValues = async (options?: RegisterOptions): Promise
     { token: SERVICES.LOGGER, provider: { useValue: logger } },
     { token: SERVICES.TRACER, provider: { useValue: tracer } },
     { token: SERVICES.METRICS, provider: { useValue: metricsRegistry } },
+    { token: DERIVATION_CONFIG, provider: { useValue: getDerivationConfig(configInstance) } },
     { token: SYNC_METRICS, provider: { useValue: createSyncMetrics(metricsRegistry) } },
     { token: SNAPSHOT_STORE, provider: { useValue: new InMemorySnapshotStore() } },
     { token: PR_PROVIDER, provider: { useFactory: instanceCachingFactory(createPrProvider) } },

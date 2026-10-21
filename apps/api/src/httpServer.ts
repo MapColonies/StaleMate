@@ -9,7 +9,7 @@ export function createHttpServer(app: Application, container: DependencyContaine
   const store = container.resolve<SnapshotStore>(SNAPSHOT_STORE);
   const liveness = async (): Promise<void> => Promise.resolve();
   const readiness = async (): Promise<void> => {
-    if ((await store.get()) === undefined) {
+    if ((await store.getSnapshotWide()) === undefined) {
       throw new Error('no sweep has succeeded yet');
     }
   };

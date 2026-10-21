@@ -4,7 +4,7 @@ import type { Clock, Urgency } from './trackedPr';
 import { isBot } from './bots';
 import { toWorkingDays, workingMsBetween } from './workingDays';
 
-type ClocksConfig = Pick<DerivationConfig, 'botLogins' | 'urgencyThresholds' | 'extraNonWorkingDays'>;
+type ClocksConfig = Pick<DerivationConfig, 'urgencyThresholds' | 'extraNonWorkingDays'>;
 
 const IDLE_TIME_EVENTS: ReadonlySet<TimelineEventFact['type']> = new Set(['readyForReview', 'reviewRequested', 'comment']);
 
@@ -46,15 +46,30 @@ function urgencyOf(age: Clock, thresholds: ClocksConfig['urgencyThresholds']): U
   return thresholds.filter((threshold) => ageInWorkingDays >= threshold).length;
 }
 
+/** What the clocks are counted from. They change only when the PR does, so they are derived when it is read. */
+export interface ClockStarts {
+  /** Where Age starts. */
+  readySince: Date;
+  /** Where Idle Time starts. */
+  lastActivityAt: Date;
+  /** A Draft has no Urgency. */
+  isDraft: boolean;
+}
+
 export interface Clocks {
   age: Clock;
   idleTime: Clock;
   urgency: Urgency;
 }
 
+/** Finds where the PR's clocks start. Bot activity doesn't restart Idle Time. */
+export function deriveClockStarts(facts: PrFacts, config: Pick<DerivationConfig, 'botLogins'>): ClockStarts {
+  return { readySince: readySince(facts), lastActivityAt: lastActivityAt(facts, config.botLogins), isDraft: facts.isDraft };
+}
+
 /** Derives the PR's Age, Idle Time and Urgency in Working Days up to `now`. A Draft has no Urgency. */
-export function deriveClocks(facts: PrFacts, config: ClocksConfig, now: Date): Clocks {
-  const age = clockSince(readySince(facts), config, now);
-  const idleTime = clockSince(lastActivityAt(facts, config.botLogins), config, now);
-  return { age, idleTime, urgency: facts.isDraft ? null : urgencyOf(age, config.urgencyThresholds) };
+export function deriveClocks(starts: ClockStarts, config: ClocksConfig, now: Date): Clocks {
+  const age = clockSince(starts.readySince, config, now);
+  const idleTime = clockSince(starts.lastActivityAt, config, now);
+  return { age, idleTime, urgency: starts.isDraft ? null : urgencyOf(age, config.urgencyThresholds) };
 }

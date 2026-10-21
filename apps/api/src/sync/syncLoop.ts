@@ -3,8 +3,10 @@ import type { Logger } from '@map-colonies/js-logger';
 import type { components } from 'stalemate-openapi';
 import type { ConfigType } from '@common/config';
 import { SERVICES } from '@common/constants';
+import { DERIVATION_CONFIG } from '@common/derivationConfig';
+import { type DerivationConfig, deriveClockFreePr, deriveTeam } from '@domain/deriveTrackedPr';
 import { PR_PROVIDER, type PrProvider, SweepError, type SweepFailure } from '../providers/prProvider';
-import { SNAPSHOT_STORE, type SnapshotStore } from '../cache/snapshotStore';
+import { type PrRecord, SNAPSHOT_STORE, type SnapshotStore } from '../cache/snapshotStore';
 import { SYNC_METRICS, type SyncMetrics } from './syncMetrics';
 
 const MS_PER_SECOND = 1000;
@@ -24,7 +26,7 @@ function toSafeMessage(error: unknown): string {
 export type SyncState = components['schemas']['syncState'];
 
 /**
- * Sweeps the code host into the SnapshotStore, in the API process.
+ * Sweeps the code host into the SnapshotStore, in the API process, deriving each PR it reads but for its clocks.
  * Each sweep schedules the next one sync.intervalMs after it ends, so sweeps never overlap.
  */
 @injectable()
@@ -40,6 +42,7 @@ export class SyncLoop {
     @inject(PR_PROVIDER) private readonly provider: PrProvider,
     @inject(SNAPSHOT_STORE) private readonly store: SnapshotStore,
     @inject(SERVICES.CONFIG) private readonly config: ConfigType,
+    @inject(DERIVATION_CONFIG) private readonly derivationConfig: DerivationConfig,
     @inject(SERVICES.LOGGER) private readonly logger: Logger,
     @inject(SYNC_METRICS) private readonly metrics: SyncMetrics
   ) {}
@@ -84,13 +87,27 @@ export class SyncLoop {
 
     try {
       const { roster, prs: discovered } = await this.provider.discover();
-      const prs = await this.provider.read(discovered.map((pr) => pr.id));
-      // The sweep read the code host from when it started, so that is how fresh the Snapshot is.
-      await this.store.set({ roster, prs, readAt: startedAt });
+      const readById = new Map((await this.provider.read(discovered.map((pr) => pr.id))).map((facts) => [facts.id, facts]));
+
+      // Every discovered PR is read, so each is derived with this sweep's Roster.
+      // The sweep read the code host from when it started, so that is how fresh what it read is.
+      const records = discovered.flatMap(({ id, updatedAt }): PrRecord[] => {
+        const facts = readById.get(id);
+        return facts ? [{ facts, readAt: startedAt, updatedAt, derived: deriveClockFreePr(facts, roster, this.derivationConfig) }] : [];
+      });
+      // A PR is gone once discovery no longer finds it, or it was gone by the time it was read.
+      const gone = (await this.store.getRecords()).map(({ facts }) => facts.id).filter((id) => !readById.has(id));
+
+      // The in-memory store applies these writes with no request served in between.
+      // A networked store would have to apply them as one transaction, or a request could see half a sweep.
+      await this.store.upsert(records);
+      await this.store.delete(gone);
+      // Written last, so the Snapshot never exists before its first sweep's PRs do.
+      await this.store.setSnapshotWide({ roster, team: deriveTeam(roster, this.derivationConfig), readAt: startedAt });
       this.lastError = undefined;
       endTimer({ outcome: 'success' });
       this.metrics.lastSuccessfulSweep.set(startedAt.getTime() / MS_PER_SECOND);
-      this.logger.info({ msg: 'sweep succeeded', prs: prs.length });
+      this.logger.info({ msg: 'sweep succeeded', prs: records.length, dropped: gone.length });
     } catch (error) {
       this.lastError = toSafeMessage(error);
       endTimer({ outcome: 'failure' });

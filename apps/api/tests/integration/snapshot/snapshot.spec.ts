@@ -17,6 +17,8 @@ import { SYNC_LOOP, type SyncLoop } from '@src/sync/syncLoop';
 import { SERVICES } from '@common/constants';
 import { getConfig, initConfig } from '@common/config';
 import { OPENAPI_PATH } from '@tests/utils/paths.mjs';
+import { anActor, aPrFacts } from '@tests/utils/facts';
+import { FixturePrProvider } from '@src/providers/fixture/fixturePrProvider';
 import { ScriptedProvider } from './helpers/scriptedProvider';
 
 type Snapshot = components['schemas']['snapshot'];
@@ -28,7 +30,8 @@ function withoutClocks(prs: Snapshot['prs']): Omit<Snapshot['prs'][number], 'age
 
 const expectResponseStatus: ExpectResponseStatus = expectResponseStatusFactory(expect);
 
-const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
 // A Monday morning in Israel, so the next hours are working time.
 const mondayMorning = new Date('2026-10-12T09:00:00+03:00');
 
@@ -178,6 +181,24 @@ describe('snapshot', function () {
         expect(pr.idleTime.workingMs - (before.prs[index]?.idleTime.workingMs ?? 0)).toBe(HOUR);
       });
     });
+
+    it('should count Age and Idle Time up to the request time rounded down to the minute', async function () {
+      const pushed = { ...aPrFacts().headCommit, committedDate: mondayMorning, firstCheckSuiteAt: mondayMorning };
+      provider.add(aPrFacts({ id: 'PR_opened_monday', createdAt: mondayMorning, headCommit: pushed }), mondayMorning);
+      await syncLoop.start();
+      const clocksAt = async (ms: number): Promise<Pick<Snapshot['prs'][number], 'age' | 'idleTime'> | undefined> => {
+        vi.setSystemTime(mondayMorning.getTime() + ms);
+        const pr = (await getSnapshot()).prs.find(({ id }) => id === 'PR_opened_monday');
+        return pr && { age: pr.age, idleTime: pr.idleTime };
+      };
+      const since = mondayMorning.toISOString();
+
+      await expect(clocksAt(HOUR + MINUTE - 1)).resolves.toEqual({ age: { workingMs: HOUR, since }, idleTime: { workingMs: HOUR, since } });
+      await expect(clocksAt(HOUR + MINUTE)).resolves.toEqual({
+        age: { workingMs: HOUR + MINUTE, since },
+        idleTime: { workingMs: HOUR + MINUTE, since },
+      });
+    });
   });
 
   describe('POST /refresh', function () {
@@ -227,7 +248,78 @@ describe('snapshot', function () {
     });
   });
 
+  describe('a later sweep', function () {
+    async function sweepAgain(): Promise<Snapshot> {
+      await refreshAfter(cooldownMs);
+      await untilIdle();
+      return getSnapshot();
+    }
+
+    it('should show a PR opened since the last sweep', async function () {
+      await syncLoop.start();
+
+      provider.add(aPrFacts({ id: 'PR_new' }), mondayMorning);
+      const snapshot = await sweepAgain();
+
+      expect(snapshot.prs.map(({ id }) => id)).toContain('PR_new');
+    });
+
+    it('should drop a PR no longer discovered', async function () {
+      await syncLoop.start();
+      const [closed] = (await getSnapshot()).prs;
+
+      provider.remove(closed!.id);
+      const snapshot = await sweepAgain();
+
+      expect(snapshot.prs.map(({ id }) => id)).not.toContain(closed!.id);
+    });
+
+    it('should re-derive Waiting On and Inclusion Reasons when the Roster changes', async function () {
+      const carol = anActor({ id: 'U_carol', login: 'carol' });
+      const dave = anActor({ id: 'U_dave', login: 'dave' });
+      const { roster } = await new FixturePrProvider('infra').discover();
+      provider.roster = { ...roster, members: [...roster.members, carol, dave] };
+      provider.add(
+        aPrFacts({
+          id: 'PR_carol',
+          repo: roster.repos[0],
+          author: carol,
+          reviewRequests: [{ type: 'person', reviewer: dave, asCodeOwner: false }],
+        }),
+        mondayMorning
+      );
+      await syncLoop.start();
+      const byCarol = (snapshot: Snapshot): Snapshot['prs'][number] | undefined => snapshot.prs.find(({ id }) => id === 'PR_carol');
+
+      expect(byCarol(await getSnapshot())).toMatchObject({
+        inclusionReasons: ['authoredByMember', 'memberReviewRequested', 'teamRepo'],
+        waitingOn: [{ type: 'person', login: 'dave', kind: 'member' }],
+      });
+
+      provider.roster = roster;
+      const snapshot = await sweepAgain();
+
+      expect(byCarol(snapshot)).toMatchObject({ inclusionReasons: ['teamRepo'], waitingOn: [{ type: 'person', login: 'dave', kind: 'outsider' }] });
+      expect(snapshot.team.map(({ login }) => login)).not.toContain('carol');
+    });
+  });
+
   describe('a failed sweep', function () {
+    it('should keep the last good Snapshot when the read fails after discovery', async function () {
+      await syncLoop.start();
+      const good = await getSnapshot();
+
+      provider.remove(good.prs[0]!.id);
+      provider.readFailure = new SweepError('rateLimit');
+      await refreshAfter(cooldownMs);
+      await untilIdle();
+      const snapshot = await getSnapshot();
+
+      expect(snapshot.readAt).toBe(good.readAt);
+      expect(withoutClocks(snapshot.prs)).toEqual(withoutClocks(good.prs));
+      expect(snapshot.sync.lastError).toBe('GitHub rate limit reached');
+    });
+
     it('should keep the last good Snapshot and report a safe message, never the raw error', async function () {
       await syncLoop.start();
       const good = await getSnapshot();

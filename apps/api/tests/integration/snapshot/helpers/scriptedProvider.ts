@@ -13,6 +13,8 @@ export class ScriptedProvider implements PrProvider {
   public readonly reads: string[][] = [];
   /** Thrown by every discovery and read while set. */
   public failure: Error | undefined = undefined;
+  /** Thrown by every read while set, after discovery succeeded. */
+  public readFailure: Error | undefined = undefined;
   /** Replaces the fixtures' Roster while set. */
   public roster: Roster | undefined = undefined;
   private readonly fixture = new FixturePrProvider('infra');
@@ -36,6 +38,9 @@ export class ScriptedProvider implements PrProvider {
   public async read(ids: readonly string[]): Promise<PrFacts[]> {
     this.reads.push([...ids]);
     await this.proceed();
+    if (this.readFailure !== undefined) {
+      throw this.readFailure;
+    }
     const fixture = new Map((await this.fixture.read(ids)).map((facts) => [facts.id, facts]));
     return ids.filter((id) => !this.removed.has(id)).flatMap((id) => this.added.get(id)?.facts ?? fixture.get(id) ?? []);
   }
