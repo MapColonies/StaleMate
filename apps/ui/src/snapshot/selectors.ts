@@ -1,5 +1,5 @@
 import type { Filters } from '@/filters/filter-model';
-import type { Person, Snapshot, TrackedPr } from './types';
+import type { Move, Person, Snapshot, TrackedPr } from './types';
 
 /** Who can pick themselves in "I am…": Team Members, never Bots or service accounts. */
 export function viewerOptions(team: readonly Person[]): string[] {
@@ -32,6 +32,15 @@ export function isWaitingOnViewer(pr: TrackedPr, viewer: string | null, filters:
 /** The PR is on the Viewer only through a request to the Team: the case marked "via @infra". */
 export function isOnViewerViaTeam(pr: TrackedPr, viewer: string | null, filters: Pick<Filters, 'hideViaTeam'>): boolean {
   return viewer !== null && !filters.hideViaTeam && !waitsOnPerson(pr, viewer) && waitsOnTheTeamFor(pr, viewer);
+}
+
+/** The Moves the Viewer owes on the PR: theirs by name, or a review through a request to the Team. None when it isn't on them. */
+export function viewerMoves(pr: TrackedPr, viewer: string | null, hideViaTeam: boolean): Move[] {
+  const own = pr.waitingOn.find((party) => party.type === 'person' && party.login === viewer);
+  if (own?.type === 'person') {
+    return own.moves;
+  }
+  return isOnViewerViaTeam(pr, viewer, { hideViaTeam }) ? ['review'] : [];
 }
 
 /** The header's "N + M team": PRs Waiting On the Viewer by name, then the Team's requests that aren't already theirs. */

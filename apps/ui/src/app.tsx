@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
+import { useFilters } from '@/filters/use-filters';
 import { STORAGE_KEYS, useStoredString } from '@/lib/local-storage';
 import { useNow } from '@/lib/use-now';
+import { useNotifications } from '@/notifications/use-notifications';
 import { viewerOptions } from '@/snapshot/selectors';
 import { isWarming, useSnapshot } from '@/snapshot/use-snapshot';
 import { HeaderCounts } from '@/shell/header-counts';
+import { NotificationBell } from '@/shell/notification-bell';
 import { NewVersionBanner } from '@/shell/new-version-banner';
 import { OutOfDateBanner } from '@/shell/out-of-date-banner';
 import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
@@ -56,6 +59,8 @@ export default function App() {
   const options = useMemo(() => (snapshot ? viewerOptions(snapshot.team) : []), [snapshot]);
   // A stored Viewer who has left the Team is no Viewer.
   const viewer = storedViewer !== null && options.includes(storedViewer) ? storedViewer : null;
+  const { filters } = useFilters();
+  const notifications = useNotifications(snapshot, viewer, filters.hideViaTeam);
 
   return (
     // The header stays put; the views scroll below it, and the Board scrolls inside itself.
@@ -68,6 +73,7 @@ export default function App() {
           {snapshot && <SyncStatus snapshot={snapshot} now={now} apiProblem={apiProblem(error, isError)} />}
           <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />
           {snapshot && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
+          <NotificationBell count={notifications.length} hasViewer={viewer !== null} />
         </div>
       </header>
       <NewVersionBanner />

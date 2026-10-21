@@ -10,7 +10,10 @@ export const STORAGE_KEYS = {
   tableSort: 'stalemate.table.sort',
 } as const;
 
-function read(key: string): string | null {
+/** Each Viewer's Notifications are kept under their own key. */
+export const notificationsKey = (viewer: string): string => `stalemate.notifications.${viewer}`;
+
+export function readStored(key: string): string | null {
   try {
     return window.localStorage.getItem(key);
   } catch {
@@ -19,7 +22,7 @@ function read(key: string): string | null {
   }
 }
 
-function write(key: string, value: string | null): void {
+export function writeStored(key: string, value: string | null): void {
   try {
     if (value === null) {
       window.localStorage.removeItem(key);
@@ -27,16 +30,16 @@ function write(key: string, value: string | null): void {
       window.localStorage.setItem(key, value);
     }
   } catch {
-    // See read().
+    // See readStored().
   }
 }
 
 /** A string kept in localStorage for this browser. `null` means nothing is stored. */
 export function useStoredString(key: string): [string | null, (value: string | null) => void] {
-  const [value, setValue] = useState(() => read(key));
+  const [value, setValue] = useState(() => readStored(key));
   const store = useCallback(
     (next: string | null) => {
-      write(key, next);
+      writeStored(key, next);
       setValue(next);
     },
     [key]

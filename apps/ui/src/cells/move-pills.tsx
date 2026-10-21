@@ -1,20 +1,11 @@
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { isOnViewerViaTeam } from '@/snapshot/selectors';
+import { viewerMoves } from '@/snapshot/selectors';
 import type { Move, TrackedPr } from '@/snapshot/types';
 import { MOVE_LABELS } from './labels';
 
 // The moves its Review Status doesn't explain, so they call for attention.
 const ALARMING: readonly Move[] = ['resolveConflict', 'fixChecks'];
-
-/** The moves the Viewer owes: theirs by name, or a review through a request to the Team. */
-function viewerMoves(pr: TrackedPr, viewer: string | null, hideViaTeam: boolean): Move[] {
-  const own = pr.waitingOn.find((party) => party.type === 'person' && party.login === viewer);
-  if (own?.type === 'person') {
-    return own.moves;
-  }
-  return isOnViewerViaTeam(pr, viewer, { hideViaTeam }) ? ['review'] : [];
-}
 
 /** What the Viewer owes on the PR, in plain words: why it is their turn. Nothing when it isn't. */
 export function MovePills({ pr, viewer, hideViaTeam }: { pr: TrackedPr; viewer: string | null; hideViaTeam: boolean }) {

@@ -360,3 +360,100 @@ describe('the views', () => {
     expect(await screen.findByText('Human change')).toBeInTheDocument();
   });
 });
+
+describe('the Notifications bell', () => {
+  const onAlice = (title: string) => aPr({ title, author: bob, waitingOn: [waitingOnReviewer(alice)] });
+
+  /** The app sees `first`, then polls and sees `then`. */
+  async function seeThenPoll(first: Snapshot, then: Snapshot) {
+    serve(first);
+    const rendered = renderApp();
+    await screen.findByTestId('no-reviewer');
+    serve(then);
+    await act(() => rendered.queryClient.refetchQueries());
+    return rendered;
+  }
+
+  const bell = () => screen.getByRole('button', { name: /notifications/i });
+
+  it('starts quiet on a first visit, whatever is already on the Viewer', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+
+    const old = onAlice('Old news');
+
+    await seeThenPoll(aFreshSnapshot({ prs: [old] }), aFreshSnapshot({ prs: [old] }));
+
+    expect(bell()).toBeEnabled();
+    expect(bell()).toHaveAccessibleName('Notifications');
+    expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument();
+  });
+
+  it('counts the PRs newly on the Viewer since their browser last saw them', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+
+    const old = onAlice('Old news');
+
+    await seeThenPoll(aFreshSnapshot({ prs: [old] }), aFreshSnapshot({ prs: [old, onAlice('New'), onAlice('Newer')] }));
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('2');
+    expect(bell()).toHaveAccessibleName('Notifications: 2 unread');
+  });
+
+  it('shows "9+" above 9', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const many = Array.from({ length: 10 }, (_, index) => onAlice(`New ${index}`));
+
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: many }));
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('9+');
+    expect(bell()).toHaveAccessibleName('Notifications: 10 unread');
+  });
+
+  it('shows changes made while the tab was closed', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(aFreshSnapshot());
+    const first = renderApp();
+    await screen.findByTestId('no-reviewer');
+    first.unmount();
+
+    serve(aFreshSnapshot({ prs: [onAlice('New')] }));
+    renderApp();
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+  });
+
+  it('is greyed out, with a hint, until the Viewer picks themselves', async () => {
+    serve(aFreshSnapshot({ prs: [onAlice('New')] }));
+
+    renderApp();
+
+    await screen.findByTestId('no-reviewer');
+    expect(bell()).toBeDisabled();
+    expect(bell().parentElement).toHaveAttribute('title', expect.stringMatching(/pick yourself/i));
+  });
+
+  it('starts over quietly when what this browser saved is damaged', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    window.localStorage.setItem(
+      'stalemate.notifications.alice',
+      JSON.stringify({ hideViaTeam: false, seenAt: Date.now(), owed: {}, notifications: [null] })
+    );
+
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('New')] }));
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+  });
+
+  it('starts quiet on a Viewer’s first pick, and keeps each Viewer’s Notifications apart', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const forAlice = aFreshSnapshot({ prs: [onAlice('For alice'), aPr({ title: 'For bob', author: alice, waitingOn: [waitingOnReviewer(bob)] })] });
+    await seeThenPoll(aFreshSnapshot(), forAlice);
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+
+    await userEvent.selectOptions(screen.getByLabelText(/I am/), 'bob');
+    await waitFor(() => expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByLabelText(/I am/), 'alice');
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+  });
+});
