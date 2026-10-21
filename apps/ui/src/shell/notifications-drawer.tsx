@@ -1,10 +1,11 @@
 import { X } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import { MoveList } from '@/cells';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { formatSince } from '@/lib/time';
-import type { Notification } from '@/notifications/engine';
+import { type Notification, withPrs } from '@/notifications/engine';
+import type { OsNotifications } from '@/notifications/use-os-notifications';
 import type { TrackedPr } from '@/snapshot/types';
 import { NotificationBell } from './notification-bell';
 
@@ -33,6 +34,35 @@ function NotificationRow({ notification, pr, now, onDismiss }: { notification: N
   );
 }
 
+/** The footer, with the checkbox that also sends Notifications to the OS. Hidden when the browser has no Notification API. */
+function OsNotificationsFooter({ os: { permission, enabled, setEnabled } }: { os: OsNotifications }) {
+  const hintId = useId();
+  if (permission === 'unsupported') {
+    return null;
+  }
+  const blocked = permission === 'denied';
+  return (
+    <SheetFooter className="border-t">
+      <label className="flex items-center gap-2 text-sm has-disabled:text-muted-foreground">
+        <input
+          type="checkbox"
+          className="size-4 accent-primary"
+          checked={enabled}
+          disabled={blocked}
+          aria-describedby={blocked ? hintId : undefined}
+          onChange={(event) => void setEnabled(event.target.checked)}
+        />
+        Also send them to my OS
+      </label>
+      {blocked && (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          This browser blocks StaleMate’s notifications. Allow them from the padlock in the address bar.
+        </p>
+      )}
+    </SheetFooter>
+  );
+}
+
 /**
  * The bell, and the drawer it opens over the app: the Viewer's Notifications, to dismiss one by one or all at once.
  * Opening a PR from it leaves its Notification in place.
@@ -42,6 +72,9 @@ export function NotificationsDrawer({
   prs,
   hasViewer,
   now,
+  open,
+  onOpenChange,
+  os,
   onDismiss,
   onOpenInbox,
 }: {
@@ -49,20 +82,17 @@ export function NotificationsDrawer({
   prs: readonly TrackedPr[];
   hasViewer: boolean;
   now: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  os: OsNotifications;
   onDismiss: (prIds: readonly string[]) => void;
   onOpenInbox: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const byId = new Map(prs.map((pr) => [pr.id, pr]));
-  // A Notification is only kept while its PR is on the Viewer, so it is in the Snapshot. The bell counts these rows too,
-  // so it can never disagree with the drawer.
-  const rows = notifications.flatMap((notification) => {
-    const pr = byId.get(notification.prId);
-    return pr === undefined ? [] : [{ notification, pr }];
-  });
+  // The bell counts these rows too, so it can never disagree with the drawer.
+  const rows = withPrs(notifications, prs);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       {/* The hint sits on a wrapper: a disabled button gets no pointer events, so it would show no tooltip. */}
       <span title={hasViewer ? undefined : 'Pick yourself in “I am…” to get Notifications'}>
         <SheetTrigger asChild>
@@ -97,7 +127,7 @@ export function NotificationsDrawer({
               variant="link"
               size="sm"
               onClick={() => {
-                setOpen(false);
+                onOpenChange(false);
                 onOpenInbox();
               }}
             >
@@ -105,6 +135,7 @@ export function NotificationsDrawer({
             </Button>
           </div>
         )}
+        <OsNotificationsFooter os={os} />
       </SheetContent>
     </Sheet>
   );

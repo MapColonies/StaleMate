@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useFilters } from '@/filters/use-filters';
 import { STORAGE_KEYS, useStoredString } from '@/lib/local-storage';
 import { useNow } from '@/lib/use-now';
+import { popUp } from '@/notifications/pop-up';
 import { useNotifications } from '@/notifications/use-notifications';
+import { useOsNotifications } from '@/notifications/use-os-notifications';
 import { viewerOptions } from '@/snapshot/selectors';
 import { isWarming, useSnapshot } from '@/snapshot/use-snapshot';
 import { HeaderCounts } from '@/shell/header-counts';
@@ -60,7 +62,13 @@ export default function App() {
   // A stored Viewer who has left the Team is no Viewer.
   const viewer = storedViewer !== null && options.includes(storedViewer) ? storedViewer : null;
   const { filters } = useFilters();
-  const { notifications, dismiss } = useNotifications(snapshot, viewer, filters.hideViaTeam);
+  const os = useOsNotifications();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { notifications, dismiss } = useNotifications(snapshot, viewer, filters.hideViaTeam, (due, observed) => {
+    if (os.enabled) {
+      popUp(due, observed.prs, () => setDrawerOpen(true));
+    }
+  });
 
   return (
     // The header stays put; the views scroll below it, and the Board scrolls inside itself.
@@ -78,6 +86,9 @@ export default function App() {
             prs={snapshot?.prs ?? []}
             hasViewer={viewer !== null}
             now={now}
+            open={drawerOpen}
+            onOpenChange={setDrawerOpen}
+            os={os}
             onDismiss={dismiss}
             onOpenInbox={() => setView('inbox')}
           />

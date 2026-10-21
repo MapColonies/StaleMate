@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '@/app';
 import type { Snapshot, SyncState } from '@/snapshot/types';
 import { onRequest, requests } from './http-stub';
@@ -674,5 +674,240 @@ describe('the Notifications drawer', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: /notifications/i })).toHaveFocus();
     expect(screen.getByRole('button', { name: 'Table' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('OS notifications', () => {
+  const onAlice = (title: string) => aPr({ title, author: bob, waitingOn: [waitingOnReviewer(alice)] });
+
+  /** The browser's Notification API, recording what the app asks of it. */
+  class FakeNotification {
+    static permission: NotificationPermission = 'default';
+    static answer: NotificationPermission = 'granted';
+    static requestPermission = vi.fn(async () => {
+      FakeNotification.permission = FakeNotification.answer;
+      return FakeNotification.answer;
+    });
+    static shown: FakeNotification[] = [];
+    /** The popup shown `index`-th. */
+    static nth(index: number): FakeNotification {
+      const popup = FakeNotification.shown[index];
+      if (popup === undefined) {
+        throw new Error(`No popup #${index}`);
+      }
+      return popup;
+    }
+    onclick: (() => void) | null = null;
+    close = vi.fn();
+    readonly title: string;
+    readonly options: NotificationOptions;
+    constructor(title: string, options: NotificationOptions) {
+      this.title = title;
+      this.options = options;
+      FakeNotification.shown.push(this);
+    }
+  }
+
+  /** The Permissions API's status for notifications, which the browser changes from site settings. */
+  const permissionStatus = new EventTarget();
+
+  function fakeBrowser(permission: NotificationPermission, { permissionsApi = true } = {}): void {
+    FakeNotification.permission = permission;
+    FakeNotification.answer = 'granted';
+    FakeNotification.requestPermission.mockClear();
+    FakeNotification.shown = [];
+    Object.defineProperty(window, 'Notification', { configurable: true, writable: true, value: FakeNotification });
+    Object.defineProperty(navigator, 'permissions', {
+      configurable: true,
+      value: permissionsApi ? { query: vi.fn(async () => permissionStatus) } : undefined,
+    });
+  }
+
+  afterEach(() => {
+    delete (window as { Notification?: unknown }).Notification;
+    delete (navigator as { permissions?: unknown }).permissions;
+  });
+
+  /** Alice's app sees `first`, then polls and sees `then`. */
+  async function seeThenPoll(first: Snapshot, then: Snapshot) {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(first);
+    const rendered = renderApp();
+    await screen.findByTestId('no-reviewer');
+    serve(then);
+    await act(() => rendered.queryClient.refetchQueries());
+    return rendered;
+  }
+
+  const openDrawer = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    return screen.findByRole('dialog', { name: 'Notifications' });
+  };
+  const checkbox = () => screen.getByRole('checkbox', { name: /send them to my OS/i });
+
+  /** Alice, on a first visit, opens the drawer, ticks the checkbox and closes the drawer again. */
+  async function turnOn() {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(aFreshSnapshot());
+    const rendered = renderApp();
+    await screen.findByTestId('no-reviewer');
+    await openDrawer();
+    await userEvent.click(checkbox());
+    await waitFor(() => expect(checkbox()).toBeChecked());
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    return rendered;
+  }
+
+  async function poll(rendered: { queryClient: QueryClient }, snapshot: Snapshot) {
+    serve(snapshot);
+    await act(() => rendered.queryClient.refetchQueries());
+  }
+
+  it('is not offered when the browser has no Notification API', async () => {
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+
+    await openDrawer();
+
+    expect(screen.queryByRole('checkbox', { name: /send them to my OS/i })).not.toBeInTheDocument();
+  });
+
+  it('asks for permission only once the checkbox is ticked', async () => {
+    fakeBrowser('default');
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+    expect(FakeNotification.requestPermission).not.toHaveBeenCalled();
+    expect(checkbox()).not.toBeChecked();
+
+    await userEvent.click(checkbox());
+
+    expect(FakeNotification.requestPermission).toHaveBeenCalledOnce();
+    await waitFor(() => expect(checkbox()).toBeChecked());
+  });
+
+  it('stays off when the Viewer refuses permission, and then says how to allow it from the padlock', async () => {
+    fakeBrowser('default');
+    FakeNotification.answer = 'denied';
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+
+    await userEvent.click(checkbox());
+
+    await waitFor(() => expect(checkbox()).toBeDisabled());
+    expect(checkbox()).not.toBeChecked();
+    expect(checkbox()).toHaveAccessibleDescription(/padlock/i);
+  });
+
+  it('is disabled while the browser blocks notifications, and comes back once they are allowed again', async () => {
+    fakeBrowser('denied');
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+    expect(checkbox()).toBeDisabled();
+    expect(checkbox()).toHaveAccessibleDescription(/padlock/i);
+
+    FakeNotification.permission = 'default';
+    act(() => {
+      permissionStatus.dispatchEvent(new Event('change'));
+    });
+
+    await waitFor(() => expect(checkbox()).toBeEnabled());
+    expect(checkbox()).not.toHaveAccessibleDescription(/padlock/i);
+  });
+
+  it('is ticked right away when permission is already granted, and applies to every Viewer in this browser', async () => {
+    fakeBrowser('granted');
+    const rendered = await turnOn();
+    expect(FakeNotification.requestPermission).not.toHaveBeenCalled();
+    rendered.unmount();
+
+    window.localStorage.setItem('stalemate.viewer', 'bob');
+    serve(aFreshSnapshot());
+    renderApp();
+    await screen.findByTestId('no-reviewer');
+    await openDrawer();
+
+    expect(checkbox()).toBeChecked();
+  });
+
+  it('pops up each new Notification, tagged by its PR, once it is on', async () => {
+    fakeBrowser('granted');
+    const rendered = await turnOn();
+
+    const pr = aPr({ title: 'Add tiles', repo: 'MapColonies/raster', number: 7, author: bob, waitingOn: [waitingOnReviewer(alice)] });
+    await poll(rendered, aFreshSnapshot({ prs: [pr, onAlice('Second')] }));
+
+    await waitFor(() => expect(FakeNotification.shown).toHaveLength(2));
+    const [first, second] = [FakeNotification.nth(0), FakeNotification.nth(1)];
+    expect(first.title).toBe('Add tiles');
+    expect(first.options.body).toBe('MapColonies/raster#7 · Review');
+    expect(first.options.tag).toContain(pr.id);
+    expect(first.options).toMatchObject({ renotify: true });
+    expect(second.options.tag).not.toBe(first.options.tag);
+  });
+
+  it('pops up only what is newly due, not what it already told about', async () => {
+    fakeBrowser('granted');
+    const rendered = await turnOn();
+    const first = onAlice('First');
+    await poll(rendered, aFreshSnapshot({ prs: [first] }));
+    await waitFor(() => expect(FakeNotification.shown).toHaveLength(1));
+
+    await poll(rendered, aFreshSnapshot({ prs: [first, onAlice('Second')] }));
+
+    await waitFor(() => expect(FakeNotification.shown).toHaveLength(2));
+    expect(FakeNotification.nth(1).title).toBe('Second');
+  });
+
+  it('pops up one summary when more than 3 are due at once', async () => {
+    fakeBrowser('granted');
+    const rendered = await turnOn();
+
+    await poll(rendered, aFreshSnapshot({ prs: Array.from({ length: 4 }, (_, index) => onAlice(`New ${index}`)) }));
+
+    await screen.findByTestId('notification-count');
+    expect(FakeNotification.shown.map((popup) => popup.title)).toEqual(['4 PRs are on you']);
+  });
+
+  it('pops up nothing while it is off', async () => {
+    fakeBrowser('granted');
+
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('New')] }));
+
+    await screen.findByTestId('notification-count');
+    expect(FakeNotification.shown).toEqual([]);
+  });
+
+  it('pops up nothing when it starts over: a first visit, or a switch of the via-Team setting', async () => {
+    fakeBrowser('granted');
+    window.localStorage.setItem('stalemate.osNotifications', 'on');
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const team = aPr({ title: 'For the Team', author: bob, waitingOn: [waitingOnTheTeam] });
+    serve(aFreshSnapshot({ prs: [onAlice('Old news'), team] }));
+    const first = renderApp();
+    await screen.findByTestId('no-reviewer');
+    first.unmount();
+
+    window.history.replaceState(null, '', '/?hideViaTeam=1');
+    serve(aFreshSnapshot({ prs: [onAlice('Old news'), onAlice('Also old')] }));
+    renderApp();
+    await screen.findByText('Also old');
+
+    expect(FakeNotification.shown).toEqual([]);
+  });
+
+  it('focuses the window and opens the drawer when a popup is clicked', async () => {
+    fakeBrowser('granted');
+    const focus = vi.spyOn(window, 'focus').mockImplementation(() => {});
+    const rendered = await turnOn();
+    await poll(rendered, aFreshSnapshot({ prs: [onAlice('New')] }));
+    await waitFor(() => expect(FakeNotification.shown).toHaveLength(1));
+
+    act(() => FakeNotification.nth(0).onclick?.());
+
+    expect(focus).toHaveBeenCalled();
+    expect(FakeNotification.nth(0).close).toHaveBeenCalled();
+    const drawer = await screen.findByRole('dialog', { name: 'Notifications' });
+    expect(within(drawer).getByRole('listitem', { name: 'New' })).toBeInTheDocument();
+    focus.mockRestore();
   });
 });

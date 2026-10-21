@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { notificationsKey, readStored, writeStored } from '@/lib/local-storage';
 import type { Snapshot } from '@/snapshot/types';
 import { type Notification, type NotificationState, dismiss as dismissIn, notificationsOf, observe } from './engine';
@@ -37,26 +37,41 @@ interface ViewerNotifications {
 /**
  * The Viewer's Notifications: each Snapshot is diffed against what this browser last saw for them, which is saved for
  * next time, so what lands while the tab is closed shows on return, and other tabs show what this one saves. None
- * without a Viewer.
+ * without a Viewer. onDue hears of the Notifications each Snapshot newly brings, for a popup. A tab that polls after
+ * another saved them finds them already seen; two tabs polling at once may both hear of them, which popups' tags
+ * collapse into one.
  */
-export function useNotifications(snapshot: Snapshot | undefined, viewer: string | null, hideViaTeam: boolean): ViewerNotifications {
+export function useNotifications(
+  snapshot: Snapshot | undefined,
+  viewer: string | null,
+  hideViaTeam: boolean,
+  onDue: (due: readonly Notification[], snapshot: Snapshot) => void
+): ViewerNotifications {
   // Tagged with its Viewer, so a switch never shows the previous Viewer's Notifications.
   const [seen, setSeen] = useState<{ viewer: string; state: NotificationState } | null>(null);
+  // The latest, so a new callback each render doesn't diff the Snapshot again.
+  const onDueRef = useRef(onDue);
+  useEffect(() => {
+    onDueRef.current = onDue;
+  });
 
   useEffect(() => {
     if (snapshot === undefined || viewer === null) {
       return;
     }
     const now = Date.now();
-    let state: NotificationState;
+    let observed: ReturnType<typeof observe>;
     try {
-      ({ state } = observe(load(viewer), snapshot, viewer, hideViaTeam, now));
+      observed = observe(load(viewer), snapshot, viewer, hideViaTeam, now);
     } catch {
       // What was saved is damaged further down than load() checks: start over.
-      ({ state } = observe(null, snapshot, viewer, hideViaTeam, now));
+      observed = observe(null, snapshot, viewer, hideViaTeam, now);
     }
-    save(viewer, state);
-    setSeen({ viewer, state });
+    save(viewer, observed.state);
+    setSeen({ viewer, state: observed.state });
+    if (observed.due.length > 0) {
+      onDueRef.current(observed.due, snapshot);
+    }
   }, [snapshot, viewer, hideViaTeam]);
 
   // Another tab saved the Viewer's Notifications: show what it saved, so tabs agree. Not when it worked them out under

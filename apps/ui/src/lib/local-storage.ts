@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   hiddenTableColumns: 'stalemate.table.hiddenColumns',
   prOrder: 'stalemate.prOrder',
   tableSort: 'stalemate.table.sort',
+  osNotifications: 'stalemate.osNotifications',
 } as const;
 
 /** Each Viewer's Notifications are kept under their own key. */

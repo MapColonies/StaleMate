@@ -1,5 +1,5 @@
 import { viewerMoves } from '@/snapshot/selectors';
-import type { Move, Snapshot } from '@/snapshot/types';
+import type { Move, Snapshot, TrackedPr } from '@/snapshot/types';
 
 /**
  * How long a browser can be away before it starts over quietly instead of replaying everything that changed meanwhile.
@@ -88,4 +88,16 @@ export function dismiss(state: NotificationState, prId: string): NotificationSta
 /** The Notifications the Viewer has, oldest first. */
 export function notificationsOf(state: NotificationState): readonly Notification[] {
   return state.notifications;
+}
+
+/**
+ * Each Notification with its PR. A Notification is only kept while its PR is on the Viewer, so it is in the Snapshot;
+ * any whose PR isn't is left out, so the bell, the drawer and the popups always agree.
+ */
+export function withPrs(notifications: readonly Notification[], prs: readonly TrackedPr[]): { notification: Notification; pr: TrackedPr }[] {
+  const byId = new Map(prs.map((pr) => [pr.id, pr]));
+  return notifications.flatMap((notification) => {
+    const pr = byId.get(notification.prId);
+    return pr === undefined ? [] : [{ notification, pr }];
+  });
 }
