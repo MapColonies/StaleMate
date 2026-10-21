@@ -52,7 +52,8 @@ function StartupState({ error }: { error: unknown }) {
 }
 
 export default function App() {
-  const { data: snapshot, error, isError } = useSnapshot();
+  const os = useOsNotifications();
+  const { data: snapshot, error, isError } = useSnapshot({ inBackground: os.enabled });
   const [storedViewer, setViewer] = useStoredString(STORAGE_KEYS.viewer);
   const [view, setView] = useLastView();
   const theme = useTheme();
@@ -62,7 +63,6 @@ export default function App() {
   // A stored Viewer who has left the Team is no Viewer.
   const viewer = storedViewer !== null && options.includes(storedViewer) ? storedViewer : null;
   const { filters } = useFilters();
-  const os = useOsNotifications();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { notifications, dismiss } = useNotifications(snapshot, viewer, filters.hideViaTeam, (due, observed) => {
     if (os.enabled) {

@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/app';
 import type { Snapshot, SyncState } from '@/snapshot/types';
 import { onRequest, requests } from './http-stub';
@@ -909,5 +909,72 @@ describe('OS notifications', () => {
     const drawer = await screen.findByRole('dialog', { name: 'Notifications' });
     expect(within(drawer).getByRole('listitem', { name: 'New' })).toBeInTheDocument();
     focus.mockRestore();
+  });
+
+  describe('from a background tab', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      focusManager.setFocused(undefined);
+    });
+
+    const snapshotPolls = (): number => requests().filter((request) => request === 'GET /api/snapshot').length;
+
+    /**
+     * How often Alice's tab, already showing a Snapshot, polls while in the background for 5 minutes. `meanwhile` is
+     * served only once the tab is hidden, so only a background poll can bring it.
+     */
+    async function pollsWhileHiddenFor5Minutes(meanwhile?: Snapshot): Promise<number> {
+      await waitFor(() => expect(snapshotPolls()).toBeGreaterThan(0));
+      const before = snapshotPolls();
+      act(() => focusManager.setFocused(false));
+      if (meanwhile) {
+        serve(meanwhile);
+      }
+      await act(() => vi.advanceTimersByTimeAsync(5 * MINUTE));
+      return snapshotPolls() - before;
+    }
+
+    it('keeps polling while it is on, and pops up what lands meanwhile', async () => {
+      fakeBrowser('granted');
+      await turnOn();
+
+      expect(await pollsWhileHiddenFor5Minutes(aFreshSnapshot({ prs: [onAlice('New')] }))).toBeGreaterThan(0);
+      expect(FakeNotification.shown.map((popup) => popup.title)).toEqual(['New']);
+    });
+
+    it('does not poll while it is off', async () => {
+      fakeBrowser('granted');
+      window.localStorage.setItem('stalemate.viewer', 'alice');
+      serve(aFreshSnapshot());
+      renderApp();
+      await screen.findByTestId('no-reviewer');
+
+      expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
+    });
+
+    it('does not poll while the browser blocks notifications, though the setting is on', async () => {
+      fakeBrowser('denied');
+      window.localStorage.setItem('stalemate.osNotifications', 'on');
+      window.localStorage.setItem('stalemate.viewer', 'alice');
+      serve(aFreshSnapshot());
+      renderApp();
+      await screen.findByTestId('no-reviewer');
+
+      expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
+    });
+
+    it('stops polling once it is turned off, without a reload', async () => {
+      fakeBrowser('granted');
+      await turnOn();
+      await openDrawer();
+      await userEvent.click(checkbox());
+      await waitFor(() => expect(checkbox()).not.toBeChecked());
+
+      expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
+    });
   });
 });

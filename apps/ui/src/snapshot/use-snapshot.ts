@@ -29,9 +29,10 @@ export function pollDelayMs(sync: SyncState, now: number, unscheduledMs = POLL_M
 
 /**
  * The Snapshot, refetched as sweeps land (at least every 30 s) and when the window regains focus. A tab in the
- * background doesn't poll.
+ * background polls only when `inBackground`, e.g. so OS notifications still arrive; the browser throttles it to about
+ * once a minute, which is enough.
  */
-export function useSnapshot() {
+export function useSnapshot({ inBackground = false }: { inBackground?: boolean } = {}) {
   return $api.useQuery(
     'get',
     '/snapshot',
@@ -48,7 +49,7 @@ export function useSnapshot() {
         }
         return pollDelayMs(state.data.sync, Date.now());
       },
-      refetchIntervalInBackground: false,
+      refetchIntervalInBackground: inBackground,
       refetchOnWindowFocus: true,
       // Polling already retries; a warming 503 should show at once.
       retry: false,
