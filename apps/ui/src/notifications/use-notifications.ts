@@ -36,7 +36,8 @@ interface ViewerNotifications {
 
 /**
  * The Viewer's Notifications: each Snapshot is diffed against what this browser last saw for them, which is saved for
- * next time, so what lands while the tab is closed shows on return. None without a Viewer.
+ * next time, so what lands while the tab is closed shows on return, and other tabs show what this one saves. None
+ * without a Viewer.
  */
 export function useNotifications(snapshot: Snapshot | undefined, viewer: string | null, hideViaTeam: boolean): ViewerNotifications {
   // Tagged with its Viewer, so a switch never shows the previous Viewer's Notifications.
@@ -58,19 +59,38 @@ export function useNotifications(snapshot: Snapshot | undefined, viewer: string 
     setSeen({ viewer, state });
   }, [snapshot, viewer, hideViaTeam]);
 
+  // Another tab saved the Viewer's Notifications: show what it saved, so tabs agree. Not when it worked them out under
+  // the other via-Team setting, which would disagree with this tab's Your turn.
+  useEffect(() => {
+    if (viewer === null) {
+      return;
+    }
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key !== notificationsKey(viewer)) {
+        return;
+      }
+      const state = load(viewer);
+      if (state?.hideViaTeam === hideViaTeam) {
+        setSeen({ viewer, state });
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [viewer, hideViaTeam]);
+
   const dismiss = useCallback(
     (prIds: readonly string[]) => {
-      // From the latest state, so a poll landing at the same time is neither lost nor undoes the dismissal.
-      setSeen((latest) => {
-        if (latest === null || latest.viewer !== viewer) {
-          return latest;
-        }
-        const state = prIds.reduce(dismissIn, latest.state);
-        save(latest.viewer, state);
-        return { viewer: latest.viewer, state };
-      });
+      if (seen === null || seen.viewer !== viewer) {
+        return;
+      }
+      // Every tab saves what it works out, so what is saved is the latest: dismissing from it never undoes another
+      // tab's dismissal this one hasn't heard of yet.
+      const saved = load(seen.viewer);
+      const state = prIds.reduce(dismissIn, saved?.hideViaTeam === seen.state.hideViaTeam ? saved : seen.state);
+      save(seen.viewer, state);
+      setSeen({ viewer: seen.viewer, state });
     },
-    [viewer]
+    [seen, viewer]
   );
 
   return { notifications: seen !== null && seen.viewer === viewer ? notificationsOf(seen.state) : [], dismiss };

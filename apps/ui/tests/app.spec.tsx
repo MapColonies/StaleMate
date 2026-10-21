@@ -579,6 +579,92 @@ describe('the Notifications drawer', () => {
     expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
   });
 
+  describe('across tabs', () => {
+    /** Two of Alice's tabs see `first`; then only the first tab polls and sees `then`. */
+    async function twoTabs(first: Snapshot, then: Snapshot) {
+      window.localStorage.setItem('stalemate.viewer', 'alice');
+      serve(first);
+      const one = renderApp();
+      const other = renderApp();
+      await waitFor(() => expect(screen.getAllByTestId('no-reviewer')).toHaveLength(2));
+      serve(then);
+      await act(() => one.queryClient.refetchQueries());
+      return { one, other };
+    }
+
+    /** The browser tells the tabs another tab saved Alice's Notifications. */
+    function storageEvent(): void {
+      const key = 'stalemate.notifications.alice';
+      act(() => {
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: window.localStorage.getItem(key), storageArea: window.localStorage }));
+      });
+    }
+
+    const bellIn = (tab: { container: HTMLElement }) => within(tab.container).getByRole('button', { name: /notifications/i, hidden: true });
+    const openDrawerIn = async (tab: { container: HTMLElement }) => {
+      await userEvent.click(bellIn(tab));
+      return screen.findByRole('dialog', { name: 'Notifications' });
+    };
+
+    it('shows a Notification another tab worked out', async () => {
+      const pr = onAlice('Seen there');
+      const { one, other } = await twoTabs(
+        aFreshSnapshot({ prs: [pr] }),
+        aFreshSnapshot({ prs: [{ ...pr, waitingOn: [waitingOnReviewer(alice, ['review', 'fixChecks'])] }] })
+      );
+      await waitFor(() => expect(bellIn(one)).toHaveAccessibleName('Notifications: 1 unread'));
+      expect(bellIn(other)).toHaveAccessibleName('Notifications');
+
+      storageEvent();
+
+      expect(bellIn(other)).toHaveAccessibleName('Notifications: 1 unread');
+    });
+
+    it('shows a dismissal made in another tab, in the bell and the drawer', async () => {
+      const { one, other } = await twoTabs(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('First'), onAlice('Second')] }));
+      await waitFor(() => expect(bellIn(one)).toHaveAccessibleName('Notifications: 2 unread'));
+      await act(() => other.queryClient.refetchQueries());
+      const drawer = await openDrawerIn(other);
+
+      await userEvent.click(within(drawer).getByRole('button', { name: 'Dismiss First' }));
+      storageEvent();
+
+      expect(bellIn(one)).toHaveAccessibleName('Notifications: 1 unread');
+      expect(bellIn(other)).toHaveAccessibleName('Notifications: 1 unread');
+      expect(within(drawer).queryByRole('listitem', { name: 'First' })).not.toBeInTheDocument();
+    });
+
+    it('shows them all dismissed in another tab', async () => {
+      const { one, other } = await twoTabs(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('First'), onAlice('Second')] }));
+      await waitFor(() => expect(bellIn(one)).toHaveAccessibleName('Notifications: 2 unread'));
+      await act(() => other.queryClient.refetchQueries());
+
+      await userEvent.click(within(await openDrawerIn(other)).getByRole('button', { name: 'Dismiss all' }));
+      storageEvent();
+
+      expect(bellIn(one)).toHaveAccessibleName('Notifications');
+      expect(bellIn(other)).toHaveAccessibleName('Notifications');
+    });
+
+    it('never undoes another tab’s dismissal, even before hearing of it', async () => {
+      const { one, other } = await twoTabs(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('First'), onAlice('Second')] }));
+      await waitFor(() => expect(bellIn(one)).toHaveAccessibleName('Notifications: 2 unread'));
+      await act(() => other.queryClient.refetchQueries());
+      await userEvent.click(within(await openDrawerIn(other)).getByRole('button', { name: 'Dismiss First' }));
+      await userEvent.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+      // The first tab hasn't heard of that dismissal yet.
+      expect(bellIn(one)).toHaveAccessibleName('Notifications: 2 unread');
+      await userEvent.click(within(await openDrawerIn(one)).getByRole('button', { name: 'Dismiss Second' }));
+      await act(() => one.queryClient.refetchQueries());
+      storageEvent();
+
+      expect(bellIn(one)).toHaveAccessibleName('Notifications');
+      expect(bellIn(other)).toHaveAccessibleName('Notifications');
+    });
+  });
+
   it('is an accessible dialog: Escape closes it and gives focus back to the bell', async () => {
     await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
     await openDrawer();
