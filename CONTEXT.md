@@ -102,6 +102,10 @@ _Avoid_: Business day, weekday
 How loudly a PR's Age calls for attention — four levels, with thresholds in Working Days the Team sets. A Draft has no Urgency.
 _Avoid_: Staleness, aging, priority
 
+**Notification**:
+News for the Viewer: a PR became Waiting On them, or gave them a new Move, since their browser last saw it. Only ever about the Viewer's own moves, never anyone else's. It lasts until the Viewer dismisses it or the PR is no longer on them.
+_Avoid_: Alert, turn change
+
 **No Reviewer**:
 A PR Awaiting Review that no reviewer owes a move on — none asked, or every ask already met — so it falls to its author to find one, or, on a Bot PR, to whichever Team Member picks it up. Always flagged, never silent, even while its checks fail or it conflicts with its base.
 _Avoid_: Nobody's Turn, orphan, unassigned
