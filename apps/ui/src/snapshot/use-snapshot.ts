@@ -3,8 +3,9 @@ import { $api, fetchClient } from '@/lib/http-client';
 import type { Snapshot, SyncState, Warming } from './types';
 
 const POLL_MS = 30_000;
-// While a sweep runs or is due, poll faster so its Snapshot shows soon after it lands.
-const BUSY_POLL_MS = 2_000;
+// While a sweep runs or is due, poll faster so its Snapshot shows soon after it lands. Never more often than this, so a
+// hung or failing sweep doesn't have every tab hammering the API.
+const BUSY_POLL_MS = 10_000;
 
 /** The 503 the API answers until its first sweep succeeds. */
 export function isWarming(error: unknown): error is Warming {
@@ -12,8 +13,8 @@ export function isWarming(error: unknown): error is Warming {
 }
 
 /**
- * How long to wait before polling again: every 2 s while a sweep runs or is overdue, otherwise until the next sweep is due,
- * and at most 30 s. Without a scheduled sweep, `unscheduledMs`.
+ * How long to wait before polling again: every 10 s while a sweep runs or is overdue, otherwise until the next sweep is
+ * due, between 10 s and 30 s. Without a scheduled sweep, `unscheduledMs`.
  */
 export function pollDelayMs(sync: SyncState, now: number, unscheduledMs = POLL_MS): number {
   if (sync.state === 'syncing') {
@@ -23,10 +24,13 @@ export function pollDelayMs(sync: SyncState, now: number, unscheduledMs = POLL_M
     return unscheduledMs;
   }
   const untilNext = Date.parse(sync.nextAttemptAt) - now;
-  return untilNext <= 0 ? BUSY_POLL_MS : Math.min(POLL_MS, untilNext);
+  return Math.max(BUSY_POLL_MS, Math.min(POLL_MS, untilNext));
 }
 
-/** The Snapshot, refetched as sweeps land (at least every 30 s) and when the window regains focus. */
+/**
+ * The Snapshot, refetched as sweeps land (at least every 30 s) and when the window regains focus. A tab in the
+ * background doesn't poll.
+ */
 export function useSnapshot() {
   return $api.useQuery(
     'get',
@@ -44,6 +48,7 @@ export function useSnapshot() {
         }
         return pollDelayMs(state.data.sync, Date.now());
       },
+      refetchIntervalInBackground: false,
       refetchOnWindowFocus: true,
       // Polling already retries; a warming 503 should show at once.
       retry: false,
