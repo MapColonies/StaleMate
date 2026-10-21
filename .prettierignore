@@ -10,3 +10,7 @@ jest.config*.js
 pnpm-lock.yaml
 .nx/workspace-data/**
 .claude
+
+# The demo video's Python env and generated media
+demo-video/.venv
+demo-video/out

@@ -2,6 +2,8 @@ import { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
   $schema: 'https://unpkg.com/knip@6/schema.json',
+  // The demo video's scripts stand alone, with their own dependencies and a Python env.
+  ignore: ['demo-video/**'],
   ignoreIssues: {
     'apps/*/src/components/ui/**': ['exports'],
   },

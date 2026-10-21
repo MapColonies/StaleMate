@@ -1,0 +1,10 @@
+{
+  "name": "stalemate-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Records the StaleMate demo video: narration, browser recording and the final cut.",
+  "devDependencies": {
+    "ghost-cursor": "^1.4.2",
+    "playwright": "^1.64.1"
+  }
+}
