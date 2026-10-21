@@ -1,7 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Snapshot } from '@/snapshot/types';
+import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
 import { aPr, aSnapshot, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 
@@ -66,7 +67,7 @@ describe('the Inbox', () => {
       'No Reviewer',
       'Rest of the Team',
     ]);
-    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
+    expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
     expect(titlesIn('Your PRs, waiting on others')).toEqual(['alice’s own']);
     expect(titlesIn('No Reviewer')).toEqual(['nobody asked']);
   });
@@ -128,22 +129,72 @@ describe('the Inbox’s facets', () => {
 });
 
 describe('the Inbox’s order', () => {
-  it('is oldest first, and can be newest first, kept in the URL', async () => {
-    renderInbox(snapshot, 'alice');
-    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
-
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Newest first');
-
-    expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
-    expect(new URLSearchParams(window.location.search).get('order')).toBe('newest');
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('is read from the URL', () => {
-    window.history.replaceState(null, '', '/?order=newest');
+  it('is newest first, and can be oldest first, kept in the URL and saved', async () => {
+    renderInbox(snapshot, 'alice');
+    expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
+
+    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
+    expect(new URLSearchParams(window.location.search).get('order')).toBe('oldest');
+    expect(window.localStorage.getItem('stalemate.prOrder')).toBe('oldest');
+  });
+
+  it('is read from the URL, without changing the saved order', () => {
+    window.localStorage.setItem('stalemate.prOrder', 'idleLongest');
+    window.history.replaceState(null, '', '/?order=oldest');
+
+    renderInbox(snapshot, 'alice');
+
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Oldest first');
+    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
+    expect(window.localStorage.getItem('stalemate.prOrder')).toBe('idleLongest');
+  });
+
+  it('is the saved order when the URL has none, the same one the Board saved', async () => {
+    const board = render(<BoardView snapshot={snapshot} viewer="alice" now={NOW} />);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
+    board.unmount();
+    window.history.replaceState(null, '', '/');
+
+    renderInbox(snapshot, 'alice');
+
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Oldest first');
+  });
+
+  it('falls back past an unusable URL value to the saved order', () => {
+    window.localStorage.setItem('stalemate.prOrder', 'oldest');
+    window.history.replaceState(null, '', '/?order=sideways');
+
+    renderInbox(snapshot, 'alice');
+
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Oldest first');
+  });
+
+  it('falls back past an unusable saved value to newest first', () => {
+    window.localStorage.setItem('stalemate.prOrder', 'sideways');
 
     renderInbox(snapshot, 'alice');
 
     expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Newest first');
-    expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
+  });
+
+  it('still works when storage is blocked', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+
+    renderInbox(snapshot, 'alice');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
+
+    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
+    expect(new URLSearchParams(window.location.search).get('order')).toBe('oldest');
   });
 });

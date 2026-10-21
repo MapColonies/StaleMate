@@ -30,8 +30,9 @@ const snapshot = aSnapshot({
   ],
 });
 
+/** Pinned to oldest first, so these expectations are about the bucketing, not the default order. */
 function bucketIds(viewer: string | null, hideViaTeam = false): Partial<Record<BucketKey, string[]>> {
-  const buckets = inboxBuckets(snapshot.prs, viewer, { hideViaTeam });
+  const buckets = inboxBuckets(snapshot.prs, viewer, { hideViaTeam }, 'oldest');
   return Object.fromEntries(buckets.map((bucket) => [bucket.key, bucket.prs.map((pr) => pr.id)]));
 }
 
@@ -86,16 +87,16 @@ describe('inboxBuckets', () => {
         .find((bucket) => bucket.key === 'rest')
         ?.prs.map((pr) => pr.id);
 
-    it('is oldest first by default', () => {
+    it('is newest first by default', () => {
       expect(
         inboxBuckets(prs, null, { hideViaTeam: false })
           .find((bucket) => bucket.key === 'rest')
           ?.prs.map((pr) => pr.id)
-      ).toEqual(['old, busy', 'middling', 'young, idle long']);
+      ).toEqual(['young, idle long', 'middling', 'old, busy']);
     });
 
-    it('can be newest first', () => {
-      expect(order('newest')).toEqual(['young, idle long', 'middling', 'old, busy']);
+    it('can be oldest first', () => {
+      expect(order('oldest')).toEqual(['old, busy', 'middling', 'young, idle long']);
     });
 
     it('can be by Idle Time, longest or shortest first', () => {

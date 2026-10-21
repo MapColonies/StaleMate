@@ -61,11 +61,11 @@ describe('the Board', () => {
     expect(titlesIn('@infra')).toEqual(['asks the Team']);
   });
 
-  it('shows a PR in every column it waits on, oldest first', () => {
+  it('shows a PR in every column it waits on, newest first', () => {
     renderBoard(snapshot);
 
-    expect(titlesIn('bob')).toEqual(['asks bob and carol', 'asks bob']);
-    expect(titlesIn('carol')).toEqual(['asks bob and carol', 'nobody asked']);
+    expect(titlesIn('bob')).toEqual(['asks bob', 'asks bob and carol']);
+    expect(titlesIn('carol')).toEqual(['nobody asked', 'asks bob and carol']);
   });
 
   it('flags a No Reviewer PR in its author’s column', () => {
@@ -96,21 +96,32 @@ describe('the Board', () => {
 });
 
 describe('the Board’s order', () => {
-  it('is oldest first, and can be newest first, kept in the URL', async () => {
+  it('is newest first, and can be oldest first, kept in the URL and saved', async () => {
     renderBoard(snapshot);
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Newest first');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
 
-    expect(titlesIn('bob')).toEqual(['asks bob', 'asks bob and carol']);
-    expect(new URLSearchParams(window.location.search).get('order')).toBe('newest');
+    expect(titlesIn('bob')).toEqual(['asks bob and carol', 'asks bob']);
+    expect(new URLSearchParams(window.location.search).get('order')).toBe('oldest');
+    expect(window.localStorage.getItem('stalemate.prOrder')).toBe('oldest');
   });
 
-  it('is read from the URL', () => {
-    window.history.replaceState(null, '', '/?order=newest');
+  it('is read from the URL, without changing the saved order', () => {
+    window.localStorage.setItem('stalemate.prOrder', 'idleLongest');
+    window.history.replaceState(null, '', '/?order=oldest');
 
     renderBoard(snapshot);
 
-    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Newest first');
-    expect(titlesIn('carol')).toEqual(['nobody asked', 'asks bob and carol']);
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Oldest first');
+    expect(titlesIn('carol')).toEqual(['asks bob and carol', 'nobody asked']);
+    expect(window.localStorage.getItem('stalemate.prOrder')).toBe('idleLongest');
+  });
+
+  it('is the saved order when the URL has none', () => {
+    window.localStorage.setItem('stalemate.prOrder', 'oldest');
+
+    renderBoard(snapshot);
+
+    expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Oldest first');
   });
 });

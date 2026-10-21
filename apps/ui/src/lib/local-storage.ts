@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   view: 'stalemate.view',
   theme: 'stalemate.theme',
   hiddenTableColumns: 'stalemate.table.hiddenColumns',
+  prOrder: 'stalemate.prOrder',
 } as const;
 
 function read(key: string): string | null {

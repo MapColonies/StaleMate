@@ -10,5 +10,5 @@ export const PR_ORDERS = {
 
 export type PrOrder = keyof typeof PR_ORDERS;
 
-/** Oldest first: the Age StaleMate exists to shrink. */
-export const DEFAULT_PR_ORDER: PrOrder = 'oldest';
+/** Newest first: StaleMate serves the day-to-day flow first, and closing out old PRs second. */
+export const DEFAULT_PR_ORDER: PrOrder = 'newest';

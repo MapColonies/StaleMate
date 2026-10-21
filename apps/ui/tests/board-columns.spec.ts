@@ -66,13 +66,13 @@ describe('boardColumns', () => {
     expect(columnIds(prs, null).map(([key]) => key)).toEqual(['@infra', 'bob', 'carol', 'stranger', '@raster']);
   });
 
-  it('puts the oldest PR first in a column', () => {
+  it('puts the newest PR first in a column', () => {
     const prs = [aPr({ id: 'young', age: clock(1) }), aPr({ id: 'old', age: clock(9) }), aPr({ id: 'middling', age: clock(4) })];
 
-    expect(columnIds(prs, null)).toEqual([['alice', ['old', 'middling', 'young']]]);
+    expect(columnIds(prs, null)).toEqual([['alice', ['young', 'middling', 'old']]]);
   });
 
-  it('orders each column as asked: newest first, or by Idle Time', () => {
+  it('orders each column as asked: oldest first, or by Idle Time', () => {
     const prs = [
       aPr({ id: 'young, idle long', age: clock(1), idleTime: clock(0.9) }),
       aPr({ id: 'old, busy', age: clock(30), idleTime: clock(0.1) }),
@@ -80,7 +80,7 @@ describe('boardColumns', () => {
     ];
     const order = (prOrder: Parameters<typeof boardColumns>[2]) => boardColumns(prs, null, prOrder)[0]?.prs.map((pr) => pr.id);
 
-    expect(order('newest')).toEqual(['young, idle long', 'middling', 'old, busy']);
+    expect(order('oldest')).toEqual(['old, busy', 'middling', 'young, idle long']);
     expect(order('idleLongest')).toEqual(['middling', 'young, idle long', 'old, busy']);
   });
 
