@@ -38,7 +38,7 @@ const stalemateSchema = {
     },
     extraNonWorkingDays: {
       type: 'array',
-      default: ['2026-10-27'],
+      default: [],
       description: 'Extra days off the Team declares, as YYYY-MM-DD in Asia/Jerusalem',
       items: { type: 'string', format: 'date' },
       'x-env-value': 'EXTRA_NON_WORKING_DAYS',

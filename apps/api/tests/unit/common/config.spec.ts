@@ -14,7 +14,7 @@ describe('config', function () {
 
       expect(config.get('team.slug')).toBeString();
       expect(config.get('bots.logins')).toBeArray();
-      expect(config.get('extraNonWorkingDays')).toBeArray();
+      expect(config.get('extraNonWorkingDays')).toStrictEqual([]);
       expect(config.get('urgency.thresholds')).toHaveLength(3);
       expect(config.get('checks.excluded')).toStrictEqual(['jira/issue-validation', 'jira-validation']);
       expect(config.get('jira.baseUrl')).toBe('https://mapcolonies.atlassian.net');
