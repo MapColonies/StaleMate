@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { notificationsKey, readStored, writeStored } from '@/lib/local-storage';
 import type { Snapshot } from '@/snapshot/types';
-import { type Notification, type NotificationState, notificationsOf, observe } from './engine';
+import { type Notification, type NotificationState, dismiss as dismissIn, notificationsOf, observe } from './engine';
 
 /** What this browser saved for the Viewer, or null when there's nothing usable, which starts over. */
 function load(viewer: string): NotificationState | null {
@@ -23,13 +23,24 @@ function load(viewer: string): NotificationState | null {
   }
 }
 
+function save(viewer: string, state: NotificationState): void {
+  writeStored(notificationsKey(viewer), JSON.stringify(state));
+}
+
+interface ViewerNotifications {
+  /** Oldest first. */
+  notifications: readonly Notification[];
+  /** Dismisses the Notifications of these PRs. Their Moves stay seen, so only a later change notifies again. */
+  dismiss: (prIds: readonly string[]) => void;
+}
+
 /**
  * The Viewer's Notifications: each Snapshot is diffed against what this browser last saw for them, which is saved for
  * next time, so what lands while the tab is closed shows on return. None without a Viewer.
  */
-export function useNotifications(snapshot: Snapshot | undefined, viewer: string | null, hideViaTeam: boolean): readonly Notification[] {
+export function useNotifications(snapshot: Snapshot | undefined, viewer: string | null, hideViaTeam: boolean): ViewerNotifications {
   // Tagged with its Viewer, so a switch never shows the previous Viewer's Notifications.
-  const [seen, setSeen] = useState<{ viewer: string; notifications: readonly Notification[] } | null>(null);
+  const [seen, setSeen] = useState<{ viewer: string; state: NotificationState } | null>(null);
 
   useEffect(() => {
     if (snapshot === undefined || viewer === null) {
@@ -43,9 +54,24 @@ export function useNotifications(snapshot: Snapshot | undefined, viewer: string 
       // What was saved is damaged further down than load() checks: start over.
       ({ state } = observe(null, snapshot, viewer, hideViaTeam, now));
     }
-    writeStored(notificationsKey(viewer), JSON.stringify(state));
-    setSeen({ viewer, notifications: notificationsOf(state) });
+    save(viewer, state);
+    setSeen({ viewer, state });
   }, [snapshot, viewer, hideViaTeam]);
 
-  return seen !== null && seen.viewer === viewer ? seen.notifications : [];
+  const dismiss = useCallback(
+    (prIds: readonly string[]) => {
+      // From the latest state, so a poll landing at the same time is neither lost nor undoes the dismissal.
+      setSeen((latest) => {
+        if (latest === null || latest.viewer !== viewer) {
+          return latest;
+        }
+        const state = prIds.reduce(dismissIn, latest.state);
+        save(latest.viewer, state);
+        return { viewer: latest.viewer, state };
+      });
+    },
+    [viewer]
+  );
+
+  return { notifications: seen !== null && seen.viewer === viewer ? notificationsOf(seen.state) : [], dismiss };
 }

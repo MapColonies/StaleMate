@@ -9,7 +9,11 @@ const ALARMING: readonly Move[] = ['resolveConflict', 'fixChecks'];
 
 /** What the Viewer owes on the PR, in plain words: why it is their turn. Nothing when it isn't. */
 export function MovePills({ pr, viewer, hideViaTeam }: { pr: TrackedPr; viewer: string | null; hideViaTeam: boolean }) {
-  const moves = viewerMoves(pr, viewer, hideViaTeam);
+  return <MoveList moves={viewerMoves(pr, viewer, hideViaTeam)} />;
+}
+
+/** The given Moves as pills. Nothing when there are none. */
+export function MoveList({ moves }: { moves: readonly Move[] }) {
   if (moves.length === 0) {
     return null;
   }

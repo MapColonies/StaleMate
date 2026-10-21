@@ -457,3 +457,136 @@ describe('the Notifications bell', () => {
     expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
   });
 });
+
+describe('the Notifications drawer', () => {
+  const onAlice = (title: string) => aPr({ title, author: bob, waitingOn: [waitingOnReviewer(alice)] });
+
+  /** Alice's app sees `first`, then polls and sees `then`. */
+  async function seeThenPoll(first: Snapshot, then: Snapshot) {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(first);
+    const rendered = renderApp();
+    await screen.findByTestId('no-reviewer');
+    serve(then);
+    await act(() => rendered.queryClient.refetchQueries());
+    return rendered;
+  }
+
+  const openDrawer = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    return screen.findByRole('dialog', { name: 'Notifications' });
+  };
+
+  it('lists each Notification: its title linked to GitHub, repo #number, the new Moves and when it was noticed', async () => {
+    const pr = aPr({ title: 'Add tiles', repo: 'MapColonies/raster', number: 7, author: bob, waitingOn: [waitingOnReviewer(alice)] });
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [pr] }));
+    await screen.findByTestId('notification-count');
+
+    const drawer = await openDrawer();
+
+    const row = within(drawer).getByRole('listitem', { name: 'Add tiles' });
+    const link = within(row).getByRole('link', { name: 'Add tiles' });
+    expect(link).toHaveAttribute('href', pr.url);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(row).toHaveTextContent('MapColonies/raster#7');
+    expect(within(row).getByRole('list', { name: 'Your move' })).toHaveTextContent('Review');
+    expect(row).toHaveTextContent(/noticed \d+ s ago/);
+  });
+
+  it('shows only the new Moves of a PR already on the Viewer', async () => {
+    const before = onAlice('Same PR');
+    const after = { ...before, waitingOn: [waitingOnReviewer(alice, ['review', 'resolveConflict'])] };
+    await seeThenPoll(aFreshSnapshot({ prs: [before] }), aFreshSnapshot({ prs: [after] }));
+    await screen.findByTestId('notification-count');
+
+    const drawer = await openDrawer();
+
+    const moves = within(within(drawer).getByRole('listitem', { name: 'Same PR' })).getAllByRole('listitem');
+    expect(moves.map((move) => move.textContent)).toEqual(['Resolve conflict']);
+  });
+
+  it('keeps a Notification when its PR is opened', async () => {
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('New')] }));
+    await screen.findByTestId('notification-count');
+    const drawer = await openDrawer();
+
+    await userEvent.click(within(drawer).getByRole('link', { name: 'New' }));
+
+    expect(within(drawer).getByRole('listitem', { name: 'New' })).toBeInTheDocument();
+    expect(screen.getByTestId('notification-count')).toHaveTextContent('1');
+  });
+
+  it('dismisses one Notification with its ✕, and the bell counts one fewer', async () => {
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('First'), onAlice('Second')] }));
+    await screen.findByTestId('notification-count');
+    const drawer = await openDrawer();
+
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Dismiss First' }));
+
+    expect(within(drawer).queryByRole('listitem', { name: 'First' })).not.toBeInTheDocument();
+    expect(within(drawer).getByRole('listitem', { name: 'Second' })).toBeInTheDocument();
+    expect(screen.getByTestId('notification-count')).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: 'Notifications: 1 unread', hidden: true })).toBeInTheDocument();
+  });
+
+  it('notifies again about a dismissed PR that leaves the Viewer and lands on them again', async () => {
+    const pr = onAlice('Comes back');
+    const rendered = await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [pr] }));
+    await screen.findByTestId('notification-count');
+    await userEvent.click(within(await openDrawer()).getByRole('button', { name: 'Dismiss Comes back' }));
+    await userEvent.keyboard('{Escape}');
+
+    // Retitled, so the test can wait until the app shows it.
+    serve(aFreshSnapshot({ prs: [{ ...pr, title: 'Back to bob', waitingOn: [waitingOnAuthor(bob)] }] }));
+    await act(() => rendered.queryClient.refetchQueries());
+    await screen.findByText('Back to bob');
+    expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument();
+    serve(aFreshSnapshot({ prs: [pr] }));
+    await act(() => rendered.queryClient.refetchQueries());
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+  });
+
+  it('dismisses them all at once, then says nothing is new and points to the Inbox', async () => {
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('First'), onAlice('Second')] }));
+    await screen.findByTestId('notification-count');
+    const drawer = await openDrawer();
+
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Dismiss all' }));
+
+    expect(within(drawer).getByText(/nothing new on you/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument();
+    await userEvent.click(within(drawer).getByRole('button', { name: /your turn/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Inbox' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps a dismissal across visits, and notifies again only on a later change', async () => {
+    const pr = onAlice('Same PR');
+    const rendered = await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [pr] }));
+    await screen.findByTestId('notification-count');
+    const drawer = await openDrawer();
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Dismiss Same PR' }));
+    rendered.unmount();
+
+    serve(aFreshSnapshot({ prs: [pr] }));
+    const again = renderApp();
+    await screen.findByTestId('no-reviewer');
+    expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument();
+
+    serve(aFreshSnapshot({ prs: [{ ...pr, waitingOn: [waitingOnReviewer(alice, ['review', 'fixChecks'])] }] }));
+    await act(() => again.queryClient.refetchQueries());
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+  });
+
+  it('is an accessible dialog: Escape closes it and gives focus back to the bell', async () => {
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /notifications/i })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
