@@ -4,9 +4,27 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-{{ include "stalemate.name" . }}-configmap
 data:
-  # The SPA routes on the client, so any path that isn't a file gets index.html.
+  # The nginx chart includes this inside its `location /` block.
   extension.conf: |
       root   /usr/share/nginx/html;
       index  index.html index.htm;
+
+      # Everything outside /assets/, index.html and version.json included, is revalidated on every load,
+      # so a reload after a deploy gets the new build.
+      # `expires` rather than `add_header`, so the server-level CORS headers are still inherited.
+      expires -1;
+
+      # The SPA routes on the client, so any path that isn't a file gets index.html.
       try_files $uri $uri/ /index.html;
+
+      # Build assets carry a content hash in their name, so a given URL never changes.
+      # A missing asset is a 404, never index.html cached as immutable.
+      # `add_header` here drops the server-level CORS headers on assets; the UI loads them from its own origin,
+      # so they don't need them, and `expires` alone can't send `immutable`.
+      location /assets/ {
+          # Drop the inherited no-cache.
+          expires off;
+          add_header Cache-Control "public, max-age=31536000, immutable";
+          try_files $uri =404;
+      }
 {{- end }}

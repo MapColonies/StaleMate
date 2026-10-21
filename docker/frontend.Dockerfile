@@ -34,7 +34,7 @@ RUN pnpm turbo build --filter ${APP_NAME}...
 # An app's folder isn't named after its package (apps/ui holds stalemate-ui), so ask pnpm where it is.
 RUN cp -r "$(pnpm --filter ${APP_NAME} exec pwd)/dist" /prod-dist
 
-# The SPA's deep-link fallback lives in the umbrella chart's configmap, which the nginx chart mounts as a location extension.
+# The SPA's deep-link fallback and cache headers live in the umbrella chart's configmap, which the nginx chart mounts as a location extension.
 FROM acrarolibotnonprod.azurecr.io/common/nginx:v2.4.0 AS runner
 
 COPY --from=builder /prod-dist /usr/share/nginx/html
