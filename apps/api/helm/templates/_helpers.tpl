@@ -89,10 +89,25 @@ Returns the tracing url from global if exists or from the chart's values
 {{- end -}}
 
 {{/*
-The GitHub App's private key is mounted from the chart's Secret as this file
+The Secret holding the GitHub App's private key: githubApp.existingSecret if set, otherwise the chart's own
 */}}
 {{- define "stalemate-api.githubAppSecretName" -}}
+{{- if .Values.githubApp.existingSecret -}}
+{{- .Values.githubApp.existingSecret -}}
+{{- else -}}
 {{- printf "%s-%s-github-app" .Release.Name (include "stalemate-api.name" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The key in that Secret holding the private key. It is mounted as privateKeyFileName, whatever its name
+*/}}
+{{- define "stalemate-api.githubAppSecretKey" -}}
+{{- if .Values.githubApp.existingSecret -}}
+{{- required "githubApp.existingSecretKey is required with githubApp.existingSecret" .Values.githubApp.existingSecretKey -}}
+{{- else -}}
+{{- include "stalemate-api.privateKeyFileName" . -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "stalemate-api.privateKeyDir" -}}

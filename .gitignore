@@ -109,6 +109,7 @@ reports
 # local config overrides and secrets
 **/config/local*.json
 *.pem
+private.key
 *myvalues*
 
 # temporary files

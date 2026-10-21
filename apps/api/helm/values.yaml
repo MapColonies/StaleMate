@@ -97,8 +97,13 @@ sync:
 githubApp:
   appId:
   installationId:
-  # The App's PEM private key. The chart renders it into a Secret and mounts it read-only as a file.
+  # The App's PEM private key, required unless existingSecret is set. The chart renders it into a Secret and mounts it read-only as a file.
   privateKey: ''
+  # A Secret created outside the chart, holding the PEM private key. When set, privateKey is ignored and the chart renders no Secret.
+  # The chart can't see the Secret's contents, so rotating the key needs a manual `kubectl rollout restart`.
+  existingSecret: ''
+  # The key inside existingSecret holding the PEM private key.
+  existingSecretKey: private-key.pem
 
 additionalPodAnnotations: {}
 

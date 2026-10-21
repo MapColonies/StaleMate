@@ -37,8 +37,13 @@ api:
   githubApp:
     appId:
     installationId:
-    # Required: the App's PEM private key.
+    # The App's PEM private key. Required unless existingSecret is set.
     privateKey: ''
+    # A Secret created outside the chart, holding the PEM private key. When set, privateKey is ignored and the chart renders no Secret.
+    # The chart can't see the Secret's contents, so rotating the key needs a manual `kubectl rollout restart`.
+    existingSecret: ''
+    # The key inside existingSecret holding the PEM private key.
+    existingSecretKey: private-key.pem
 
   route:
     enabled: true
