@@ -316,5 +316,14 @@ describe('snapshot', function () {
       expect(response.text).toMatch(new RegExp(`^stalemate_last_successful_sweep_timestamp_seconds\\{.*\\} ${mondayMorning.getTime() / 1000}$`, 'm'));
       expect(response.text).toContain('# TYPE stalemate_github_graphql_points_remaining gauge');
     });
+
+    it('should expose the Node.js process metrics, including event-loop lag', async function () {
+      const response = await supertest(createHttpServer(app, container)).get('/metrics');
+
+      expect(response.text).toContain('# TYPE process_cpu_seconds_total counter');
+      expect(response.text).toContain('# TYPE nodejs_heap_size_used_bytes gauge');
+      expect(response.text).toContain('# TYPE nodejs_gc_duration_seconds histogram');
+      expect(response.text).toContain('# TYPE nodejs_eventloop_lag_p99_seconds gauge');
+    });
   });
 });

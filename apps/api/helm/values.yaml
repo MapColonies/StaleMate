@@ -15,6 +15,13 @@ enabled: true
 replicaCount: 1
 revisionHistoryLimit: 5 # Amount of revisions we keep
 initialDelaySeconds: 60
+# The API is single-threaded, so a slow probe usually means a busy moment, not a dead process.
+livenessProbe:
+  timeoutSeconds: 5
+  failureThreshold: 6
+readinessProbe:
+  periodSeconds: 5
+  timeoutSeconds: 5
 resetOnConfigChange: true
 
 extraEnvVars: []
@@ -89,7 +96,7 @@ resources:
   enabled: true
   value:
     limits:
-      cpu: 400m
+      cpu: '1'
       memory: 256Mi
     requests:
       cpu: 100m
