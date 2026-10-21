@@ -2,13 +2,13 @@ apiVersion: v2
 name: stalemate
 description: A Helm chart for StaleMate, the infra Team's PR dashboard
 type: application
-version: 0.0.0 # x-release-please-version
+version: 1.0.0 # x-release-please-version
 dependencies:
   - name: stalemate-api
     repository: file://../apps/api/helm
     condition: api.enabled
     alias: api
-    version: 0.0.0 # x-release-please-version
+    version: 1.0.0 # x-release-please-version
   - name: nginx
     repository: oci://acrarolibotnonprod.azurecr.io/helm/common
     condition: ui.enabled
