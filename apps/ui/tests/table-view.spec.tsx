@@ -132,6 +132,14 @@ describe('the Table', () => {
     expect(new URLSearchParams(window.location.search).get('sort')).toBe('idle.desc');
   });
 
+  it('sorts by PR title, A to Z', async () => {
+    renderTable(snapshot);
+
+    await userEvent.click(sortButton('PR'));
+
+    expect(rowTitles()).toEqual(['middling in a', 'middling in b', 'old', 'young, idle long']);
+  });
+
   it('adds a sort level on Shift+click', async () => {
     const user = userEvent.setup();
     renderTable(snapshot);
@@ -160,7 +168,8 @@ describe('the Table', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /columns/i }));
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Why tracked' }));
-    // Waiting On carries the No Reviewer flag, so it stays.
+    // The PR names the row, and Waiting On carries the No Reviewer flag, so they stay.
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'PR' })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitemcheckbox', { name: 'Waiting On' })).not.toBeInTheDocument();
 
     expect(screen.queryByRole('columnheader', { name: /Why tracked/ })).not.toBeInTheDocument();
@@ -201,6 +210,25 @@ describe('the Table', () => {
     renderTable(aSnapshot({ config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 30_000 }, prs: [aPr()] }));
 
     expect(screen.queryByRole('columnheader', { name: /^Jira/ })).not.toBeInTheDocument();
+  });
+
+  it('puts the PR right after Age and Idle', () => {
+    renderTable(aSnapshot({ prs: [aPr({ title: 'third', jiraTickets: ['MAPCO-1'] })] }));
+
+    expect(screen.getAllByRole('columnheader').map((th) => th.textContent)).toEqual([
+      'Age',
+      'Idle',
+      'PR',
+      'Waiting On',
+      'Repo',
+      'Author',
+      'Review',
+      'Checks',
+      'Jira',
+      'Why tracked',
+    ]);
+    const cells = within(screen.getByRole('row', { name: /third/ })).getAllByRole('cell');
+    expect(cells[2]).toContainElement(screen.getByRole('link', { name: 'third' }));
   });
 
   it('scrolls the PRs in a region of their own, under the tabs, Columns picker and filters', () => {

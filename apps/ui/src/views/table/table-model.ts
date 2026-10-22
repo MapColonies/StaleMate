@@ -11,9 +11,9 @@ export const features = tableFeatures({
 export const COLUMN_NAMES = {
   age: 'Age',
   idle: 'Idle',
+  title: 'PR',
   waitingOn: 'Waiting On',
   repo: 'Repo',
-  title: 'PR',
   author: 'Author',
   review: 'Review',
   checks: 'Checks',
@@ -23,4 +23,4 @@ export const COLUMN_NAMES = {
 
 export type ColumnId = keyof typeof COLUMN_NAMES;
 
-export const SORTABLE_COLUMNS: readonly ColumnId[] = ['age', 'idle', 'repo', 'title', 'author', 'review', 'checks', 'jira'];
+export const SORTABLE_COLUMNS: readonly ColumnId[] = ['age', 'idle', 'title', 'repo', 'author', 'review', 'checks', 'jira'];

@@ -54,23 +54,6 @@ function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl }: CellContext) {
       sortDescFirst: true,
       cell: ({ row }) => <IdleLine pr={row.original} />,
     }),
-    helper.display({
-      id: 'waitingOn',
-      // It carries the No Reviewer flag, which every view shows.
-      enableHiding: false,
-      header: COLUMN_NAMES.waitingOn,
-      cell: ({ row }) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <WaitingOnChips pr={row.original} viewer={viewer} hideViaTeam={hideViaTeam} />
-          <NoReviewerFlag pr={row.original} />
-        </div>
-      ),
-    }),
-    helper.accessor('repo', {
-      header: COLUMN_NAMES.repo,
-      sortFn: 'text',
-      cell: ({ row }) => <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">{row.original.repo}</span>,
-    }),
     helper.accessor('title', {
       header: COLUMN_NAMES.title,
       sortFn: 'text',
@@ -83,6 +66,24 @@ function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl }: CellContext) {
           <span className="ml-1.5 text-xs text-muted-foreground">#{row.original.number}</span>
         </div>
       ),
+    }),
+    helper.display({
+      id: 'waitingOn',
+      // It carries the No Reviewer flag, which every view shows.
+      enableHiding: false,
+      header: COLUMN_NAMES.waitingOn,
+      // The PR takes the spare width, so without a floor most rows' chips would wrap onto a second line.
+      cell: ({ row }) => (
+        <div className="flex min-w-80 flex-wrap items-center gap-2">
+          <WaitingOnChips pr={row.original} viewer={viewer} hideViaTeam={hideViaTeam} />
+          <NoReviewerFlag pr={row.original} />
+        </div>
+      ),
+    }),
+    helper.accessor('repo', {
+      header: COLUMN_NAMES.repo,
+      sortFn: 'text',
+      cell: ({ row }) => <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">{row.original.repo}</span>,
     }),
     helper.accessor((pr) => pr.author.login, {
       id: 'author',
@@ -189,9 +190,27 @@ function SortableHeader({ header, multiSort }: { header: Header<typeof features,
   );
 }
 
+// The PR names the row, so once Age and Idle scroll out of view it sticks to the left edge.
+const PINNED_COLUMN: ColumnId = 'title';
+
+const PINNED = 'sticky left-0 z-1 border-r border-r-border/60';
+
+// A pinned cell needs an opaque background to cover what scrolls under it, so it repeats the row's tint, and the hover's,
+// on a layer above that.
+const PINNED_CELL = `${PINNED} bg-background before:pointer-events-none before:absolute before:inset-0 before:-z-1 group-hover:before:bg-accent/60`;
+
+// Each pinned cell repeats its row's tint, so the two change together.
 const HIGHLIGHTS = {
-  noReviewer: { row: 'bg-amber-50/70 dark:bg-amber-950/30', firstCell: 'border-l-2 border-l-amber-500' },
-  viewersTurn: { row: 'bg-indigo-50/50 dark:bg-indigo-950/30', firstCell: 'border-l-2 border-l-indigo-500' },
+  noReviewer: {
+    row: 'bg-amber-50/70 dark:bg-amber-950/30',
+    firstCell: 'border-l-2 border-l-amber-500',
+    pinnedCell: 'before:bg-amber-50/70 dark:before:bg-amber-950/30',
+  },
+  viewersTurn: {
+    row: 'bg-indigo-50/50 dark:bg-indigo-950/30',
+    firstCell: 'border-l-2 border-l-indigo-500',
+    pinnedCell: 'before:bg-indigo-50/50 dark:before:bg-indigo-950/30',
+  },
 } as const;
 
 const ARIA_SORT = { asc: 'ascending', desc: 'descending' } as const;
@@ -276,7 +295,11 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
                     <th
                       key={header.id}
                       aria-sort={direction === false ? undefined : ARIA_SORT[direction]}
-                      className="border-b px-3 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground"
+                      className={cn(
+                        'border-b px-3 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground',
+                        // The PR takes the width the other columns leave (w-full), so its title wraps onto fewer lines on a wide window.
+                        header.column.id === PINNED_COLUMN && [PINNED, 'w-full bg-muted']
+                      )}
                     >
                       <SortableHeader header={header} multiSort={sorting.length > 1} />
                     </th>
@@ -291,9 +314,16 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
               // No Reviewer outranks the Viewer's turn: it needs someone to find a reviewer.
               const highlight = pr.noReviewer ? HIGHLIGHTS.noReviewer : isWaitingOnViewer(pr, viewer, filters) ? HIGHLIGHTS.viewersTurn : null;
               return (
-                <tr key={row.id} className={cn('hover:bg-accent/60', highlight?.row)}>
+                <tr key={row.id} className={cn('group hover:bg-accent/60', highlight?.row)}>
                   {row.getVisibleCells().map((cell, index) => (
-                    <td key={cell.id} className={cn('border-b border-border/60 px-3 py-2 align-middle', index === 0 && highlight?.firstCell)}>
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        'border-b border-border/60 px-3 py-2 align-middle',
+                        index === 0 && highlight?.firstCell,
+                        cell.column.id === PINNED_COLUMN && [PINNED_CELL, highlight?.pinnedCell]
+                      )}
+                    >
                       <table.FlexRender cell={cell} />
                     </td>
                   ))}
