@@ -203,6 +203,18 @@ describe('the Table', () => {
     expect(screen.queryByRole('columnheader', { name: /^Jira/ })).not.toBeInTheDocument();
   });
 
+  it('scrolls the PRs in a region of their own, under the tabs, Columns picker and filters', () => {
+    renderTable(aSnapshot({ prs: [aPr({ title: 'scrolled' })] }));
+
+    const scroller = screen.getByRole('region', { name: 'Tracked PRs' });
+    expect(scroller).toHaveAttribute('tabindex', '0');
+    expect(within(scroller).getByRole('table')).toHaveTextContent('scrolled');
+    expect(within(scroller).getByText(/1 of 1 Tracked PRs/)).toBeInTheDocument();
+    expect(scroller).not.toContainElement(screen.getByRole('tablist'));
+    expect(scroller).not.toContainElement(screen.getByRole('button', { name: /columns/i }));
+    expect(scroller).not.toContainElement(screen.getByRole('textbox', { name: 'Search' }));
+  });
+
   it('flags the No Reviewer PRs', () => {
     renderTable(aSnapshot({ prs: [aPr({ title: 'nobody asked', noReviewer: true, requestedReviewers: [], waitingOn: [waitingOnAuthor(bob)] })] }));
 

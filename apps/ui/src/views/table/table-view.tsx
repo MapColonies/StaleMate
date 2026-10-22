@@ -234,8 +234,10 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const hideable = table.getAllLeafColumns().filter((column) => column.getCanHide());
 
   return (
-    <section className="flex flex-col">
-      <div className="space-y-2.5 border-b bg-background px-5 py-3">
+    // The Table fills the window: the tabs, Columns picker and filters stay put, and the PRs scroll both ways below them,
+    // so the headers stay in view and the sideways scrollbar sits at the bottom of the window.
+    <section className="flex h-full flex-col">
+      <div className="shrink-0 space-y-2.5 border-b bg-background px-5 py-3">
         <div className="flex items-center gap-3">
           <TabBar tab={tab} counts={counts} onChange={setTab} />
           {viewer === null && tab !== 'all' && (
@@ -257,7 +259,13 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         <FilterBar prs={snapshot.prs} filters={filters} onChange={setFilters} onReset={resetFilters} />
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Focusable, so the keyboard can scroll it too. Its outline is inset, as the window's edges would clip one. */}
+      <div
+        role="region"
+        aria-label="Tracked PRs"
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+      >
         <table className="w-full border-separate border-spacing-0 text-sm">
           <thead className="sticky top-0 z-10 bg-muted">
             {table.getHeaderGroups().map((group) => (
@@ -294,8 +302,9 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
             })}
           </tbody>
         </table>
-        {rows.length === 0 && <p className="p-16 text-center text-muted-foreground">No Tracked PRs match these filters.</p>}
-        <p className="px-5 py-3 text-xs text-muted-foreground">
+        {/* The empty state and footer stick to the left, so they stay in view while the table scrolls sideways. */}
+        {rows.length === 0 && <p className="sticky left-0 p-16 text-center text-muted-foreground">No Tracked PRs match these filters.</p>}
+        <p className="sticky left-0 px-5 py-3 text-xs text-muted-foreground">
           {rows.length} of {snapshot.prs.length} Tracked PRs · Shift+click a column header to add a sort level
           {!isDefaultSorting(sorting) && (
             <>
