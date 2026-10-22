@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/MapColonies/StaleMate/compare/v1.2.0...v1.3.0) (2026-10-22)
+
+
+### 🎉 Features
+
+* **stalemate-ui:** pin the Table's PR column and give it the spare width ([24278d1](https://github.com/MapColonies/StaleMate/commit/24278d1d3222adf1c58b7ae7695edb0a8be01df7)), closes [#56](https://github.com/MapColonies/StaleMate/issues/56)
+* **stalemate-ui:** scroll the Table inside the page, with sticky headers ([2a7d566](https://github.com/MapColonies/StaleMate/commit/2a7d56642412eb052d41fecd08e39421fe0899be)), closes [#55](https://github.com/MapColonies/StaleMate/issues/55)
+
 ## [1.2.0](https://github.com/MapColonies/StaleMate/compare/v1.1.0...v1.2.0) (2026-10-21)
 
 
