@@ -7,9 +7,9 @@ import type { TrackedPr } from '@/snapshot/types';
 export function HeaderCounts({ prs, viewer }: { prs: readonly TrackedPr[]; viewer: string | null }) {
   const turn = waitingOnViewerCounts(prs, viewer);
   return (
-    <div className="flex items-center gap-4 text-sm whitespace-nowrap">
+    <div className="flex min-w-0 items-center gap-4 text-sm whitespace-nowrap">
       {viewer !== null && (
-        <span data-testid="my-turn" title="PRs Waiting On you by name, plus review requests to the Team">
+        <span data-testid="my-turn" className="min-w-0 truncate" title="PRs Waiting On you by name, plus review requests to the Team">
           <span className="text-muted-foreground">Your turn</span> <b className="tabular-nums">{turn.mine}</b>
           <span className="text-muted-foreground tabular-nums">
             {' '}

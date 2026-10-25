@@ -260,6 +260,124 @@ describe('"Refresh now"', () => {
   });
 });
 
+describe('the top bar below 1280px', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(width < 80rem)',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const syncDot = (name: string | RegExp) => screen.findByRole('button', { name });
+
+  it('shows the sync status as a dot, whose tooltip says what the text would', async () => {
+    serve(aFreshSnapshot());
+
+    renderApp();
+
+    const dot = await syncDot('Updated 40 s ago · Refresh now');
+    expect(dot).toHaveAttribute('data-state', 'fresh');
+    expect(dot.parentElement).toHaveAttribute('title', 'Updated 40 s ago · Refresh now');
+    expect(screen.queryByText('Updated 40 s ago')).not.toBeInTheDocument();
+  });
+
+  it('refreshes from the dot, and shows the sync running', async () => {
+    let sync: SyncState = { state: 'idle', lastAttemptAt: ago(MINUTE) };
+    onRequest('GET', '/api/snapshot', () => ({ status: 200, body: aFreshSnapshot({ sync }) }));
+    onRequest('POST', '/api/refresh', () => {
+      sync = { state: 'syncing', lastAttemptAt: new Date().toISOString() };
+      return { status: 202, body: sync };
+    });
+
+    renderApp();
+    await userEvent.click(await syncDot(/refresh now/i));
+
+    const dot = await syncDot(/syncing with GitHub…/);
+    expect(dot).toBeDisabled();
+    expect(dot).toHaveAttribute('data-state', 'syncing');
+    expect(requests()).toContain('POST /api/refresh');
+  });
+
+  it('counts down the cooldown in its tooltip', async () => {
+    serve(
+      aFreshSnapshot({
+        sync: { state: 'idle', lastAttemptAt: ago(10 * SECOND) },
+        config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 30 * SECOND },
+      })
+    );
+
+    renderApp();
+
+    expect(await syncDot('Updated 40 s ago · Refresh in 20 s')).toBeDisabled();
+  });
+
+  it('marks an Out-of-date Snapshot', async () => {
+    serve(aSnapshot({ readAt: ago(14 * MINUTE), sync: { state: 'idle', lastAttemptAt: ago(MINUTE), lastError: 'GitHub API unreachable' } }));
+
+    renderApp();
+
+    const dot = await syncDot(/^Updated 14 min ago · the last sync with GitHub failed/);
+    expect(dot).toHaveAttribute('data-state', 'out-of-date');
+  });
+
+  it.each([
+    [
+      'restarted',
+      'restarted',
+      { status: 503, body: { status: 'warming', sync: { state: 'syncing', lastAttemptAt: ago(SECOND) } } },
+      /API restarted — first sync running…/,
+    ],
+    ['is unreachable', 'unreachable', 'unreachable' as const, /API unreachable/],
+  ] as const)('marks an API that %s', async (_, problem, answer, text) => {
+    serve(aFreshSnapshot({ prs: [aPr({ title: 'Kept change' })] }));
+    const { queryClient } = renderApp();
+    await screen.findByText('Kept change');
+
+    onRequest('GET', '/api/snapshot', answer);
+    await act(() => queryClient.refetchQueries());
+
+    expect(await syncDot(text)).toHaveAttribute('data-api-problem', problem);
+  });
+
+  it('marks an Out-of-date Snapshot and an unreachable API at once', async () => {
+    serve(aSnapshot({ readAt: ago(14 * MINUTE), sync: { state: 'idle', lastAttemptAt: ago(MINUTE), lastError: 'GitHub API unreachable' } }));
+    const { queryClient } = renderApp();
+    await syncDot(/the last sync with GitHub failed/);
+
+    onRequest('GET', '/api/snapshot', 'unreachable');
+    await act(() => queryClient.refetchQueries());
+
+    const dot = await syncDot(/the last sync with GitHub failed · API unreachable/);
+    expect(dot).toHaveAttribute('data-state', 'out-of-date');
+    expect(dot).toHaveAttribute('data-api-problem', 'unreachable');
+  });
+
+  it('reports a failed refresh in its tooltip, and to screen readers', async () => {
+    serve(aFreshSnapshot());
+    onRequest('POST', '/api/refresh', 'unreachable');
+
+    renderApp();
+    await userEvent.click(await syncDot(/refresh now/i));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Refresh failed: API unreachable');
+    expect(await syncDot(/Refresh failed: API unreachable$/)).toBeInTheDocument();
+  });
+
+  it('keeps the Viewer picker and the bell', async () => {
+    serve(aFreshSnapshot({ team: [alice] }));
+
+    renderApp();
+
+    expect(await screen.findByLabelText(/I am/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+  });
+});
+
 describe('the theme', () => {
   function systemPrefersDark(dark: boolean): void {
     vi.stubGlobal('matchMedia', (query: string) => ({

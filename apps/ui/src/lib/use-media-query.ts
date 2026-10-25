@@ -1,0 +1,14 @@
+import { useCallback, useSyncExternalStore } from 'react';
+
+/** Whether a CSS media query matches, kept current as it changes. False where the browser has no matchMedia. */
+export function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void): (() => void) => {
+      const list = window.matchMedia?.(query);
+      list?.addEventListener('change', onChange);
+      return () => list?.removeEventListener('change', onChange);
+    },
+    [query]
+  );
+  return useSyncExternalStore(subscribe, () => window.matchMedia?.(query).matches ?? false);
+}

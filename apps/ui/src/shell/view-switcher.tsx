@@ -6,7 +6,7 @@ const ICONS: Record<View, typeof Table2> = { table: Table2, inbox: Inbox, board:
 
 export function ViewSwitcher({ view, onChange }: { view: View; onChange: (view: View) => void }) {
   return (
-    <div role="group" aria-label="View" className="inline-flex rounded-md bg-muted p-0.5">
+    <div role="group" aria-label="View" className="inline-flex shrink-0 rounded-md bg-muted p-0.5">
       {VIEWS.map((value) => {
         const Icon = ICONS[value];
         return (

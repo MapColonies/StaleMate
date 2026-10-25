@@ -1,17 +1,17 @@
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/** "I am…": the Viewer picks which Team Member they are. */
+/** "I am…": the Viewer picks which Team Member they are. Below 1280px, only screen readers get the "I am". */
 export function ViewerPicker({ options, viewer, onChange }: { options: string[]; viewer: string | null; onChange: (login: string | null) => void }) {
   return (
     <label className="flex items-center gap-2 text-sm whitespace-nowrap">
-      <span className="text-muted-foreground">I am</span>
+      <span className="text-muted-foreground max-xl:sr-only">I am</span>
       <span className="relative">
         <select
           value={viewer ?? ''}
           onChange={(event) => onChange(event.target.value || null)}
           className={cn(
-            'h-8 appearance-none rounded-md border border-input bg-background pr-7 pl-2.5 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            'h-8 appearance-none truncate rounded-md max-xl:max-w-40 border border-input bg-background pr-7 pl-2.5 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
             viewer === null && 'text-muted-foreground'
           )}
         >

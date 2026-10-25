@@ -23,7 +23,7 @@ import { TableView } from '@/views/table/table-view';
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">♞</div>
       <h1 className="font-semibold tracking-tight">StaleMate</h1>
     </div>
@@ -76,8 +76,9 @@ export default function App() {
       <header className="flex h-14 shrink-0 items-center gap-5 border-b bg-background px-5">
         <Logo />
         <ViewSwitcher view={view} onChange={setView} />
+        {/* When the bar runs short, the counts give way first; the controls on the right never do. */}
         {snapshot && <HeaderCounts prs={snapshot.prs} viewer={viewer} />}
-        <div className="ml-auto flex items-center gap-4">
+        <div className="ml-auto flex shrink-0 items-center gap-4">
           {snapshot && <SyncStatus snapshot={snapshot} now={now} apiProblem={apiProblem(error, isError)} />}
           <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />
           {snapshot && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}

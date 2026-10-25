@@ -1,17 +1,10 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect } from 'react';
 import { STORAGE_KEYS, useStoredString } from '@/lib/local-storage';
+import { useMediaQuery } from '@/lib/use-media-query';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
-
-function subscribeToSystem(onChange: () => void): () => void {
-  const query = window.matchMedia?.(DARK_QUERY);
-  query?.addEventListener('change', onChange);
-  return () => query?.removeEventListener('change', onChange);
-}
-
-const systemIsDark = (): boolean => window.matchMedia?.(DARK_QUERY).matches ?? false;
 
 const NEXT: Record<ThemePreference, ThemePreference> = { system: 'light', light: 'dark', dark: 'system' };
 
@@ -22,7 +15,7 @@ const NEXT: Record<ThemePreference, ThemePreference> = { system: 'light', light:
 export function useTheme(): { preference: ThemePreference; cycle: () => void } {
   const [stored, store] = useStoredString(STORAGE_KEYS.theme);
   const preference: ThemePreference = stored === 'light' || stored === 'dark' ? stored : 'system';
-  const systemDark = useSyncExternalStore(subscribeToSystem, systemIsDark);
+  const systemDark = useMediaQuery(DARK_QUERY);
   const isDark = preference === 'dark' || (preference === 'system' && systemDark);
 
   useEffect(() => {
