@@ -10,6 +10,7 @@ import {
   JiraTickets,
   NoReviewerFlag,
   PersonChip,
+  RepoName,
   ReviewStatusBadge,
   WaitingOnChips,
 } from '@/cells';
@@ -18,7 +19,7 @@ import { FilterBar } from '@/filters/filter-bar';
 import { REVIEW_STATUSES, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
 import { cn } from '@/lib/utils';
-import { isWaitingOnViewer } from '@/snapshot/selectors';
+import { isWaitingOnViewer, sharedOrg } from '@/snapshot/selectors';
 import type { CheckStatus, Snapshot, TrackedPr } from '@/snapshot/types';
 import { COLUMN_NAMES, type ColumnId, features } from './table-model';
 import { TAB_NAMES, TABS, type Tab, prsInTab } from './tabs';
@@ -36,9 +37,11 @@ interface CellContext {
   hideViaTeam: boolean;
   now: number;
   jiraBaseUrl: string | undefined;
+  /** The org every Tracked PR's repo is in, which the Repo column leaves out. */
+  org: string | null;
 }
 
-function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl }: CellContext) {
+function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl, org }: CellContext) {
   return helper.columns([
     helper.accessor((pr) => pr.age.workingMs, {
       id: 'age',
@@ -83,7 +86,11 @@ function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl }: CellContext) {
     helper.accessor('repo', {
       header: COLUMN_NAMES.repo,
       sortFn: 'text',
-      cell: ({ row }) => <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">{row.original.repo}</span>,
+      cell: ({ row }) => (
+        <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+          <RepoName repo={row.original.repo} org={org} />
+        </span>
+      ),
     }),
     helper.accessor((pr) => pr.author.login, {
       id: 'author',
@@ -232,9 +239,10 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
     [filtered, viewer, filters]
   );
   const { jiraBaseUrl } = snapshot.config;
+  const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
   const columns = useMemo(
-    () => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl }),
-    [viewer, filters.hideViaTeam, now, jiraBaseUrl]
+    () => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl, org }),
+    [viewer, filters.hideViaTeam, now, jiraBaseUrl, org]
   );
 
   const table = useTable({
@@ -275,7 +283,7 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
             />
           </div>
         </div>
-        <FilterBar prs={snapshot.prs} filters={filters} onChange={setFilters} onReset={resetFilters} />
+        <FilterBar prs={snapshot.prs} org={org} filters={filters} onChange={setFilters} onReset={resetFilters} />
       </div>
 
       {/* Focusable, so the keyboard can scroll it too. Its outline is inset, as the window's edges would clip one. */}

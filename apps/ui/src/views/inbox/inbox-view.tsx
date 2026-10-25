@@ -10,6 +10,7 @@ import {
   MovePills,
   NoReviewerFlag,
   PersonChip,
+  RepoName,
   ReviewStatusBadge,
   UrgencyBar,
   WaitingOnChips,
@@ -20,6 +21,7 @@ import { useFilters } from '@/filters/use-filters';
 import { cn } from '@/lib/utils';
 import { OrderSelect } from '@/order/order-select';
 import { usePrOrder } from '@/order/use-pr-order';
+import { sharedOrg } from '@/snapshot/selectors';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
 import { type Bucket, type BucketKey, inboxBuckets } from './buckets';
 import { FacetSidebar } from './facet-sidebar';
@@ -37,9 +39,11 @@ interface RowContext {
   hideViaTeam: boolean;
   now: number;
   jiraBaseUrl: string | undefined;
+  /** The org every Tracked PR's repo is in, which the rows leave out. */
+  org: string | null;
 }
 
-function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl } }: { pr: TrackedPr; context: RowContext }) {
+function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org } }: { pr: TrackedPr; context: RowContext }) {
   const titleId = useId();
   return (
     <li aria-labelledby={titleId} className="flex items-stretch hover:bg-accent/60">
@@ -55,7 +59,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl } }: { 
             {pr.title}
           </a>
           <span className="shrink-0 font-mono text-xs text-muted-foreground">
-            {pr.repo}#{pr.number}
+            <RepoName repo={pr.repo} org={org} />#{pr.number}
           </span>
           <span className="shrink-0">
             <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
@@ -111,12 +115,13 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const [order, setOrder] = usePrOrder();
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
   const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters, order), [filtered, viewer, filters, order]);
-  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl };
+  const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
+  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org };
   const active = activeFilterCount(filters);
 
   return (
     <div className="flex min-h-full">
-      <FacetSidebar prs={snapshot.prs} filters={filters} viewer={viewer} onChange={setFilters} />
+      <FacetSidebar prs={snapshot.prs} org={org} filters={filters} viewer={viewer} onChange={setFilters} />
       <section className="min-w-0 flex-1 space-y-6 p-5">
         <div className="flex items-center gap-3">
           <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="w-96" />

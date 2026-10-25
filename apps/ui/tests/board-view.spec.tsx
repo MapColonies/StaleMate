@@ -93,6 +93,12 @@ describe('the Board', () => {
     expect(columnNames()).toEqual(['carol']);
     expect(titlesIn('carol')).toEqual(['nobody asked']);
   });
+
+  it('shows each PR’s repo without the org every PR shares, with the full name on hover', () => {
+    renderBoard(aSnapshot({ prs: [aPr({ repo: 'MapColonies/discrete-overseer' })] }));
+
+    expect(screen.getByTitle('MapColonies/discrete-overseer')).toHaveTextContent(/^discrete-overseer$/);
+  });
 });
 
 describe('the Board’s order', () => {

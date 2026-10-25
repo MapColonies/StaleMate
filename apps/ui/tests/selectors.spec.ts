@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isWaitingOnViewer, noReviewerCount, viewerOptions, waitingOnViewerCounts } from '@/snapshot/selectors';
+import { isWaitingOnViewer, noReviewerCount, sharedOrg, shortRepoName, viewerOptions, waitingOnViewerCounts } from '@/snapshot/selectors';
 import { aPr, aSnapshot, bot, member, outsider, waitingOnAuthor, waitingOnReviewer, waitingOnTeam, waitingOnTheTeam } from './fixtures/snapshot';
 
 const alice = member('alice');
@@ -88,5 +88,33 @@ describe('noReviewerCount', () => {
     ];
 
     expect(noReviewerCount(prs)).toBe(1);
+  });
+});
+
+describe('sharedOrg', () => {
+  it('is the org every PR’s repo is in', () => {
+    const prs = [aPr({ repo: 'MapColonies/discrete-overseer' }), aPr({ repo: 'MapColonies/opa-la' })];
+
+    expect(sharedOrg(prs)).toBe('MapColonies');
+  });
+
+  it('is none when the PRs span more than one org', () => {
+    const prs = [aPr({ repo: 'MapColonies/opa-la' }), aPr({ repo: 'open-policy-agent/opa' })];
+
+    expect(sharedOrg(prs)).toBeNull();
+  });
+
+  it('is none without PRs', () => {
+    expect(sharedOrg([])).toBeNull();
+  });
+});
+
+describe('shortRepoName', () => {
+  it('drops the shared org', () => {
+    expect(shortRepoName('MapColonies/discrete-overseer', 'MapColonies')).toBe('discrete-overseer');
+  });
+
+  it('keeps the full name without a shared org', () => {
+    expect(shortRepoName('MapColonies/discrete-overseer', null)).toBe('MapColonies/discrete-overseer');
   });
 });

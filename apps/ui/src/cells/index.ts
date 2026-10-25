@@ -8,5 +8,6 @@ export { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS } fr
 export { MoveList, MovePills } from './move-pills';
 export { NoReviewerFlag } from './no-reviewer-flag';
 export { PersonChip } from './person-chip';
+export { RepoName } from './repo-name';
 export { ReviewStatusBadge } from './review-status-badge';
 export { TeamChip, WaitingOnChips } from './waiting-on-chips';

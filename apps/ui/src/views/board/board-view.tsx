@@ -9,6 +9,7 @@ import {
   JiraTickets,
   NoReviewerFlag,
   PersonChip,
+  RepoName,
   ReviewStatusBadge,
   TeamChip,
   URGENCY_FILLS,
@@ -22,6 +23,7 @@ import { useFilters } from '@/filters/use-filters';
 import { cn } from '@/lib/utils';
 import { OrderSelect } from '@/order/order-select';
 import { usePrOrder } from '@/order/use-pr-order';
+import { sharedOrg } from '@/snapshot/selectors';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
 import { type BoardColumn, type BoardStats, type ColumnOwner, boardColumns, boardStats, isViewersColumn } from './columns';
 
@@ -84,19 +86,16 @@ function StatsStrip({ stats, thresholds, viewer }: { stats: BoardStats; threshol
   );
 }
 
-function BoardCard({
-  pr,
-  column,
-  viewer,
-  now,
-  jiraBaseUrl,
-}: {
-  pr: TrackedPr;
-  column: BoardColumn;
+/** What the cards need beyond the PR. */
+interface CardContext {
   viewer: string | null;
   now: number;
   jiraBaseUrl: string | undefined;
-}) {
+  /** The org every Tracked PR's repo is in, which the cards leave out. */
+  org: string | null;
+}
+
+function BoardCard({ pr, column, context: { viewer, now, jiraBaseUrl, org } }: { pr: TrackedPr; column: BoardColumn; context: CardContext }) {
   const titleId = useId();
   const own = pr.waitingOn.find((party) => partyKey(party) === column.key);
   const role = own?.type === 'person' ? own.role : null;
@@ -108,7 +107,7 @@ function BoardCard({
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-baseline gap-1.5">
             <span className="truncate font-mono text-[11px] text-muted-foreground">
-              {pr.repo}#{pr.number}
+              <RepoName repo={pr.repo} org={org} />#{pr.number}
             </span>
             <span className="shrink-0">
               <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
@@ -147,7 +146,8 @@ function BoardCard({
   );
 }
 
-function Column({ column, viewer, now, jiraBaseUrl }: { column: BoardColumn; viewer: string | null; now: number; jiraBaseUrl: string | undefined }) {
+function Column({ column, context }: { column: BoardColumn; context: CardContext }) {
+  const { viewer } = context;
   const mine = isViewersColumn(column.owner, viewer);
   const oldest = Math.max(0, ...column.prs.map((pr) => wholeWorkingDays(pr.age)));
   return (
@@ -177,7 +177,7 @@ function Column({ column, viewer, now, jiraBaseUrl }: { column: BoardColumn; vie
       </div>
       <ul className="min-h-0 space-y-2 overflow-y-auto px-2 pb-2">
         {column.prs.map((pr) => (
-          <BoardCard key={pr.id} pr={pr} column={column} viewer={viewer} now={now} jiraBaseUrl={jiraBaseUrl} />
+          <BoardCard key={pr.id} pr={pr} column={column} context={context} />
         ))}
         {column.prs.length === 0 && <li className="px-2 py-4 text-center text-sm text-muted-foreground">No PR is waiting on you by name.</li>}
       </ul>
@@ -195,12 +195,14 @@ export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const [order, setOrder] = usePrOrder();
   const columns = useMemo(() => boardColumns(filtered, viewer, order), [filtered, viewer, order]);
   const stats = useMemo(() => boardStats(filtered, columns), [filtered, columns]);
+  const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
+  const context: CardContext = { viewer, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org };
 
   return (
     // The Board fills the window: the columns scroll down on their own, and the Board scrolls across.
     <section className="flex h-full flex-col">
       <div className="shrink-0 space-y-2.5 border-b bg-background px-5 py-3">
-        <FilterBar prs={snapshot.prs} filters={filters} onChange={setFilters} onReset={resetFilters} />
+        <FilterBar prs={snapshot.prs} org={org} filters={filters} onChange={setFilters} onReset={resetFilters} />
         <div className="flex items-center gap-3">
           <OrderSelect order={order} onChange={setOrder} />
           <StatsStrip stats={stats} thresholds={snapshot.config.urgencyThresholds} viewer={viewer} />
@@ -214,7 +216,7 @@ export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
       ) : (
         <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto p-4">
           {columns.map((column) => (
-            <Column key={column.key} column={column} viewer={viewer} now={now} jiraBaseUrl={snapshot.config.jiraBaseUrl} />
+            <Column key={column.key} column={column} context={context} />
           ))}
         </div>
       )}

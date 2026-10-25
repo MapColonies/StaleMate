@@ -68,3 +68,15 @@ export function noReviewerCount(prs: readonly TrackedPr[]): number {
 export function refreshAvailableAt({ sync, config }: Snapshot): number {
   return sync.lastAttemptAt === undefined ? 0 : Date.parse(sync.lastAttemptAt) + config.refreshCooldownMs;
 }
+
+/** The org every Tracked PR's repo is in; null when they span more than one, so their repos keep their full names. */
+export function sharedOrg(prs: readonly TrackedPr[]): string | null {
+  const orgs = new Set(prs.map((pr) => pr.repo.split('/')[0]));
+  const [org] = orgs;
+  return orgs.size === 1 && org !== undefined ? org : null;
+}
+
+/** A repo's name without the org every Tracked PR shares, which tells no PRs apart. */
+export function shortRepoName(repo: string, org: string | null): string {
+  return org !== null && repo.startsWith(`${org}/`) ? repo.slice(org.length + 1) : repo;
+}

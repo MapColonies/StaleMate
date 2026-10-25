@@ -1,5 +1,6 @@
+import type { ReactNode } from 'react';
 import { FilterX } from 'lucide-react';
-import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS } from '@/cells';
+import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { CheckboxMenu } from '@/components/checkbox-menu';
 import { SearchBox } from '@/components/search-box';
 import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, activeFilterCount, toggled } from '@/filters/filter-model';
@@ -15,12 +16,16 @@ function ListFilterMenu<K extends ListFilter>({
   choices,
   filters,
   onChange,
+  label,
 }: {
   name: string;
   filter: K;
+  /** Each value with the text its search matches. */
   choices: readonly (readonly [Filters[K][number], string])[];
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
+  /** How a value shows; its text when absent. */
+  label?: (value: Filters[K][number]) => ReactNode;
 }) {
   const selected = filters[filter] as readonly string[];
   return (
@@ -32,7 +37,7 @@ function ListFilterMenu<K extends ListFilter>({
         </>
       }
       highlighted={selected.length > 0}
-      options={choices.map(([value, label]) => ({ value, label, text: label, checked: selected.includes(value) }))}
+      options={choices.map(([value, text]) => ({ value, label: label ? label(value) : text, text, checked: selected.includes(value) }))}
       onToggle={(value) => onChange({ [filter]: toggled(selected, value) })}
       onClear={() => onChange({ [filter]: [] })}
     />
@@ -44,12 +49,15 @@ const SELECT_CLASS = 'h-8 rounded-md border border-dashed border-input bg-backgr
 /** A horizontal bar over the shared filter model, for the views that have no sidebar: the Table and the Board. */
 export function FilterBar({
   prs,
+  org,
   filters,
   onChange,
   onReset,
 }: {
   /** Every Tracked PR, to offer every value there is. */
   prs: readonly TrackedPr[];
+  /** The org every Tracked PR's repo is in, which the Repo filter leaves out. */
+  org: string | null;
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
   onReset: () => void;
@@ -66,7 +74,14 @@ export function FilterBar({
       <ListFilterMenu name="Waiting On" filter="waitingOn" choices={same(options.waitingOn)} filters={filters} onChange={onChange} />
       <ListFilterMenu name="Reviewer" filter="reviewer" choices={same(options.reviewer)} filters={filters} onChange={onChange} />
       <ListFilterMenu name="Author" filter="author" choices={same(options.author)} filters={filters} onChange={onChange} />
-      <ListFilterMenu name="Repo" filter="repo" choices={same(options.repo)} filters={filters} onChange={onChange} />
+      <ListFilterMenu
+        name="Repo"
+        filter="repo"
+        choices={same(options.repo)}
+        filters={filters}
+        onChange={onChange}
+        label={(repo) => <RepoName repo={repo} org={org} />}
+      />
       <ListFilterMenu name="Review" filter="review" choices={entries(REVIEW_STATUS_LABELS)} filters={filters} onChange={onChange} />
       <ListFilterMenu name="Checks" filter="check" choices={entries(CHECK_STATUS_LABELS)} filters={filters} onChange={onChange} />
       <ListFilterMenu name="Why tracked" filter="reason" choices={entries(INCLUSION_REASON_LABELS)} filters={filters} onChange={onChange} />

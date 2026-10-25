@@ -249,6 +249,41 @@ describe('the Table', () => {
     const row = screen.getByRole('row', { name: /nobody asked/ });
     expect(within(row).getByText('No Reviewer')).toBeInTheDocument();
   });
+
+  it('shows repos without the org every PR shares, with the full name on hover', () => {
+    renderTable(aSnapshot({ prs: [aPr({ title: 'overseer', repo: 'MapColonies/discrete-overseer' }), aPr({ repo: 'MapColonies/opa-la' })] }));
+
+    const row = screen.getByRole('row', { name: /overseer/ });
+    expect(within(row).getByTitle('MapColonies/discrete-overseer')).toHaveTextContent(/^discrete-overseer$/);
+  });
+
+  it('shows full repo names when the PRs span more than one org', () => {
+    renderTable(aSnapshot({ prs: [aPr({ title: 'overseer', repo: 'MapColonies/discrete-overseer' }), aPr({ repo: 'open-policy-agent/opa' })] }));
+
+    const row = screen.getByRole('row', { name: /overseer/ });
+    expect(within(row).getByText('MapColonies/discrete-overseer')).not.toHaveAttribute('title');
+  });
+
+  it('offers the repos by their short names in the Repo filter, which filters by the full name', async () => {
+    renderTable(snapshot);
+
+    // The Repo filter's button, not the Repo column's sort button.
+    await userEvent.click(screen.getByRole('button', { name: /^Repo/, expanded: false }));
+    expect(screen.getAllByRole('menuitemcheckbox').map((option) => option.textContent)).toEqual(['a', 'b', 'c']);
+    expect(within(screen.getByRole('menuitemcheckbox', { name: 'a' })).getByTitle('MapColonies/a')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'a' }));
+
+    expect(new URLSearchParams(window.location.search).get('repo')).toBe('MapColonies/a');
+    expect(rowTitles()).toEqual(['middling in a']);
+  });
+
+  it('still finds a repo’s PRs by its full name', async () => {
+    renderTable(snapshot);
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Search' }), 'MapColonies/c');
+
+    expect(rowTitles()).toEqual(['old']);
+  });
 });
 
 describe('the Table’s tabs', () => {

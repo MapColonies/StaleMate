@@ -96,26 +96,37 @@ describe('the Inbox', () => {
     expect(titlesIn('No Reviewer')).toEqual(['nobody asked']);
     expect(titlesIn('Rest of the Team')).toHaveLength(4);
   });
+
+  it('shows each PR’s repo without the org every PR shares, with the full name on hover', () => {
+    renderInbox(snapshot, 'alice');
+
+    expect(
+      within(bucket('Your turn'))
+        .getAllByTitle('MapColonies/a')
+        .map((repo) => repo.textContent)
+    ).toEqual(['a', 'a']);
+  });
 });
 
 describe('the Inbox’s facets', () => {
   it('count the PRs for each value', () => {
     renderInbox(snapshot, 'alice');
 
-    expect(facetEntries('Repo')).toEqual(['MapColonies/b3', 'MapColonies/a2']);
+    expect(facetEntries('Repo')).toEqual(['b3', 'a2']);
     expect(facetEntries('Author')).toEqual(['bob3', 'You1', 'carol1']);
+    expect(within(facet('Repo')).getByTitle('MapColonies/a')).toHaveTextContent(/^a$/);
   });
 
   it('filter the PRs, keep the filter in the URL, and recount the other facets', async () => {
     renderInbox(snapshot, 'alice');
 
-    await userEvent.click(within(facet('Repo')).getByRole('checkbox', { name: /MapColonies\/a/ }));
+    await userEvent.click(within(facet('Repo')).getByRole('checkbox', { name: /^a/ }));
 
     expect(new URLSearchParams(window.location.search).get('repo')).toBe('MapColonies/a');
-    expect(within(facet('Repo')).getByRole('checkbox', { name: /MapColonies\/a/ })).toHaveAttribute('aria-checked', 'true');
+    expect(within(facet('Repo')).getByRole('checkbox', { name: /^a/ })).toHaveAttribute('aria-checked', 'true');
     expect(titlesIn('Your PRs, waiting on others')).toEqual([]);
     // The Repo facet keeps its other values; the others count what the Repo filter keeps.
-    expect(facetEntries('Repo')).toEqual(['MapColonies/b3', 'MapColonies/a2']);
+    expect(facetEntries('Repo')).toEqual(['b3', 'a2']);
     expect(facetEntries('Author')).toEqual(['bob2']);
   });
 
@@ -124,7 +135,7 @@ describe('the Inbox’s facets', () => {
 
     renderInbox(snapshot, 'alice');
 
-    expect(facetEntries('Repo')).toEqual(['MapColonies/b1']);
+    expect(facetEntries('Repo')).toEqual(['b1']);
   });
 });
 

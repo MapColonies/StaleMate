@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { Check } from 'lucide-react';
-import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, PersonChip, REVIEW_STATUS_LABELS } from '@/cells';
+import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, PersonChip, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, facetCounts, toggled } from '@/filters/filter-model';
 import { FilterSwitches } from '@/filters/filter-switches';
 import { cn } from '@/lib/utils';
@@ -124,12 +124,15 @@ function FacetList<K extends ListFilter>({
 /** The Inbox's sidebar over the shared filter model: the switches, the Age and Idle presets, and a facet per list filter. */
 export function FacetSidebar({
   prs,
+  org,
   filters,
   viewer,
   onChange,
 }: {
   /** Every Tracked PR, so each facet counts over the whole Snapshot. */
   prs: readonly TrackedPr[];
+  /** The org every Tracked PR's repo is in, which the Repo facet leaves out. */
+  org: string | null;
   filters: Filters;
   viewer: string | null;
   onChange: (patch: Partial<Filters>) => void;
@@ -174,7 +177,16 @@ export function FacetSidebar({
       <FacetList title="Checks" filter="check" label={(value) => CHECK_STATUS_LABELS[value]} {...facetProps} />
       <FacetList title="Reviewer" filter="reviewer" label={partyLabel} {...facetProps} />
       <FacetList title="Author" filter="author" label={partyLabel} {...facetProps} />
-      <FacetList title="Repo" filter="repo" label={(value) => <span className="font-mono text-xs">{value}</span>} {...facetProps} />
+      <FacetList
+        title="Repo"
+        filter="repo"
+        label={(value) => (
+          <span className="font-mono text-xs">
+            <RepoName repo={value} org={org} />
+          </span>
+        )}
+        {...facetProps}
+      />
       <FacetList title="Why tracked" filter="reason" label={(value) => INCLUSION_REASON_LABELS[value]} {...facetProps} />
     </aside>
   );
