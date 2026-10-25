@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/MapColonies/StaleMate/compare/v1.2.0...v1.3.0) (2026-10-25)
+
+
+### 🎉 Features
+
+* **stalemate-ui:** go compact below 1280px so the Viewer picker and bell always fit ([3007fb5](https://github.com/MapColonies/StaleMate/commit/3007fb51095fbd2a996a012bd2a4809f182a35b3)), closes [#58](https://github.com/MapColonies/StaleMate/issues/58)
+* **stalemate-ui:** let Inbox rows fit narrow widths, with the title first ([cd009e1](https://github.com/MapColonies/StaleMate/commit/cd009e1ff661e7f27c00b676c16e401e8d7c9e31)), closes [#59](https://github.com/MapColonies/StaleMate/issues/59)
+* **stalemate-ui:** pin the Table's PR column and give it the spare width ([24278d1](https://github.com/MapColonies/StaleMate/commit/24278d1d3222adf1c58b7ae7695edb0a8be01df7)), closes [#56](https://github.com/MapColonies/StaleMate/issues/56)
+* **stalemate-ui:** put the Inbox's filters behind a Filters button below 1280px ([1f0dc39](https://github.com/MapColonies/StaleMate/commit/1f0dc39bbad4f6ff8aad5d9632f9f24af0306480)), closes [#60](https://github.com/MapColonies/StaleMate/issues/60)
+* **stalemate-ui:** scroll the Table inside the page, with sticky headers ([2a7d566](https://github.com/MapColonies/StaleMate/commit/2a7d56642412eb052d41fecd08e39421fe0899be)), closes [#55](https://github.com/MapColonies/StaleMate/issues/55)
+* **stalemate-ui:** show repo names without the shared org prefix ([ae6ded4](https://github.com/MapColonies/StaleMate/commit/ae6ded4295749a846d7a28968b775cc6216d2393)), closes [#57](https://github.com/MapColonies/StaleMate/issues/57)
+
 ## [1.2.0](https://github.com/MapColonies/StaleMate/compare/v1.1.0...v1.2.0) (2026-10-21)
 
 
