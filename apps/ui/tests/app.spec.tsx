@@ -6,6 +6,7 @@ import App from '@/app';
 import type { Snapshot, SyncState } from '@/snapshot/types';
 import { onRequest, requests } from './http-stub';
 import { aPr, aSnapshot, bot, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
+import { stubCompactWindow } from './window-width';
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -262,11 +263,7 @@ describe('"Refresh now"', () => {
 
 describe('the top bar below 1280px', () => {
   beforeEach(() => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query === '(width < 80rem)',
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
+    stubCompactWindow(true);
   });
 
   afterEach(() => {

@@ -1,10 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Snapshot } from '@/snapshot/types';
 import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
 import { aPr, aSnapshot, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
+import { stubCompactWindow } from './window-width';
 
 const NOW = Date.parse('2026-10-15T09:00:00Z');
 
@@ -23,6 +24,17 @@ const titlesIn = (name: string): string[] =>
   within(bucket(name))
     .queryAllByRole('link')
     .map((link) => link.textContent ?? '');
+
+const row = (title: string) => screen.getByRole('listitem', { name: new RegExp(title) });
+
+/** The block of a row that holds the PR itself: its title, repo and badges. */
+const prBlock = (title: string): HTMLElement => {
+  const block = screen.getByRole('link', { name: title }).closest<HTMLElement>('[data-pr-block]');
+  if (block === null) {
+    throw new Error(`no PR block around "${title}"`);
+  }
+  return block;
+};
 
 const facet = (name: string) => screen.getByRole('group', { name });
 
@@ -105,6 +117,55 @@ describe('the Inbox', () => {
         .getAllByTitle('MapColonies/a')
         .map((repo) => repo.textContent)
     ).toEqual(['a', 'a']);
+  });
+});
+
+describe('the Inbox below 1280px', () => {
+  beforeEach(() => {
+    stubCompactWindow(true);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('puts Waiting On, with the No Reviewer flag, under the PR', () => {
+    renderInbox(snapshot, 'alice');
+
+    const pr = prBlock('nobody asked');
+    expect(within(pr).getByText('Waiting On')).toBeInTheDocument();
+    expect(within(pr).getByRole('list', { name: 'Waiting On' })).toHaveTextContent('carol');
+    expect(within(pr).getByText('No Reviewer')).toBeInTheDocument();
+  });
+
+  it('still buckets the PRs, and shows the Viewer, their moves and each PR’s Urgency', () => {
+    renderInbox(aSnapshot({ prs: [aPr({ title: 'old ask', author: bob, waitingOn: [waitingOnReviewer(alice)], urgency: 3 })] }), 'alice');
+
+    expect(titlesIn('Your turn')).toEqual(['old ask']);
+    expect(within(row('old ask')).getByRole('list', { name: 'Your move' })).toBeInTheDocument();
+    expect(within(row('old ask')).getByRole('list', { name: 'Waiting On' })).toHaveTextContent('You');
+    expect(within(row('old ask')).getByText(/d$/, { selector: '[data-urgency]' })).toHaveAttribute('data-urgency', '3');
+  });
+});
+
+describe('the Inbox at 1280px and up', () => {
+  beforeEach(() => {
+    stubCompactWindow(false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps Waiting On in a column of its own, beside the PR', () => {
+    renderInbox(snapshot, 'alice');
+
+    const pr = prBlock('nobody asked');
+    expect(within(row('nobody asked')).getByRole('list', { name: 'Waiting On' })).toHaveTextContent('carol');
+    expect(within(row('nobody asked')).getByText('No Reviewer')).toBeInTheDocument();
+    expect(within(pr).queryByRole('list', { name: 'Waiting On' })).not.toBeInTheDocument();
+    expect(within(pr).queryByText('No Reviewer')).not.toBeInTheDocument();
+    expect(within(row('nobody asked')).queryByText('Waiting On')).not.toBeInTheDocument();
   });
 });
 

@@ -18,6 +18,7 @@ import {
 import { SearchBox } from '@/components/search-box';
 import { activeFilterCount, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
+import { useCompact } from '@/lib/use-compact';
 import { cn } from '@/lib/utils';
 import { OrderSelect } from '@/order/order-select';
 import { usePrOrder } from '@/order/use-pr-order';
@@ -41,9 +42,21 @@ interface RowContext {
   jiraBaseUrl: string | undefined;
   /** The org every Tracked PR's repo is in, which the rows leave out. */
   org: string | null;
+  /** Whether the window is too narrow for Waiting On to have a column of its own. */
+  compact: boolean;
 }
 
-function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org } }: { pr: TrackedPr; context: RowContext }) {
+/** Who the PR is Waiting On, at most two of them before the rest fold into "+N more", and the No Reviewer flag. */
+function WaitingOn({ pr, viewer, hideViaTeam, stacked = false }: { pr: TrackedPr; viewer: string | null; hideViaTeam: boolean; stacked?: boolean }) {
+  return (
+    <>
+      <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked={stacked} max={2} />
+      <NoReviewerFlag pr={pr} />
+    </>
+  );
+}
+
+function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact } }: { pr: TrackedPr; context: RowContext }) {
   const titleId = useId();
   return (
     <li aria-labelledby={titleId} className="flex items-stretch hover:bg-accent/60">
@@ -52,18 +65,19 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org } 
         <AgeChip pr={pr} now={now} />
         <IdleLine pr={pr} />
       </div>
-      <div className="min-w-0 flex-1 py-2.5">
+      <div data-pr-block className={cn('min-w-0 flex-1 py-2.5', compact && 'pr-4')}>
         <div className="flex items-baseline gap-2">
           <MovePills pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
-          <a id={titleId} href={pr.url} target="_blank" rel="noreferrer" className="truncate font-medium hover:underline">
-            {pr.title}
-          </a>
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-            <RepoName repo={pr.repo} org={org} />#{pr.number}
-          </span>
-          <span className="shrink-0">
+          {/* The title wins the width: past it, the repo and Jira Ticket wrap onto a line of their own. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+            <a id={titleId} href={pr.url} target="_blank" rel="noreferrer" className="line-clamp-2 min-w-0 font-medium wrap-anywhere hover:underline">
+              {pr.title}
+            </a>
+            <span className="min-w-0 font-mono text-xs wrap-anywhere text-muted-foreground">
+              <RepoName repo={pr.repo} org={org} />#{pr.number}
+            </span>
             <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
-          </span>
+          </div>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <PersonChip person={pr.author} viewer={viewer} />
@@ -72,12 +86,21 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org } 
           <ConflictBadge pr={pr} />
           <InclusionReasonBadge pr={pr} viewer={viewer} />
         </div>
+        {compact && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {/* The list names itself to screen readers. */}
+            <span aria-hidden className="text-[10px] tracking-wide text-muted-foreground uppercase">
+              Waiting On
+            </span>
+            <WaitingOn pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
+          </div>
+        )}
       </div>
-      <div className="flex w-72 shrink-0 flex-col items-start gap-1 px-4 py-2.5">
-        {/* At most two lines, as on the left, so every row keeps one height. */}
-        <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked max={2} />
-        <NoReviewerFlag pr={pr} />
-      </div>
+      {!compact && (
+        <div className="flex w-72 shrink-0 flex-col items-start gap-1 px-4 py-2.5">
+          <WaitingOn pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked />
+        </div>
+      )}
     </li>
   );
 }
@@ -116,7 +139,8 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
   const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters, order), [filtered, viewer, filters, order]);
   const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
-  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org };
+  const compact = useCompact();
+  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org, compact };
   const active = activeFilterCount(filters);
 
   return (
