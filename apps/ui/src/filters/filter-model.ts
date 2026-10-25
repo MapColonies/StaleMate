@@ -160,8 +160,14 @@ function writeParam<K extends keyof Filters>(params: URLSearchParams, key: K, va
   }
 }
 
-export function activeFilterCount(filters: Filters): number {
-  return FILTER_KEYS.filter((key) => !isDefault(key, filters[key])).length;
+/** How many filters differ from their defaults, leaving out the search when it sits apart from the rest. */
+export function activeFilterCount(filters: Filters, { besidesSearch = false } = {}): number {
+  return FILTER_KEYS.filter((key) => !(besidesSearch && key === 'q') && !isDefault(key, filters[key])).length;
+}
+
+/** Every filter back to its default but the search, for where the search sits apart from the rest. */
+export function clearedBesidesSearch(filters: Filters): Filters {
+  return { ...DEFAULT_FILTERS, q: filters.q };
 }
 
 // ---- applying -------------------------------------------------------------

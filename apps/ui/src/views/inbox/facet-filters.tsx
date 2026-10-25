@@ -121,14 +121,7 @@ function FacetList<K extends ListFilter>({
   );
 }
 
-/** The Inbox's sidebar over the shared filter model: the switches, the Age and Idle presets, and a facet per list filter. */
-export function FacetSidebar({
-  prs,
-  org,
-  filters,
-  viewer,
-  onChange,
-}: {
+export interface FacetFiltersProps {
   /** Every Tracked PR, so each facet counts over the whole Snapshot. */
   prs: readonly TrackedPr[];
   /** The org every Tracked PR's repo is in, which the Repo facet leaves out. */
@@ -136,7 +129,13 @@ export function FacetSidebar({
   filters: Filters;
   viewer: string | null;
   onChange: (patch: Partial<Filters>) => void;
-}) {
+}
+
+/**
+ * The Inbox's filters over the shared filter model: the switches, the Age and Idle presets, and a facet per list filter.
+ * They sit in the sidebar, or in the Filters panel where the window is too narrow for one.
+ */
+export function FacetFilters({ prs, org, filters, viewer, onChange }: FacetFiltersProps) {
   const people = peopleIn(prs);
   // A Waiting On key is a login, or @slug for a team.
   const partyLabel = (key: string) => {
@@ -146,7 +145,7 @@ export function FacetSidebar({
   const facetProps = { prs, filters, onChange };
 
   return (
-    <aside aria-label="Filters" className="w-72 shrink-0 space-y-5 border-r bg-background p-4">
+    <>
       <div className="flex flex-col items-start gap-2">
         <FilterSwitches prs={prs} filters={filters} onChange={onChange} />
       </div>
@@ -188,6 +187,15 @@ export function FacetSidebar({
         {...facetProps}
       />
       <FacetList title="Why tracked" filter="reason" label={(value) => INCLUSION_REASON_LABELS[value]} {...facetProps} />
+    </>
+  );
+}
+
+/** The Inbox's filters in a sidebar of their own. */
+export function FacetSidebar(props: FacetFiltersProps) {
+  return (
+    <aside aria-label="Filters" className="w-72 shrink-0 space-y-5 border-r bg-background p-4">
+      <FacetFilters {...props} />
     </aside>
   );
 }

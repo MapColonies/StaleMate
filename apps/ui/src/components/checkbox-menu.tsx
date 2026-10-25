@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { HIGHLIGHTED_CLASS } from './highlight-classes';
 
 export interface CheckboxMenuOption {
   value: string;
@@ -71,9 +72,7 @@ export function CheckboxMenu({
         onClick={() => setOpen(!open)}
         className={cn(
           'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm whitespace-nowrap shadow-xs',
-          highlighted
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-800 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-200'
-            : 'border-dashed border-input bg-background hover:bg-accent'
+          highlighted ? HIGHLIGHTED_CLASS : 'border-dashed border-input bg-background hover:bg-accent'
         )}
       >
         {label}

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { FilterX } from 'lucide-react';
 import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { CheckboxMenu } from '@/components/checkbox-menu';
+import { HIGHLIGHTED_COUNT_CLASS } from '@/components/highlight-classes';
 import { SearchBox } from '@/components/search-box';
 import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, activeFilterCount, toggled } from '@/filters/filter-model';
 import { filterOptions } from '@/filters/filter-options';
@@ -33,7 +34,7 @@ function ListFilterMenu<K extends ListFilter>({
       label={
         <>
           {name}
-          {selected.length > 0 && <span className="rounded bg-indigo-600 px-1 text-[11px] font-semibold text-white">{selected.length}</span>}
+          {selected.length > 0 && <span className={HIGHLIGHTED_COUNT_CLASS}>{selected.length}</span>}
         </>
       }
       highlighted={selected.length > 0}

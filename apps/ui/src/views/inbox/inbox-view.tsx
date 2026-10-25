@@ -25,7 +25,8 @@ import { usePrOrder } from '@/order/use-pr-order';
 import { sharedOrg } from '@/snapshot/selectors';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
 import { type Bucket, type BucketKey, inboxBuckets } from './buckets';
-import { FacetSidebar } from './facet-sidebar';
+import { FacetSidebar } from './facet-filters';
+import { FiltersPanel } from './filters-panel';
 
 const BUCKET_HEADINGS: Record<BucketKey, { title: string; hint: string; icon: ReactNode }> = {
   yourTurn: { title: 'Your turn', hint: 'You owe the next move', icon: <Inbox className="size-4" /> },
@@ -131,7 +132,7 @@ function BucketSection({ bucket, context, defaultOpen }: { bucket: Bucket; conte
 
 /**
  * The Inbox, the developer view: the PRs that pass the filters, bucketed by whose move it is for the Viewer,
- * beside a sidebar of facets that count what each value would keep.
+ * beside a sidebar of facets that count what each value would keep. Below 1280px the facets wait behind a Filters button.
  */
 export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
   const { filters, setFilters, resetFilters } = useFilters();
@@ -142,15 +143,18 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const compact = useCompact();
   const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org, compact };
   const active = activeFilterCount(filters);
+  const filterProps = { prs: snapshot.prs, org, filters, viewer, onChange: setFilters };
 
   return (
     <div className="flex min-h-full">
-      <FacetSidebar prs={snapshot.prs} org={org} filters={filters} viewer={viewer} onChange={setFilters} />
+      {!compact && <FacetSidebar {...filterProps} />}
       <section className="min-w-0 flex-1 space-y-6 p-5">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="w-96" />
+          {compact && <FiltersPanel {...filterProps} />}
           <OrderSelect order={order} onChange={setOrder} />
-          {active > 0 && (
+          {/* Below 1280px the panel resets its own filters, and the search has its own clear button. */}
+          {!compact && active > 0 && (
             <button
               type="button"
               onClick={resetFilters}

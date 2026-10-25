@@ -6,6 +6,7 @@ import {
   IDLE_PRESETS,
   activeFilterCount,
   applyFilters,
+  clearedBesidesSearch,
   facetCounts,
   parseFilters,
   partyKey,
@@ -126,6 +127,19 @@ describe('activeFilterCount', () => {
 
   it('counts each filter that differs from its default once', () => {
     expect(activeFilterCount({ ...DEFAULT_FILTERS, author: ['bob', 'carol'], hideBots: false, q: 'x' })).toBe(3);
+  });
+
+  it('can leave out the search', () => {
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, author: ['bob'], q: 'x' }, { besidesSearch: true })).toBe(1);
+  });
+});
+
+describe('clearedBesidesSearch', () => {
+  it('puts every filter back to its default but the search', () => {
+    expect(clearedBesidesSearch({ ...DEFAULT_FILTERS, author: ['bob'], idleOver: 3, hideBots: false, q: 'tiles' })).toEqual({
+      ...DEFAULT_FILTERS,
+      q: 'tiles',
+    });
   });
 });
 

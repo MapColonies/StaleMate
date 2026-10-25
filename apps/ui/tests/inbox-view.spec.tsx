@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Snapshot } from '@/snapshot/types';
@@ -146,6 +146,84 @@ describe('the Inbox below 1280px', () => {
     expect(within(row('old ask')).getByRole('list', { name: 'Waiting On' })).toHaveTextContent('You');
     expect(within(row('old ask')).getByText(/d$/, { selector: '[data-urgency]' })).toHaveAttribute('data-urgency', '3');
   });
+
+  describe('its filters', () => {
+    const filtersPanel = () => screen.queryByRole('dialog', { name: 'Filters' });
+
+    const openFilters = async () => {
+      await userEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+      return screen.findByRole('dialog', { name: 'Filters' });
+    };
+
+    it('hide behind a Filters button that opens them in a side panel', async () => {
+      renderInbox(snapshot, 'alice');
+      expect(screen.queryByRole('complementary', { name: 'Filters' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
+
+      const panel = await openFilters();
+
+      expect(within(panel).getByRole('switch', { name: 'Hide Bots' })).toBeInTheDocument();
+      expect(within(within(panel).getByRole('group', { name: 'Age' })).getByRole('button', { name: '< 5 Working Days' })).toBeInTheDocument();
+      expect(within(within(panel).getByRole('group', { name: 'Idle Time' })).getByRole('button', { name: '> 3 Working Days' })).toBeInTheDocument();
+      expect(facetEntries('Repo')).toEqual(['b3', 'a2']);
+    });
+
+    it('count on the button the active filters the panel holds, leaving out the search beside it', () => {
+      window.history.replaceState(null, '', '/?review=approved&hideBots=0&q=tiles');
+
+      renderInbox(snapshot, 'alice');
+
+      const button = screen.getByRole('button', { name: 'Filters: 2 active' });
+      expect(button).toHaveTextContent('2');
+      // A second count beside it, with the search in it, would disagree with the button's.
+      expect(screen.queryByRole('button', { name: /Reset filters/ })).not.toBeInTheDocument();
+    });
+
+    it('filter the Inbox as soon as one changes in the panel, through the URL the Table and Board share', async () => {
+      renderInbox(snapshot, 'alice');
+      await openFilters();
+
+      await userEvent.click(within(facet('Repo')).getByRole('checkbox', { name: /^a/ }));
+
+      expect(new URLSearchParams(window.location.search).get('repo')).toBe('MapColonies/a');
+      // The open panel hides the page behind it from screen readers.
+      const yourPrs = screen.getByRole('region', { name: 'Your PRs, waiting on others', hidden: true });
+      expect(within(yourPrs).queryAllByRole('link', { hidden: true })).toEqual([]);
+      expect(screen.getByRole('button', { name: 'Filters: 1 active', hidden: true })).toBeInTheDocument();
+    });
+
+    it('reset from the panel, keeping the search, which has its own clear button', async () => {
+      window.history.replaceState(null, '', '/?review=approved&idle=3&q=asks');
+      renderInbox(snapshot, 'alice');
+      const panel = await openFilters();
+
+      await userEvent.click(within(panel).getByRole('button', { name: 'Reset filters' }));
+
+      expect(window.location.search).toBe('?q=asks');
+      expect(screen.getByRole('button', { name: 'Filters', hidden: true })).toBeInTheDocument();
+      expect(within(panel).getByRole('button', { name: 'Reset filters' })).toBeDisabled();
+    });
+
+    it('close with Escape, giving focus back to the button', async () => {
+      renderInbox(snapshot, 'alice');
+      await openFilters();
+
+      await userEvent.keyboard('{Escape}');
+
+      await waitFor(() => expect(filtersPanel()).not.toBeInTheDocument());
+      expect(screen.getByRole('button', { name: 'Filters' })).toHaveFocus();
+    });
+
+    it('close with a click outside the panel', async () => {
+      renderInbox(snapshot, 'alice');
+      await openFilters();
+
+      // The overlay has no role to find it by; it is what a click outside the panel lands on.
+      await userEvent.click(document.querySelector('[data-slot="sheet-overlay"]')!);
+
+      await waitFor(() => expect(filtersPanel()).not.toBeInTheDocument());
+    });
+  });
 });
 
 describe('the Inbox at 1280px and up', () => {
@@ -166,6 +244,13 @@ describe('the Inbox at 1280px and up', () => {
     expect(within(pr).queryByRole('list', { name: 'Waiting On' })).not.toBeInTheDocument();
     expect(within(pr).queryByText('No Reviewer')).not.toBeInTheDocument();
     expect(within(row('nobody asked')).queryByText('Waiting On')).not.toBeInTheDocument();
+  });
+
+  it('keeps the filters in a sidebar, with no Filters button', () => {
+    renderInbox(snapshot, 'alice');
+
+    expect(within(screen.getByRole('complementary', { name: 'Filters' })).getByRole('group', { name: 'Repo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Filters/ })).not.toBeInTheDocument();
   });
 });
 
