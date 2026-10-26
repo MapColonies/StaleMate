@@ -44,9 +44,9 @@
     },
     "rateLimit": {
       "cost": 1,
-      "remaining": 4867,
+      "remaining": 4862,
       "limit": 5000,
-      "resetAt": "2026-10-26T10:24:46Z"
+      "resetAt": "2026-10-26T14:31:13Z"
     }
   }
 }

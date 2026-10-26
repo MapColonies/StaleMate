@@ -72,6 +72,8 @@ describe('GithubPrProvider over a recorded sweep', function () {
       'https://github.com/MapColonies/config-ui/pull/62',
       'https://github.com/MapColonies/infra-packages/pull/33',
       'https://github.com/MapColonies/jobnik-manager/pull/247',
+      'https://github.com/MapColonies/jobnik/pull/65',
+      'https://github.com/MapColonies/jobnik/pull/66',
       'https://github.com/MapColonies/opa-la/pull/160',
       'https://github.com/MapColonies/telemetry/pull/96',
     ]);
@@ -121,6 +123,40 @@ describe('GithubPrProvider over a recorded sweep', function () {
     expect(facts.timeline).toContainEqual(
       expect.objectContaining({ type: 'reviewRequested', requested: { type: 'team', slug: 'infra', asCodeOwner: false } })
     );
+  });
+
+  it('should read a real Stack, with its position, its size and its siblings in order', function () {
+    const facts = pr('https://github.com/MapColonies/jobnik/pull/65');
+
+    expect(facts.stack).toMatchObject({ number: 68, position: 2, size: 4, entriesTruncated: false });
+    expect(facts.stack?.entries.map((entry) => entry.number)).toEqual([64, 65, 66, 67]);
+
+    for (const entry of facts.stack?.entries ?? []) {
+      expect(entry).toMatchObject({ repo: 'MapColonies/jobnik', state: 'open', isDraft: true });
+    }
+
+    // What Held reads of each sibling: GitHub's own review decision and check rollup.
+    expect(facts.stack?.entries.map((entry) => [entry.number, entry.reviewDecision, entry.checkRollup])).toEqual([
+      [64, 'reviewRequired', 'failure'],
+      [65, 'reviewRequired', 'failure'],
+      [66, 'reviewRequired', 'success'],
+      [67, 'reviewRequired', 'success'],
+    ]);
+    expect(pr('https://github.com/MapColonies/jobnik/pull/66').stack).toMatchObject({ number: 68, position: 3, size: 4 });
+  });
+
+  it('should carry the Stack to the Tracked PR, marking the siblings the Team does not track', function () {
+    const facts = pr('https://github.com/MapColonies/jobnik/pull/65');
+
+    const { stack } = deriveTrackedPr(facts, sweep.teams[0]!, aDerivationConfig(), new Date('2026-10-26T12:00:00Z'));
+
+    expect(stack).toMatchObject({ number: 68, position: 2, size: 4, truncated: false });
+    expect(stack?.siblings.map((sibling) => [sibling.number, sibling.tracked])).toEqual([
+      [64, false],
+      [65, true],
+      [66, false],
+      [67, false],
+    ]);
   });
 
   it('should read a service account as a User, which config makes a Bot', function () {

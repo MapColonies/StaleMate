@@ -34,6 +34,9 @@ const RECORDED_PRS = [
   'MapColonies/jobnik-manager#247',
   // A PR by a service account.
   'MapColonies/infra-packages#33',
+  // Two PRs in the middle of a real Stack (jobnik #64-#67, whose Stack is numbered 68), with its entries and their review and check state.
+  'MapColonies/jobnik#65',
+  'MapColonies/jobnik#66',
 ];
 /** The Teams the recording keeps, out of every Team in the org. */
 const RECORDED_TEAMS = ['infra', 'raster-team'];

@@ -1,12 +1,20 @@
 {
   "data": {
     "search": {
-      "issueCount": 4,
+      "issueCount": 6,
       "pageInfo": {
         "hasNextPage": false,
         "endCursor": null
       },
       "nodes": [
+        {
+          "id": "PR_kwDOT-og-88AAAABKuEzkg",
+          "updatedAt": "2026-10-26T09:34:39Z"
+        },
+        {
+          "id": "PR_kwDOT-og-88AAAABKuEv_w",
+          "updatedAt": "2026-10-26T08:29:09Z"
+        },
         {
           "id": "PR_kwDOJLgOiM8AAAABHSqmzA",
           "updatedAt": "2026-10-25T15:25:26Z"
@@ -27,9 +35,9 @@
     },
     "rateLimit": {
       "cost": 1,
-      "remaining": 4930,
+      "remaining": 4844,
       "limit": 5000,
-      "resetAt": "2026-10-26T10:28:36Z"
+      "resetAt": "2026-10-26T14:25:20Z"
     }
   }
 }

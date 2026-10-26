@@ -187,6 +187,8 @@
         "reviewThreads": {
           "totalCount": 1
         },
+        "stack": null,
+        "stackEntry": null,
         "timelineItems": {
           "pageInfo": {
             "hasNextPage": false
@@ -403,6 +405,8 @@
         "reviewThreads": {
           "totalCount": 0
         },
+        "stack": null,
+        "stackEntry": null,
         "timelineItems": {
           "pageInfo": {
             "hasNextPage": false
@@ -520,6 +524,8 @@
         "reviewThreads": {
           "totalCount": 0
         },
+        "stack": null,
+        "stackEntry": null,
         "timelineItems": {
           "pageInfo": {
             "hasNextPage": false
@@ -552,20 +558,20 @@
         }
       },
       {
-        "id": "PR_kwDOQm1CY869UpEM",
-        "number": 33,
-        "title": "devdeps(tracing-utils): update dependency express to v5",
-        "url": "https://github.com/MapColonies/infra-packages/pull/33",
-        "isDraft": false,
-        "createdAt": "2026-01-15T07:43:25Z",
+        "id": "PR_kwDOT-og-88AAAABKuEzkg",
+        "number": 66,
+        "title": "feat(jobnik-manager): cut Task queries over to Drizzle",
+        "url": "https://github.com/MapColonies/jobnik/pull/66",
+        "isDraft": true,
+        "createdAt": "2026-10-26T08:29:13Z",
         "mergeable": "MERGEABLE",
         "repository": {
-          "nameWithOwner": "MapColonies/infra-packages"
+          "nameWithOwner": "MapColonies/jobnik"
         },
         "author": {
           "__typename": "User",
-          "login": "mapcolonies-devops",
-          "id": "U_kgDOCIdygg"
+          "login": "member-8",
+          "id": "U_member_8"
         },
         "assignees": {
           "pageInfo": {
@@ -577,27 +583,21 @@
           "nodes": [
             {
               "commit": {
-                "oid": "eedbe843681c7fdfdd7f752aafe57b43a361c29f",
-                "committedDate": "2026-10-12T17:23:45Z",
+                "oid": "52ce820e2ee6bd826c64b1c34e6cee92eff7c2ac",
+                "committedDate": "2026-10-26T08:45:29Z",
                 "checkSuites": {
                   "nodes": [
                     {
-                      "createdAt": "2026-10-12T17:23:48Z"
+                      "createdAt": "2026-10-26T09:32:36Z"
                     },
                     {
-                      "createdAt": "2026-10-12T17:23:48Z"
+                      "createdAt": "2026-10-26T09:32:36Z"
                     },
                     {
-                      "createdAt": "2026-10-12T17:23:48Z"
+                      "createdAt": "2026-10-26T09:32:36Z"
                     },
                     {
-                      "createdAt": "2026-10-12T17:23:53Z"
-                    },
-                    {
-                      "createdAt": "2026-10-12T17:23:53Z"
-                    },
-                    {
-                      "createdAt": "2026-10-12T17:23:54Z"
+                      "createdAt": "2026-10-26T09:32:41Z"
                     }
                   ]
                 },
@@ -609,71 +609,73 @@
                     "nodes": [
                       {
                         "__typename": "CheckRun",
-                        "name": "Run TS Project eslint (24.x)",
-                        "status": "COMPLETED",
-                        "conclusion": "FAILURE",
-                        "completedAt": "2026-10-12T17:24:35Z"
-                      },
-                      {
-                        "__typename": "CheckRun",
-                        "name": "check-catalog-usage",
+                        "name": "Lint",
                         "status": "COMPLETED",
                         "conclusion": "SUCCESS",
-                        "completedAt": "2026-10-12T17:24:00Z"
+                        "completedAt": "2026-10-26T09:33:13Z"
                       },
                       {
                         "__typename": "CheckRun",
-                        "name": "jira-validation",
+                        "name": "Format",
                         "status": "COMPLETED",
                         "conclusion": "SUCCESS",
-                        "completedAt": "2026-10-12T17:24:00Z"
+                        "completedAt": "2026-10-26T09:33:05Z"
                       },
                       {
                         "__typename": "CheckRun",
-                        "name": "Run TS Project prettier",
+                        "name": "Type-check",
                         "status": "COMPLETED",
-                        "conclusion": "FAILURE",
-                        "completedAt": "2026-10-12T17:24:41Z"
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:33:15Z"
                       },
                       {
                         "__typename": "CheckRun",
-                        "name": "Run Tests (24.x)",
+                        "name": "Specification lint",
                         "status": "COMPLETED",
-                        "conclusion": "FAILURE",
-                        "completedAt": "2026-10-12T17:24:39Z"
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:32:59Z"
                       },
                       {
                         "__typename": "CheckRun",
-                        "name": "Check package distributions",
+                        "name": "Specification drift",
                         "status": "COMPLETED",
-                        "conclusion": "FAILURE",
-                        "completedAt": "2026-10-12T17:24:37Z"
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:33:15Z"
                       },
                       {
                         "__typename": "CheckRun",
-                        "name": "Run knip to detect unused dependencies",
+                        "name": "Packaging and type resolution",
                         "status": "COMPLETED",
-                        "conclusion": "FAILURE",
-                        "completedAt": "2026-10-12T17:24:34Z"
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:33:15Z"
                       },
                       {
                         "__typename": "CheckRun",
-                        "name": "Run API Extractor",
+                        "name": "Unused code report",
                         "status": "COMPLETED",
-                        "conclusion": "FAILURE",
-                        "completedAt": "2026-10-12T17:24:57Z"
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:33:03Z"
                       },
                       {
-                        "__typename": "StatusContext",
-                        "context": "jira/issue-validation",
-                        "state": "SUCCESS",
-                        "createdAt": "2026-10-12T17:23:58Z"
+                        "__typename": "CheckRun",
+                        "name": "Run Tests",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:34:42Z"
                       },
                       {
-                        "__typename": "StatusContext",
-                        "context": "renovate/stability-days",
-                        "state": "SUCCESS",
-                        "createdAt": "2026-10-12T17:23:52Z"
+                        "__typename": "CheckRun",
+                        "name": "Run E2E Suite",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:35:09Z"
+                      },
+                      {
+                        "__typename": "CheckRun",
+                        "name": "Run Helm lint Check",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
+                        "completedAt": "2026-10-26T09:33:07Z"
                       }
                     ]
                   }
@@ -697,19 +699,143 @@
         "reviewThreads": {
           "totalCount": 0
         },
+        "stack": {
+          "number": 68,
+          "size": 4,
+          "entries": {
+            "pageInfo": {
+              "hasNextPage": false
+            },
+            "nodes": [
+              {
+                "position": 1,
+                "pullRequest": {
+                  "number": 64,
+                  "title": "feat(jobnik-manager): cut Job queries over to Drizzle",
+                  "url": "https://github.com/MapColonies/jobnik/pull/64",
+                  "state": "OPEN",
+                  "isDraft": true,
+                  "reviewDecision": "REVIEW_REQUIRED",
+                  "repository": {
+                    "nameWithOwner": "MapColonies/jobnik"
+                  },
+                  "commits": {
+                    "nodes": [
+                      {
+                        "commit": {
+                          "statusCheckRollup": {
+                            "state": "FAILURE"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "position": 2,
+                "pullRequest": {
+                  "number": 65,
+                  "title": "feat(jobnik-manager): cut Stage queries over to Drizzle",
+                  "url": "https://github.com/MapColonies/jobnik/pull/65",
+                  "state": "OPEN",
+                  "isDraft": true,
+                  "reviewDecision": "REVIEW_REQUIRED",
+                  "repository": {
+                    "nameWithOwner": "MapColonies/jobnik"
+                  },
+                  "commits": {
+                    "nodes": [
+                      {
+                        "commit": {
+                          "statusCheckRollup": {
+                            "state": "FAILURE"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "position": 3,
+                "pullRequest": {
+                  "number": 66,
+                  "title": "feat(jobnik-manager): cut Task queries over to Drizzle",
+                  "url": "https://github.com/MapColonies/jobnik/pull/66",
+                  "state": "OPEN",
+                  "isDraft": true,
+                  "reviewDecision": "REVIEW_REQUIRED",
+                  "repository": {
+                    "nameWithOwner": "MapColonies/jobnik"
+                  },
+                  "commits": {
+                    "nodes": [
+                      {
+                        "commit": {
+                          "statusCheckRollup": {
+                            "state": "SUCCESS"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "position": 4,
+                "pullRequest": {
+                  "number": 67,
+                  "title": "feat(jobnik-manager): move the remaining database touchpoints to Drizzle",
+                  "url": "https://github.com/MapColonies/jobnik/pull/67",
+                  "state": "OPEN",
+                  "isDraft": true,
+                  "reviewDecision": "REVIEW_REQUIRED",
+                  "repository": {
+                    "nameWithOwner": "MapColonies/jobnik"
+                  },
+                  "commits": {
+                    "nodes": [
+                      {
+                        "commit": {
+                          "statusCheckRollup": {
+                            "state": "SUCCESS"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "stackEntry": {
+          "position": 3
+        },
         "timelineItems": {
           "pageInfo": {
             "hasNextPage": false
           },
-          "nodes": []
+          "nodes": [
+            {
+              "__typename": "IssueComment",
+              "createdAt": "2026-10-26T08:31:48Z",
+              "author": {
+                "__typename": "Bot",
+                "login": "github-actions",
+                "id": "MDM6Qm90NDE4OTgyODI="
+              }
+            }
+          ]
         }
       }
     ],
     "rateLimit": {
       "cost": 1,
-      "remaining": 4926,
+      "remaining": 4841,
       "limit": 5000,
-      "resetAt": "2026-10-26T10:28:36Z"
+      "resetAt": "2026-10-26T14:25:20Z"
     }
   }
 }
