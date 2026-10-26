@@ -1,4 +1,4 @@
-import type { Actor, PrFacts, Roster } from './facts';
+import type { Actor, PrFacts, Roster, StackEntryFact, StackFact } from './facts';
 import type { InclusionReason, Person, TrackedPr, WaitingOnParty } from './trackedPr';
 import { deriveReviewStatus } from './reviewStatus';
 import { deriveCheckStatus } from './checkStatus';
@@ -17,24 +17,54 @@ import {
 
 /** The PR's Stack as the contract has it, but for which siblings the Team tracks, which only the Team's slice knows. */
 type Stack = NonNullable<TrackedPr['stack']>;
-export type TeamFreeStack = Omit<Stack, 'siblings'> & { siblings: Omit<Stack['siblings'][number], 'tracked'>[] };
+type HeldBy = NonNullable<Stack['heldBy']>;
+
+/** Whether the code host would let the PR merge as far as its own review decision and checks go. A draft never would. */
+function isReady(entry: StackEntryFact): boolean {
+  return (
+    !entry.isDraft &&
+    entry.reviewDecision !== 'reviewRequired' &&
+    entry.reviewDecision !== 'changesRequested' &&
+    (entry.checkRollup === 'success' || entry.checkRollup === 'none')
+  );
+}
+
+/**
+ * The lowest open PR below this one in its Stack that is not ready by the code host's own verdict, when this PR is itself
+ * Approved and Passing. A PR merged out of the Stack no longer holds anything.
+ */
+function deriveHeldBy(facts: PrFacts, stack: StackFact, isApprovedAndPassing: boolean): HeldBy | undefined {
+  if (!isApprovedAndPassing || stack.position <= 1) {
+    return undefined;
+  }
+  const own = stack.entries.find((entry) => entry.repo === facts.repo && entry.number === facts.number);
+  // A PR past the entries a long Stack lists has every listed entry below it.
+  const below = own === undefined ? (stack.entriesTruncated ? stack.entries : []) : stack.entries.slice(0, stack.entries.indexOf(own));
+  const holder = below.find((entry) => entry.state === 'open' && !isReady(entry));
+  return holder === undefined ? undefined : { repo: holder.repo, number: holder.number };
+}
 
 /** The PR's Stack as the contract has it, with the Stack's real size however many entries were read. Absent for a PR with no Stack. */
-function deriveStack(facts: PrFacts): { stack?: TeamFreeStack } {
+function deriveStack(facts: PrFacts, isApprovedAndPassing: boolean): { stack?: TeamFreeStack } {
   const { stack } = facts;
   if (stack === undefined) {
     return {};
   }
+  const heldBy = deriveHeldBy(facts, stack, isApprovedAndPassing);
   return {
     stack: {
       number: stack.number,
       position: stack.position,
       size: stack.size,
-      siblings: stack.entries.map(({ isDraft, ...entry }) => ({ ...entry, draft: isDraft })),
+      siblings: stack.entries.map(({ isDraft, reviewDecision, checkRollup, ...entry }) => ({ ...entry, draft: isDraft })),
       truncated: stack.entriesTruncated,
+      ...(heldBy === undefined ? {} : { heldBy }),
     },
   };
 }
+
+/** The Stack as derived without a Team: its siblings not yet marked tracked. */
+export type TeamFreeStack = Omit<Stack, 'siblings'> & { siblings: Omit<Stack['siblings'][number], 'tracked'>[] };
 
 /** The configuration the derivation rules read. */
 export interface DerivationConfig {
@@ -76,6 +106,7 @@ export interface TeamPart {
 export function deriveTeamFreePr(facts: PrFacts, config: DerivationConfig): TeamFreePr {
   const review = deriveReviewStatus(facts, config.botLogins);
   const waitingOn = deriveWaitingOn(facts, review, config);
+  const checkStatus = deriveCheckStatus(facts, config.excludedChecks);
 
   return {
     trackedPr: {
@@ -86,11 +117,11 @@ export function deriveTeamFreePr(facts: PrFacts, config: DerivationConfig): Team
       url: facts.url,
       reviewStatus: review.status,
       approvals: review.approvals,
-      checkStatus: deriveCheckStatus(facts, config.excludedChecks),
+      checkStatus,
       conflicting: facts.mergeable === 'conflicting',
       jiraTickets: deriveJiraTickets(facts.title, config.jiraProjectKeys),
       noReviewer: waitingOn.noReviewer,
-      ...deriveStack(facts),
+      ...deriveStack(facts, review.status === 'approved' && checkStatus === 'passing'),
     },
     author: facts.author,
     participants: deriveParticipantActors(facts, config.botLogins),

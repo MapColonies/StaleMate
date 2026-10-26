@@ -367,6 +367,14 @@ describe('the Inbox’s order', () => {
     expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(4);
   });
 
+  it('hints that a PR the author owes a merge on is Held, beside the merge move', () => {
+    const stack = aStack(2, 3, { heldBy: { repo: 'MapColonies/jobnik', number: 64 } });
+    renderInbox(aSnapshot({ prs: [aPr({ title: 'held one', author: bob, waitingOn: [waitingOnAuthor(bob)], stack })] }), 'bob');
+
+    expect(screen.getByText('Held by #64')).toBeInTheDocument();
+    expect(within(screen.getByRole('list', { name: 'Your move' })).getByText('Merge')).toBeInTheDocument();
+  });
+
   it('marks a PR in the Stack that the Team does not track', async () => {
     const stack = aStack(1, 2);
     const siblings = [stack.siblings[0]!, { ...stack.siblings[1]!, tracked: false }];

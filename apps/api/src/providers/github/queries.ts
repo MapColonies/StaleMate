@@ -136,7 +136,7 @@ export const DETAILS_QUERY = `query PullRequestDetails($ids: [ID!]!) {
         number size
         entries(first: ${STACK_ENTRIES_CAP}) {
           pageInfo { hasNextPage }
-          nodes { position pullRequest { number title url state isDraft repository { nameWithOwner } } }
+          nodes { position pullRequest { number title url state isDraft reviewDecision repository { nameWithOwner } commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } }
         }
       }
       stackEntry { position }
@@ -219,7 +219,9 @@ export interface StackedPullRequestNode {
   url: string;
   state: 'OPEN' | 'MERGED' | 'CLOSED';
   isDraft: boolean;
+  reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
   repository: { nameWithOwner: string };
+  commits: { nodes: { commit: { statusCheckRollup: { state: 'SUCCESS' | 'FAILURE' | 'ERROR' | 'PENDING' | 'EXPECTED' } | null } }[] };
 }
 
 export interface NodesData<T> {

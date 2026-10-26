@@ -194,6 +194,12 @@ export type components = {
       siblings: components['schemas']['stackSibling'][];
       /** @description The Stack has more PRs than siblings lists. */
       truncated: boolean;
+      /** @description Set when the PR is Approved and Passing but a PR below it in the Stack is not yet ready by the code host's own review decision and checks, or is a draft. Names the lowest such PR. A hint only: it changes no move. */
+      heldBy?: {
+        /** @description The repository, as owner/name. */
+        repo: string;
+        number: number;
+      };
     };
     stackSibling: {
       /**

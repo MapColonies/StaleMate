@@ -457,6 +457,8 @@ describe('snapshot', function () {
                   url: 'https://github.com/MapColonies/opa-la/pull/31',
                   state: 'open',
                   isDraft: false,
+                  reviewDecision: 'none',
+                  checkRollup: 'none',
                 },
                 {
                   repo: 'MapColonies/raster-catalog-manager',
@@ -465,6 +467,8 @@ describe('snapshot', function () {
                   url: 'https://github.com/MapColonies/raster-catalog-manager/pull/32',
                   state: 'open',
                   isDraft: true,
+                  reviewDecision: 'none',
+                  checkRollup: 'none',
                 },
                 {
                   repo: 'MapColonies/nowhere',
@@ -473,6 +477,8 @@ describe('snapshot', function () {
                   url: 'https://github.com/MapColonies/nowhere/pull/33',
                   state: 'open',
                   isDraft: false,
+                  reviewDecision: 'none',
+                  checkRollup: 'none',
                 },
               ],
             },

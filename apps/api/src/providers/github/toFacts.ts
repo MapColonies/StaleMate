@@ -48,6 +48,21 @@ const STATUS_CONTEXT_STATES: Record<Extract<CheckContextNode, { __typename: 'Sta
   EXPECTED: 'pending',
 };
 const STACK_ENTRY_STATES: Record<StackedPullRequestNode['state'], StackEntryFact['state']> = { OPEN: 'open', MERGED: 'merged', CLOSED: 'closed' };
+const STACK_REVIEW_DECISIONS: Record<NonNullable<StackedPullRequestNode['reviewDecision']>, StackEntryFact['reviewDecision']> = {
+  APPROVED: 'approved',
+  CHANGES_REQUESTED: 'changesRequested',
+  REVIEW_REQUIRED: 'reviewRequired',
+};
+const STACK_CHECK_ROLLUPS: Record<
+  NonNullable<StackedPullRequestNode['commits']['nodes'][number]['commit']['statusCheckRollup']>['state'],
+  StackEntryFact['checkRollup']
+> = {
+  SUCCESS: 'success',
+  FAILURE: 'failure',
+  ERROR: 'failure',
+  PENDING: 'pending',
+  EXPECTED: 'pending',
+};
 /* eslint-enable @typescript-eslint/naming-convention */
 
 /** The conclusions of a completed check run that count as passed. Every other conclusion counts as failed. */
@@ -144,6 +159,11 @@ const byTime =
   (a: T, b: T): number =>
     at(a).getTime() - at(b).getTime();
 
+function toCheckRollup(pullRequest: StackedPullRequestNode): StackEntryFact['checkRollup'] {
+  const rollup = pullRequest.commits.nodes[0]?.commit.statusCheckRollup;
+  return rollup === null || rollup === undefined ? 'none' : STACK_CHECK_ROLLUPS[rollup.state];
+}
+
 /** A PR with no Stack, or one the query did not read it for, has none. */
 function toStack(node: PullRequestNode): StackFact | undefined {
   if (node.stack === null || node.stack === undefined || node.stackEntry === null || node.stackEntry === undefined) {
@@ -165,6 +185,8 @@ function toStack(node: PullRequestNode): StackFact | undefined {
               url: pullRequest.url,
               state: STACK_ENTRY_STATES[pullRequest.state],
               isDraft: pullRequest.isDraft,
+              reviewDecision: pullRequest.reviewDecision === null ? 'none' : STACK_REVIEW_DECISIONS[pullRequest.reviewDecision],
+              checkRollup: toCheckRollup(pullRequest),
             },
           ]
     ),

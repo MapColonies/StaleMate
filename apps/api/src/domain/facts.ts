@@ -95,6 +95,10 @@ export interface StackEntryFact {
   url: string;
   state: 'open' | 'merged' | 'closed';
   isDraft: boolean;
+  /** The code host's own review decision for the PR. `none` when no review is required of it. Only Held reads it. */
+  reviewDecision: 'approved' | 'changesRequested' | 'reviewRequired' | 'none';
+  /** The code host's own roll-up of the PR's checks. `none` when it has no checks. Only Held reads it. */
+  checkRollup: 'success' | 'failure' | 'pending' | 'none';
 }
 
 /** The Stack a PR belongs to, as the code host reports it. Position and size are the code host's, never renumbered. */

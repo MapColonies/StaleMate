@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import 'jest-openapi';
 import type { StackEntryFact } from '@domain/facts';
 import { deriveTeamFreePr, deriveTrackedPr } from '@domain/deriveTrackedPr';
-import { aDerivationConfig, anActor, aPrFacts, aTeam } from '@tests/utils/facts';
+import { aDerivationConfig, anActor, aPrFacts, aReview, aTeam } from '@tests/utils/facts';
 
 const now = new Date('2026-10-14T12:00:00Z');
 
@@ -98,6 +98,8 @@ describe('deriveTrackedPr', function () {
       url: `https://github.com/MapColonies/jobnik/pull/${number}`,
       state: 'open',
       isDraft: false,
+      reviewDecision: 'approved',
+      checkRollup: 'success',
       ...overrides,
     });
 
@@ -180,6 +182,78 @@ describe('deriveTrackedPr', function () {
 
       expect(stack).toBeDefined();
       expect(rest).toStrictEqual(plain);
+    });
+
+    describe('held', function () {
+      const readyFacts = (entries: StackEntryFact[], position: number) =>
+        aPrFacts({
+          repo: entries[position - 1]?.repo,
+          number: entries[position - 1]?.number,
+          reviews: [aReview()],
+          stack: { number: 9, position, size: entries.length, entriesTruncated: false, entries },
+        });
+      const held = (facts: ReturnType<typeof aPrFacts>) => deriveTrackedPr(facts, aTeam(), aDerivationConfig(), now);
+
+      it.each<[string, Partial<StackEntryFact>]>([
+        ['unapproved', { reviewDecision: 'reviewRequired' }],
+        ['asked for changes', { reviewDecision: 'changesRequested' }],
+        ['failing', { checkRollup: 'failure' }],
+        ['pending', { checkRollup: 'pending' }],
+        ['a draft', { isDraft: true }],
+      ])('should hold an Approved, Passing PR when a PR below it is %s', function (_, lower) {
+        const trackedPr = held(readyFacts([entry(64, lower), entry(65)], 2));
+
+        expect(trackedPr.stack?.heldBy).toStrictEqual({ repo: 'MapColonies/jobnik', number: 64 });
+        expect(trackedPr).toSatisfySchemaInApiSpec('trackedPr');
+      });
+
+      it('should name the lowest PR that is not ready', function () {
+        const trackedPr = held(readyFacts([entry(64), entry(65, { checkRollup: 'failure' }), entry(66, { isDraft: true }), entry(67)], 4));
+
+        expect(trackedPr.stack?.heldBy).toStrictEqual({ repo: 'MapColonies/jobnik', number: 65 });
+      });
+
+      it('should not hold a PR when every PR below it is ready', function () {
+        expect(held(readyFacts([entry(64), entry(65)], 2)).stack).not.toHaveProperty('heldBy');
+      });
+
+      it('should not hold a PR for a PR above it or for one that already merged', function () {
+        const entries = [entry(64, { state: 'merged', reviewDecision: 'reviewRequired' }), entry(65), entry(66, { checkRollup: 'failure' })];
+
+        expect(held(readyFacts(entries, 2)).stack).not.toHaveProperty('heldBy');
+      });
+
+      it('should not hold a PR at position 1', function () {
+        expect(held(readyFacts([entry(65), entry(66, { checkRollup: 'failure' })], 1)).stack).not.toHaveProperty('heldBy');
+      });
+
+      it('should not hold a PR that is not itself Approved and Passing', function () {
+        const entries = [entry(64, { reviewDecision: 'reviewRequired' }), entry(65)];
+        const unapproved = aPrFacts({
+          repo: 'MapColonies/jobnik',
+          number: 65,
+          stack: { number: 9, position: 2, size: 2, entriesTruncated: false, entries },
+        });
+        const failing = {
+          ...readyFacts(entries, 2),
+          headCommit: { ...aPrFacts().headCommit, checks: [{ name: 'build', state: 'failed' as const }] },
+        };
+
+        expect(held(unapproved).stack).not.toHaveProperty('heldBy');
+        expect(held(failing).stack).not.toHaveProperty('heldBy');
+      });
+
+      it('should change no Move, Waiting On, Review Status or Urgency', function () {
+        const entries = [entry(64, { reviewDecision: 'reviewRequired' }), entry(65)];
+        const stacked = readyFacts(entries, 2);
+        const heldPr = held(stacked);
+        const { stack: heldStack, ...heldRest } = heldPr;
+        const { stack: plainStack, ...plainRest } = held({ ...stacked, stack: { ...stacked.stack!, entries: [entry(64), entry(65)] } });
+
+        expect(heldStack?.heldBy).toBeDefined();
+        expect(plainStack?.heldBy).toBeUndefined();
+        expect(heldRest).toStrictEqual(plainRest);
+      });
     });
   });
 });

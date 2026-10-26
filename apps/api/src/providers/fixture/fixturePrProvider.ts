@@ -430,6 +430,8 @@ function addStack(prs: PrFacts[]): void {
     url: facts.url,
     state: 'open',
     isDraft: facts.isDraft,
+    reviewDecision: 'none',
+    checkRollup: 'none',
   }));
   for (const [index, facts] of members.entries()) {
     facts.stack = { number: 1, position: index + 1, size: members.length, entries, entriesTruncated: false };

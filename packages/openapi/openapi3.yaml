@@ -349,6 +349,20 @@ components:
         truncated:
           type: boolean
           description: The Stack has more PRs than siblings lists.
+        heldBy:
+          type: object
+          description: >-
+            Set when the PR is Approved and Passing but a PR below it in the Stack is not yet ready by the code host's own
+            review decision and checks, or is a draft. Names the lowest such PR. A hint only: it changes no move.
+          required:
+            - repo
+            - number
+          properties:
+            repo:
+              type: string
+              description: The repository, as owner/name.
+            number:
+              type: integer
     stackSibling:
       type: object
       required:

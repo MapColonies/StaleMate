@@ -37,7 +37,7 @@ A PR's place among the PRs still in its Stack, counted from the first, shown as 
 _Avoid_: Order, rank, level
 
 **Held**:
-An Approved, Passing PR that cannot merge yet because a PR below it in its Stack is not Approved and Passing. A PR can merge only once every PR below it can, and merging it lands them too. Held is a hint beside the author's merge Move, never a Move of its own, and never changes Waiting On.
+An Approved, Passing PR that cannot merge yet because a PR below it in its Stack is not ready by the code host's own verdict: a draft, one whose review decision is not approved, or one whose checks are not green. A PR the code host asks no review of, or that has no checks, is not held up for it. A PR can merge only once every PR below it can, and merging it lands them too. Held is a hint beside the author's merge Move, never a Move of its own, and never changes Waiting On.
 _Avoid_: Blocked, waiting on
 
 **Team Repo**:

@@ -123,6 +123,28 @@ describe('MovePills', () => {
     expect(pills()).toEqual(['Review']);
   });
 
+  it('hints, beside the merge move, which PR a Held PR is held by, keeping the move', () => {
+    const stack = aStack(2, 3, { heldBy: { repo: 'MapColonies/jobnik', number: 64 } });
+    render(<MovePills pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob)], stack })} viewer="bob" hideViaTeam={false} />);
+
+    expect(pills()).toEqual(['Merge']);
+    expect(screen.getByText('Held by #64')).toHaveAttribute('title', expect.stringContaining('step 64'));
+  });
+
+  it('shows no Held hint on a PR that is not Held, or where the Viewer owes no merge', () => {
+    const held = aStack(2, 3, { heldBy: { repo: 'MapColonies/jobnik', number: 64 } });
+    const { rerender } = render(
+      <MovePills pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob)], stack: aStack(2, 3) })} viewer="bob" hideViaTeam={false} />
+    );
+    expect(screen.queryByText(/Held by/)).not.toBeInTheDocument();
+
+    rerender(<MovePills pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob, ['fixChecks'])], stack: held })} viewer="bob" hideViaTeam={false} />);
+    expect(screen.queryByText(/Held by/)).not.toBeInTheDocument();
+
+    rerender(<MovePills pr={aPr({ author: bob, waitingOn: [waitingOnAuthor(bob)], stack: held })} viewer="alice" hideViaTeam={false} />);
+    expect(screen.queryByText(/Held by/)).not.toBeInTheDocument();
+  });
+
   it('shows nothing when it is not the Viewer’s turn', () => {
     const pr = aPr({ author: bob, waitingOn: [waitingOnReviewer(alice), waitingOnTheTeam] });
     const { container, rerender } = render(<MovePills pr={pr} viewer="carol" hideViaTeam />);
@@ -311,6 +333,14 @@ describe('StackPositionChip', () => {
     render(<StackPositionChip pr={inStack(2, 4)} />);
 
     expect(screen.getByRole('button', { name: 'Stack position 2 of 4' })).toHaveTextContent('2/4');
+  });
+
+  it('marks the PR a PR is held by in the list', async () => {
+    render(<StackPositionChip pr={inStack(3, 3, { heldBy: { repo: 'MapColonies/jobnik', number: 65 } })} />);
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    const items = within(screen.getByRole('dialog')).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent?.includes('Holding this PR'))).toEqual([false, true, false]);
   });
 
   it('shows nothing for a PR with no Stack', () => {

@@ -9,7 +9,22 @@ const ALARMING: readonly Move[] = ['resolveConflict', 'fixChecks'];
 
 /** What the Viewer owes on the PR, in plain words: why it is their turn. Nothing when it isn't. */
 export function MovePills({ pr, viewer, hideViaTeam }: { pr: TrackedPr; viewer: string | null; hideViaTeam: boolean }) {
-  return <MoveList moves={viewerMoves(pr, viewer, hideViaTeam)} />;
+  const moves = viewerMoves(pr, viewer, hideViaTeam);
+  const heldBy = moves.includes('merge') ? pr.stack?.heldBy : undefined;
+  const holder = heldBy && pr.stack?.siblings.find((sibling) => sibling.repo === heldBy.repo && sibling.number === heldBy.number);
+  return (
+    <>
+      <MoveList moves={moves} />
+      {heldBy && (
+        <span
+          title={`Held: cannot merge until ${holder ? `“${holder.title}” (#${heldBy.number})` : `#${heldBy.number}`} is ready`}
+          className="inline-flex shrink-0 items-center rounded-md border border-dashed border-violet-300 px-1.5 py-0.5 text-xs whitespace-nowrap text-violet-800 dark:border-violet-700 dark:text-violet-300"
+        >
+          Held by #{heldBy.number}
+        </span>
+      )}
+    </>
+  );
 }
 
 /** The given Moves as pills. Nothing when there are none. */

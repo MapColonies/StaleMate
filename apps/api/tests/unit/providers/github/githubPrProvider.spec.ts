@@ -542,6 +542,8 @@ describe('GithubPrProvider', function () {
           url: `https://github.com/MapColonies/jobnik/pull/${number}`,
           state: 'OPEN',
           isDraft: false,
+          reviewDecision: 'APPROVED',
+          commits: { nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] },
           repository: { nameWithOwner: 'MapColonies/jobnik' },
           ...overrides,
         },
@@ -576,6 +578,8 @@ describe('GithubPrProvider', function () {
               url: 'https://github.com/MapColonies/jobnik/pull/64',
               state: 'merged',
               isDraft: false,
+              reviewDecision: 'approved',
+              checkRollup: 'success',
             },
             {
               repo: 'MapColonies/jobnik',
@@ -584,6 +588,8 @@ describe('GithubPrProvider', function () {
               url: 'https://github.com/MapColonies/jobnik/pull/65',
               state: 'open',
               isDraft: false,
+              reviewDecision: 'approved',
+              checkRollup: 'success',
             },
             {
               repo: 'MapColonies/other',
@@ -592,9 +598,24 @@ describe('GithubPrProvider', function () {
               url: 'https://github.com/MapColonies/jobnik/pull/66',
               state: 'closed',
               isDraft: true,
+              reviewDecision: 'approved',
+              checkRollup: 'success',
             },
           ],
         });
+      });
+
+      it.each([
+        ['CHANGES_REQUESTED', 'FAILURE', 'changesRequested', 'failure'],
+        ['REVIEW_REQUIRED', 'PENDING', 'reviewRequired', 'pending'],
+        ['REVIEW_REQUIRED', 'EXPECTED', 'reviewRequired', 'pending'],
+        ['REVIEW_REQUIRED', 'ERROR', 'reviewRequired', 'failure'],
+        [null, null, 'none', 'none'],
+      ])('should read a sibling reviewed %s and checked %s as %s and %s', async function (reviewDecision, rollup, expectedReview, expectedChecks) {
+        const commits = { nodes: [{ commit: { statusCheckRollup: rollup === null ? null : { state: rollup } } }] };
+        const facts = await sweepOne(aPrNode(inStack(1, 1, [entry(1, 65, { reviewDecision, commits })])));
+
+        expect(facts.stack?.entries[0]).toMatchObject({ reviewDecision: expectedReview, checkRollup: expectedChecks });
       });
 
       it('should report a PR with no Stack as having none', async function () {
