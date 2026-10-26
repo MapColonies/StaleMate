@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.0](https://github.com/MapColonies/StaleMate/compare/v1.3.0...v2.0.0) (2026-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **global:** team.slug and TEAM_SLUG are removed, and GET /snapshot answers 400 without ?team=. There is no default Team. Use teams.excluded or EXCLUDED_TEAMS to leave Teams out.
+
+### 🎉 Features
+
+* **global:** mark a PR Held when the Stack below it isn't ready ([1697405](https://github.com/MapColonies/StaleMate/commit/169740545a7618713c3afcc0ef6e61df90dc29de))
+* **global:** mark Stack PRs the Team doesn't track ([238e5ac](https://github.com/MapColonies/StaleMate/commit/238e5accbe6e9a17f724002923cc38a8244070f9))
+* **global:** show a PR's Stack Position chip and sibling list ([2ca8601](https://github.com/MapColonies/StaleMate/commit/2ca860174b27230854795ef4ec357f4cae660e38))
+* **global:** watch every Team in the org, with a Team dropdown ([40aa3d9](https://github.com/MapColonies/StaleMate/commit/40aa3d9841244d0fa821a7ac2a25350ec0c6f618))
+* **stalemate-ui:** group a Stack's PRs together in the Inbox ([a2f9d0f](https://github.com/MapColonies/StaleMate/commit/a2f9d0f6bdd923a3e5c9d19e82edf98b5c0f375a))
+* **stalemate-ui:** group a Stack's PRs together in the Table ([caecf57](https://github.com/MapColonies/StaleMate/commit/caecf572914eb40d28ae499375c69656cfa6812b))
+
+
+### 📝 Documentation
+
+* **global:** define Stack, Stack Position and Held, with Stacks research ([052d438](https://github.com/MapColonies/StaleMate/commit/052d4387a4e3d4eb459390dca5f42f32e995e96d))
+* **global:** watch every Team in the org, one sweep sliced per Team ([89da40b](https://github.com/MapColonies/StaleMate/commit/89da40b8d6250cc2c3ddb52bbaf70723be7783f8)), closes [#62](https://github.com/MapColonies/StaleMate/issues/62)
+
 ## [1.3.0](https://github.com/MapColonies/StaleMate/compare/v1.2.0...v1.3.0) (2026-10-25)
 
 
