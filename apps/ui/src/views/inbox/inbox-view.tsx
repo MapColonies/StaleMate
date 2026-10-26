@@ -17,6 +17,7 @@ import {
   WaitingOnChips,
 } from '@/cells';
 import { Checkbox } from '@/components/checkbox';
+import { StackConnector } from '@/components/stack-connector';
 import { SearchBox } from '@/components/search-box';
 import { activeFilterCount, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
@@ -61,17 +62,6 @@ function WaitingOn({ pr, viewer, hideViaTeam, stacked = false }: { pr: TrackedPr
       <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked={stacked} max={2} />
       <NoReviewerFlag pr={pr} />
     </>
-  );
-}
-
-/** The line joining a Stack's adjacent rows: it runs up to the row above and down to the row below. */
-function StackConnector({ above, below }: { above: boolean; below: boolean }) {
-  return (
-    <span
-      aria-hidden
-      data-testid="stack-connector"
-      className={cn('absolute left-1.5 w-0.5 bg-violet-300 dark:bg-violet-700', above ? 'top-0' : 'top-1/2', below ? 'bottom-0' : 'bottom-1/2')}
-    />
   );
 }
 

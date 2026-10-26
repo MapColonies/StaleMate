@@ -142,4 +142,23 @@ describe('the Board’s order', () => {
 
     expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(4);
   });
+
+  it('does not group a Stack: each PR stays in its own order, with no checkbox or connector', () => {
+    const stack = (position: number) => aStack(position, 3);
+    renderBoard(
+      aSnapshot({
+        prs: [
+          aPr({ title: 'step 2', stack: stack(2), age: clock(1), waitingOn: [waitingOnTheTeam] }),
+          aPr({ title: 'alone', age: clock(2), waitingOn: [waitingOnTheTeam] }),
+          aPr({ title: 'step 1', stack: stack(1), age: clock(3), waitingOn: [waitingOnTheTeam] }),
+        ],
+      })
+    );
+
+    expect(screen.queryByRole('checkbox', { name: 'Group Stacks' })).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId('stack-connector')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Stack position 2 of 3' })).toBeInTheDocument();
+    const all = screen.getAllByRole('link').map((link) => link.textContent);
+    expect(all.filter((title) => /step|alone/.test(title ?? ''))).toEqual(['step 2', 'alone', 'step 1']);
+  });
 });

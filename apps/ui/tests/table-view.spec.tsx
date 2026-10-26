@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
+import { STORAGE_KEYS } from '@/lib/local-storage';
 import type { Snapshot } from '@/snapshot/types';
 import { TableView } from '@/views/table/table-view';
 import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
@@ -332,5 +333,127 @@ describe('the Table’s tabs', () => {
     await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
 
     expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(4);
+  });
+});
+
+describe('the Table’s Stack grouping', () => {
+  const step = (position: number, age: number, overrides: Partial<Parameters<typeof aPr>[0]> = {}) =>
+    aPr({ title: `step ${position}`, age: clock(age), idleTime: clock(1), stack: aStack(position, 3), ...overrides });
+  const grouping = () => screen.getByRole('checkbox', { name: 'Group Stacks' });
+  const connected = (title: string) =>
+    within(screen.getByRole('link', { name: title }).closest('tr')!).queryAllByTestId('stack-connector').length > 0;
+
+  const stacked = aSnapshot({ prs: [step(3, 5), aPr({ title: 'alone', age: clock(3) }), step(1, 1), step(2, 2)] });
+
+  it('is on by default: a Stack sits together in Stack order, where its best-ranked member sits', () => {
+    renderTable(stacked);
+
+    // Newest first: step 1 (1 day) leads, so the Stack leads, then alone.
+    expect(rowTitles()).toEqual(['step 1', 'step 2', 'step 3', 'alone']);
+    expect(grouping()).toBeChecked();
+  });
+
+  it('gives the plain sorted Table when turned off, and remembers the choice', async () => {
+    renderTable(stacked);
+
+    await userEvent.click(grouping());
+
+    expect(rowTitles()).toEqual(['step 1', 'step 2', 'alone', 'step 3']);
+    expect(connected('step 1')).toBe(false);
+    expect(window.localStorage.getItem(STORAGE_KEYS.groupStacks)).toBe('off');
+  });
+
+  it('is read from the URL, ahead of the saved choice', () => {
+    window.localStorage.setItem(STORAGE_KEYS.groupStacks, 'on');
+    window.history.replaceState(null, '', '/?group=off');
+    renderTable(stacked);
+
+    expect(grouping()).not.toBeChecked();
+  });
+
+  it('puts the Stack where its best-ranked member sits under a column sort', async () => {
+    renderTable(aSnapshot({ prs: [aPr({ title: 'old', age: clock(9) }), step(2, 4), step(1, 6), aPr({ title: 'new', age: clock(1) })] }));
+
+    // Newest first: the Stack's best is step 2 (4 days), behind "new".
+    expect(rowTitles()).toEqual(['new', 'step 1', 'step 2', 'old']);
+
+    await userEvent.click(sortButton('Age'));
+
+    // Oldest first: the Stack's best is step 1 (6 days), behind "old".
+    expect(rowTitles()).toEqual(['old', 'step 1', 'step 2', 'new']);
+  });
+
+  it('puts the Stack where its best-ranked member sits under a multi-column sort', async () => {
+    const idle = (minutes: number) => ({ workingMs: minutes * 60_000, since: '2026-10-01T09:00:00Z' });
+    renderTable(
+      aSnapshot({
+        prs: [
+          aPr({ title: 'a-short', repo: 'MapColonies/a', idleTime: idle(1) }),
+          step(2, 2, { repo: 'MapColonies/b', idleTime: idle(3) }),
+          step(1, 7, { repo: 'MapColonies/b', idleTime: idle(1) }),
+          aPr({ title: 'c-alone', repo: 'MapColonies/c' }),
+          aPr({ title: 'a-long', repo: 'MapColonies/a', idleTime: idle(5) }),
+        ],
+      })
+    );
+
+    const user = userEvent.setup();
+    await user.click(sortButton('Repo'));
+    await user.keyboard('{Shift>}');
+    await user.click(sortButton('Idle'));
+    await user.keyboard('{/Shift}');
+
+    // Repo A to Z, then longest idle first: both repo a PRs, then the Stack, whose best member (step 2, repo b) is next.
+    expect(new URLSearchParams(window.location.search).get('sort')).toBe('repo.asc,idle.desc');
+    expect(rowTitles()).toEqual(['a-long', 'a-short', 'step 1', 'step 2', 'c-alone']);
+  });
+
+  it('groups only within a tab', async () => {
+    const alice = member('alice');
+    renderTable(
+      aSnapshot({
+        prs: [
+          step(1, 1, { waitingOn: [waitingOnReviewer(alice)] }),
+          aPr({ title: 'between', age: clock(2), waitingOn: [waitingOnAuthor(bob)] }),
+          step(2, 3, { waitingOn: [waitingOnAuthor(bob)] }),
+        ],
+      }),
+      'alice'
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: /^Your turn/ }));
+
+    expect(rowTitles()).toEqual(['step 1']);
+    expect(connected('step 1')).toBe(false);
+
+    await userEvent.click(screen.getByRole('tab', { name: /^All/ }));
+
+    expect(rowTitles()).toEqual(['step 1', 'step 2', 'between']);
+  });
+
+  it('groups the members a filter leaves, and the chip still shows the full Stack', () => {
+    const botStep = step(2, 2, { author: { login: 'renovate', kind: 'bot' } });
+    renderTable(aSnapshot({ prs: [step(3, 5), botStep, step(1, 1)] }));
+
+    expect(rowTitles()).toEqual(['step 1', 'step 3']);
+    expect(connected('step 1')).toBe(true);
+    expect(connected('step 3')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Stack position 3 of 3' })).toHaveLength(1);
+  });
+
+  it('connects the adjacent rows of a Stack, and nothing else', () => {
+    renderTable(stacked);
+
+    expect(connected('step 1')).toBe(true);
+    expect(connected('step 2')).toBe(true);
+    expect(connected('step 3')).toBe(true);
+    expect(connected('alone')).toBe(false);
+  });
+
+  it('shows a Stack with one visible member as a plain row with its chip', () => {
+    renderTable(aSnapshot({ prs: [step(2, 1), aPr({ title: 'alone', age: clock(3) })] }));
+
+    expect(connected('step 2')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Stack position 2 of 3' })).toBeInTheDocument();
   });
 });

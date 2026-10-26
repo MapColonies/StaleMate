@@ -15,11 +15,15 @@ import {
   ReviewStatusBadge,
   WaitingOnChips,
 } from '@/cells';
+import { StackConnector } from '@/components/stack-connector';
 import { CheckboxMenu } from '@/components/checkbox-menu';
 import { FilterBar } from '@/filters/filter-bar';
 import { REVIEW_STATUSES, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
+import { Checkbox } from '@/components/checkbox';
 import { cn } from '@/lib/utils';
+import { groupStacks, sameStack } from '@/order/stack-groups';
+import { useGroupStacks } from '@/order/use-group-stacks';
 import { isWaitingOnViewer, sharedOrg } from '@/snapshot/selectors';
 import type { CheckStatus, Snapshot, TrackedPr } from '@/snapshot/types';
 import { COLUMN_NAMES, type ColumnId, features } from './table-model';
@@ -234,6 +238,7 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const { filters, setFilters, resetFilters } = useFilters();
   const { tab, setTab, sorting, setSorting, resetSorting } = useTableUrlState();
   const [columnVisibility, setColumnVisibility] = useHiddenColumns();
+  const [grouped, setGrouped] = useGroupStacks();
 
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
   const rows = useMemo(() => prsInTab(filtered, tab, viewer, filters), [filtered, tab, viewer, filters]);
@@ -262,6 +267,16 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
     enableSortingRemoval: false,
   });
 
+  // The table sorts the rows; grouping then only gathers each Stack's rows where its best-ranked row sits.
+  const sortedRows = table.getRowModel().rows;
+  const shownRows = useMemo(() => {
+    if (!grouped) {
+      return sortedRows;
+    }
+    const byId = new Map(sortedRows.map((row) => [row.id, row]));
+    return groupStacks(sortedRows.map((row) => row.original)).map((pr) => byId.get(pr.id)!);
+  }, [sortedRows, grouped]);
+
   const hideable = table.getAllLeafColumns().filter((column) => column.getCanHide());
 
   return (
@@ -274,7 +289,8 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
           {viewer === null && tab !== 'all' && (
             <span className="text-xs text-amber-700 dark:text-amber-400">Pick who you are in I am… (top right) to use this tab.</span>
           )}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-4">
+            <Checkbox label="Group Stacks" title="Show a Stack's PRs together, bottom first" checked={grouped} onChange={setGrouped} />
             <CheckboxMenu
               align="right"
               label={
@@ -321,21 +337,24 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
             ))}
           </thead>
           <tbody className="bg-background">
-            {table.getRowModel().rows.map((row) => {
+            {shownRows.map((row, rowIndex) => {
               const pr = row.original;
               // No Reviewer outranks the Viewer's turn: it needs someone to find a reviewer.
               const highlight = pr.noReviewer ? HIGHLIGHTS.noReviewer : isWaitingOnViewer(pr, viewer, filters) ? HIGHLIGHTS.viewersTurn : null;
+              const joinedAbove = grouped && rowIndex > 0 && sameStack(pr, shownRows[rowIndex - 1]!.original);
+              const joinedBelow = grouped && rowIndex < shownRows.length - 1 && sameStack(pr, shownRows[rowIndex + 1]!.original);
               return (
                 <tr key={row.id} className={cn('group hover:bg-accent/60', highlight?.row)}>
                   {row.getVisibleCells().map((cell, index) => (
                     <td
                       key={cell.id}
                       className={cn(
-                        'border-b border-border/60 px-3 py-2 align-middle',
+                        'relative border-b border-border/60 px-3 py-2 align-middle',
                         index === 0 && highlight?.firstCell,
                         cell.column.id === PINNED_COLUMN && [PINNED_CELL, highlight?.pinnedCell]
                       )}
                     >
+                      {index === 0 && (joinedAbove || joinedBelow) && <StackConnector above={joinedAbove} below={joinedBelow} />}
                       <table.FlexRender cell={cell} />
                     </td>
                   ))}
