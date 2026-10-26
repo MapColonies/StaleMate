@@ -28,6 +28,18 @@ _Avoid_: User, me, current user
 A proposed change awaiting merge on a code host. A GitLab Merge Request is a PR.
 _Avoid_: Merge request, MR, change request
 
+**Stack**:
+PRs in one repository that depend on each other in order, as GitHub's own Stacks group them: the first targets the repository's trunk and each later one builds on the one before. A PR belongs to at most one Stack. A Stack may include PRs that no Team tracks, or that were authored outside the Team. A PR with no Stack stands alone.
+_Avoid_: Chain, train, series
+
+**Stack Position**:
+A PR's place among the PRs still in its Stack, counted from the first, shown as "2 of 4"; merged PRs leave the Stack, so the rest move down. Review Status, Waiting On, Age and Urgency stay the PR's own, whatever its Stack Position.
+_Avoid_: Order, rank, level
+
+**Held**:
+An Approved, Passing PR that cannot merge yet because a PR below it in its Stack is not Approved and Passing. A PR can merge only once every PR below it can, and merging it lands them too. Held is a hint beside the author's merge Move, never a Move of its own, and never changes Waiting On.
+_Avoid_: Blocked, waiting on
+
 **Team Repo**:
 A live repository the Team is granted on GitHub, at any access level. Archived repositories are not Team Repos.
 _Avoid_: Owned repo, project
