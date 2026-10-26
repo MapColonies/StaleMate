@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   theme: 'stalemate.theme',
   hiddenTableColumns: 'stalemate.table.hiddenColumns',
   prOrder: 'stalemate.prOrder',
+  groupStacks: 'stalemate.groupStacks',
   tableSort: 'stalemate.table.sort',
   osNotifications: 'stalemate.osNotifications',
 } as const;

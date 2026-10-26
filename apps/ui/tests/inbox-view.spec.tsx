@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { STORAGE_KEYS } from '@/lib/local-storage';
 import type { Snapshot } from '@/snapshot/types';
 import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
@@ -385,5 +386,124 @@ describe('the Inbox’s order', () => {
     const items = within(screen.getByRole('dialog')).getAllByRole('listitem');
     expect(items[0]).not.toHaveTextContent('Not tracked');
     expect(items[1]).toHaveTextContent('Not tracked');
+  });
+});
+
+describe('the Inbox’s Stack grouping', () => {
+  const step = (position: number, age: number, overrides: Partial<Parameters<typeof aPr>[0]> = {}) =>
+    aPr({ title: `step ${position}`, age: clock(age), stack: aStack(position, 3), ...overrides });
+  const grouping = () => screen.getByRole('checkbox', { name: 'Group Stacks' });
+  const connected = (title: string) => within(row(title)).queryAllByTestId('stack-connector').length > 0;
+
+  const stacked = aSnapshot({ prs: [step(3, 5), aPr({ title: 'alone', age: clock(3) }), step(1, 1), step(2, 2)] });
+
+  it('is on by default: a Stack sits together in Stack order, where its best-ranked member sits', () => {
+    renderInbox(stacked);
+
+    // Newest first: step 1 (1 day) leads, so the Stack leads, then alone.
+    expect(titlesIn('Rest of Infra').filter((title) => /step|alone/.test(title))).toEqual(['step 1', 'step 2', 'step 3', 'alone']);
+    expect(grouping()).toBeChecked();
+  });
+
+  it('puts the Stack where its best-ranked member sits under each order', async () => {
+    renderInbox(aSnapshot({ prs: [aPr({ title: 'old', age: clock(9) }), step(2, 4), step(1, 6), aPr({ title: 'new', age: clock(1) })] }));
+    const shown = () => titlesIn('Rest of Infra').filter((title) => /step|old|new/.test(title));
+
+    // Newest first: the Stack's best is step 2 (4 days), behind "new".
+    expect(shown()).toEqual(['new', 'step 1', 'step 2', 'old']);
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
+
+    // Oldest first: the Stack's best is step 1 (6 days), behind "old".
+    expect(shown()).toEqual(['old', 'step 1', 'step 2', 'new']);
+  });
+
+  it('puts the Stack where its best-ranked member sits under the idle orders too', async () => {
+    const idle = (minutes: number) => ({ workingMs: minutes * 60_000, since: '2026-10-01T09:00:00Z' });
+    renderInbox(
+      aSnapshot({
+        prs: [
+          aPr({ title: 'quiet', idleTime: idle(900) }),
+          step(2, 1, { idleTime: idle(300) }),
+          step(1, 1, { idleTime: idle(100) }),
+          aPr({ title: 'busy', idleTime: idle(1) }),
+        ],
+      })
+    );
+    const shown = () => titlesIn('Rest of Infra').filter((title) => /step|quiet|busy/.test(title));
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Idle longest first');
+    expect(shown()).toEqual(['quiet', 'step 1', 'step 2', 'busy']);
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Recently active first');
+    expect(shown()).toEqual(['busy', 'step 1', 'step 2', 'quiet']);
+  });
+
+  it('groups the members a filter leaves, and the chip still shows the full Stack', () => {
+    const botStep = step(2, 2, { author: { login: 'renovate', kind: 'bot' } });
+    renderInbox(aSnapshot({ prs: [step(3, 5), botStep, step(1, 1)] }));
+
+    expect(titlesIn('Rest of Infra').filter((title) => /step/.test(title))).toEqual(['step 1', 'step 3']);
+    expect(connected('step 1')).toBe(true);
+    expect(connected('step 3')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Stack position 3 of 3' })).toHaveLength(1);
+  });
+
+  it('is read from the URL, ahead of the saved choice', () => {
+    window.localStorage.setItem(STORAGE_KEYS.groupStacks, 'on');
+    window.history.replaceState(null, '', '/?group=off');
+    renderInbox(stacked);
+
+    expect(grouping()).not.toBeChecked();
+  });
+
+  it('connects the adjacent rows of a Stack, and nothing else', () => {
+    renderInbox(stacked);
+
+    expect(connected('step 1')).toBe(true);
+    expect(connected('step 2')).toBe(true);
+    expect(connected('step 3')).toBe(true);
+    expect(connected('alone')).toBe(false);
+  });
+
+  it('shows a Stack with one visible member as a plain row with its chip', async () => {
+    renderInbox(stacked);
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Search' }), 'step 2');
+
+    expect(titlesIn('Rest of Infra').filter((title) => /step/.test(title))).toEqual(['step 2']);
+    expect(connected('step 2')).toBe(false);
+    expect(screen.getByRole('button', { name: /Stack position 2 of 3/ })).toBeInTheDocument();
+  });
+
+  it('groups only within a bucket', async () => {
+    const snap = aSnapshot({
+      prs: [
+        step(1, 1, { author: bob, waitingOn: [waitingOnReviewer(alice)] }),
+        step(2, 2, { author: bob, waitingOn: [waitingOnReviewer(bob)] }),
+        step(3, 3, { author: bob, waitingOn: [waitingOnReviewer(bob)] }),
+      ],
+    });
+    renderInbox(snap, 'alice');
+    await userEvent.click(screen.getByRole('button', { name: /Rest of Infra/ }));
+
+    expect(titlesIn('Your turn')).toEqual(['step 1']);
+    expect(titlesIn('Rest of Infra')).toEqual(['step 2', 'step 3']);
+    expect(connected('step 1')).toBe(false);
+  });
+
+  it('can be turned off, back to the plain order, and the choice is remembered', async () => {
+    const { unmount } = renderInbox(stacked);
+
+    await userEvent.click(grouping());
+
+    expect(titlesIn('Rest of Infra').filter((title) => /step|alone/.test(title))).toEqual(['step 1', 'step 2', 'alone', 'step 3']);
+    expect(connected('step 1')).toBe(false);
+    expect(window.localStorage.getItem(STORAGE_KEYS.groupStacks)).toBe('off');
+
+    unmount();
+    window.history.replaceState(null, '', '/');
+    renderInbox(stacked);
+    expect(grouping()).not.toBeChecked();
   });
 });

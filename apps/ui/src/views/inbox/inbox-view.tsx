@@ -16,12 +16,15 @@ import {
   UrgencyBar,
   WaitingOnChips,
 } from '@/cells';
+import { Checkbox } from '@/components/checkbox';
 import { SearchBox } from '@/components/search-box';
 import { activeFilterCount, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
 import { useCompact } from '@/lib/use-compact';
 import { cn } from '@/lib/utils';
 import { OrderSelect } from '@/order/order-select';
+import { groupStacks, sameStack } from '@/order/stack-groups';
+import { useGroupStacks } from '@/order/use-group-stacks';
 import { usePrOrder } from '@/order/use-pr-order';
 import { sharedOrg } from '@/snapshot/selectors';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
@@ -61,10 +64,31 @@ function WaitingOn({ pr, viewer, hideViaTeam, stacked = false }: { pr: TrackedPr
   );
 }
 
-function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact } }: { pr: TrackedPr; context: RowContext }) {
+/** The line joining a Stack's adjacent rows: it runs up to the row above and down to the row below. */
+function StackConnector({ above, below }: { above: boolean; below: boolean }) {
+  return (
+    <span
+      aria-hidden
+      data-testid="stack-connector"
+      className={cn('absolute left-1.5 w-0.5 bg-violet-300 dark:bg-violet-700', above ? 'top-0' : 'top-1/2', below ? 'bottom-0' : 'bottom-1/2')}
+    />
+  );
+}
+
+function InboxRow({
+  pr,
+  context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact },
+  joined,
+}: {
+  pr: TrackedPr;
+  context: RowContext;
+  /** Whether the row above and the row below are in this PR's Stack. */
+  joined: { above: boolean; below: boolean };
+}) {
   const titleId = useId();
   return (
-    <li aria-labelledby={titleId} className="flex items-stretch hover:bg-accent/60">
+    <li aria-labelledby={titleId} className="relative flex items-stretch hover:bg-accent/60">
+      {(joined.above || joined.below) && <StackConnector {...joined} />}
       <UrgencyBar pr={pr} />
       <div className="flex w-20 shrink-0 flex-col items-end gap-0.5 py-2.5 pr-3">
         <AgeChip pr={pr} now={now} />
@@ -111,7 +135,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org, c
   );
 }
 
-function BucketSection({ bucket, context, defaultOpen }: { bucket: Bucket; context: RowContext; defaultOpen: boolean }) {
+function BucketSection({ bucket, context, defaultOpen, grouped }: { bucket: Bucket; context: RowContext; defaultOpen: boolean; grouped: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const { title, hint, icon } = bucketHeadings(context.teamName)[bucket.key];
   return (
@@ -125,8 +149,16 @@ function BucketSection({ bucket, context, defaultOpen }: { bucket: Bucket; conte
       </button>
       {open && (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card text-sm">
-          {bucket.prs.map((pr) => (
-            <InboxRow key={pr.id} pr={pr} context={context} />
+          {bucket.prs.map((pr, index) => (
+            <InboxRow
+              key={pr.id}
+              pr={pr}
+              context={context}
+              joined={{
+                above: grouped && index > 0 && sameStack(pr, bucket.prs[index - 1]!),
+                below: grouped && index < bucket.prs.length - 1 && sameStack(pr, bucket.prs[index + 1]!),
+              }}
+            />
           ))}
           {bucket.prs.length === 0 && <li className="px-4 py-6 text-center text-sm text-muted-foreground">Nothing here.</li>}
         </ul>
@@ -142,8 +174,12 @@ function BucketSection({ bucket, context, defaultOpen }: { bucket: Bucket; conte
 export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
   const { filters, setFilters, resetFilters } = useFilters();
   const [order, setOrder] = usePrOrder();
+  const [grouped, setGrouped] = useGroupStacks();
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
-  const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters, order), [filtered, viewer, filters, order]);
+  const buckets = useMemo(() => {
+    const ordered = inboxBuckets(filtered, viewer, filters, order);
+    return grouped ? ordered.map((bucket) => ({ ...bucket, prs: groupStacks(bucket.prs) })) : ordered;
+  }, [filtered, viewer, filters, order, grouped]);
   const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
   const compact = useCompact();
   const context: RowContext = {
@@ -166,6 +202,7 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
           <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="w-96" />
           {compact && <FiltersPanel {...filterProps} />}
           <OrderSelect order={order} onChange={setOrder} />
+          <Checkbox label="Group Stacks" title="Show a Stack's PRs together, bottom first" checked={grouped} onChange={setGrouped} />
           {/* Below 1280px the panel resets its own filters, and the search has its own clear button. */}
           {!compact && active > 0 && (
             <button
@@ -187,7 +224,13 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         )}
         {buckets.map((bucket) => (
           // The Rest of the Team folds away while the Viewer has their own buckets to look at.
-          <BucketSection key={bucket.key} bucket={bucket} context={context} defaultOpen={viewer === null || bucket.key !== 'rest'} />
+          <BucketSection
+            key={bucket.key}
+            bucket={bucket}
+            context={context}
+            defaultOpen={viewer === null || bucket.key !== 'rest'}
+            grouped={grouped}
+          />
         ))}
       </section>
     </div>
