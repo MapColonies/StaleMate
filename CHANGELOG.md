@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/MapColonies/StaleMate/compare/v2.0.0...v2.0.1) (2026-10-26)
+
+
+### 🐛 Bug Fixes
+
+* **stalemate-ui:** type-check against ES2023 so toSorted compiles ([a4f4583](https://github.com/MapColonies/StaleMate/commit/a4f45839c322c7cca76a0d1029d14f9ef0cb79e8))
+
 ## [2.0.0](https://github.com/MapColonies/StaleMate/compare/v1.3.0...v2.0.0) (2026-10-26)
 
 
