@@ -180,6 +180,34 @@ export type components = {
       age: components['schemas']['clock'];
       idleTime: components['schemas']['clock'];
       urgency: components['schemas']['urgency'];
+      stack?: components['schemas']['stack'];
+    };
+    /** @description The Stack the PR belongs to. Absent for a PR with no Stack. */
+    stack: {
+      /** @description The Stack's own number. */
+      number: number;
+      /** @description The PR's place among the PRs still in the Stack, counted from the first, as the code host reports it. */
+      position: number;
+      /** @description How many PRs the Stack holds, as the code host reports it, even when siblings is cut short. */
+      size: number;
+      /** @description The PRs in the Stack, in order, the first at the bottom. Includes the PR itself. Cut short when truncated. */
+      siblings: components['schemas']['stackSibling'][];
+      /** @description The Stack has more PRs than siblings lists. */
+      truncated: boolean;
+    };
+    stackSibling: {
+      /**
+       * @description The repository, as owner/name.
+       * @example MapColonies/jobnik
+       */
+      repo: string;
+      number: number;
+      title: string;
+      /** Format: uri */
+      url: string;
+      /** @enum {string} */
+      state: 'open' | 'merged' | 'closed';
+      draft: boolean;
     };
     /**
      * @description Why the PR is a Tracked PR. Listed strongest first.

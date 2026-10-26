@@ -12,6 +12,7 @@ import {
   PersonChip,
   RepoName,
   ReviewStatusBadge,
+  StackPositionChip,
   UrgencyBar,
   WaitingOnChips,
 } from '@/cells';
@@ -81,6 +82,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org, c
               <RepoName repo={pr.repo} org={org} />#{pr.number}
             </span>
             <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
+            <StackPositionChip pr={pr} />
           </div>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">

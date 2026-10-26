@@ -318,6 +318,66 @@ components:
           $ref: '#/components/schemas/clock'
         urgency:
           $ref: '#/components/schemas/urgency'
+        stack:
+          $ref: '#/components/schemas/stack'
+    stack:
+      type: object
+      description: The Stack the PR belongs to. Absent for a PR with no Stack.
+      required:
+        - number
+        - position
+        - size
+        - siblings
+        - truncated
+      properties:
+        number:
+          type: integer
+          description: The Stack's own number.
+        position:
+          type: integer
+          minimum: 1
+          description: The PR's place among the PRs still in the Stack, counted from the first, as the code host reports it.
+        size:
+          type: integer
+          minimum: 1
+          description: How many PRs the Stack holds, as the code host reports it, even when siblings is cut short.
+        siblings:
+          type: array
+          description: The PRs in the Stack, in order, the first at the bottom. Includes the PR itself. Cut short when truncated.
+          items:
+            $ref: '#/components/schemas/stackSibling'
+        truncated:
+          type: boolean
+          description: The Stack has more PRs than siblings lists.
+    stackSibling:
+      type: object
+      required:
+        - repo
+        - number
+        - title
+        - url
+        - state
+        - draft
+      properties:
+        repo:
+          type: string
+          description: The repository, as owner/name.
+          example: MapColonies/jobnik
+        number:
+          type: integer
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        state:
+          type: string
+          enum:
+            - open
+            - merged
+            - closed
+        draft:
+          type: boolean
     inclusionReason:
       type: string
       description: Why the PR is a Tracked PR. Listed strongest first.

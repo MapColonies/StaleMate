@@ -8,9 +8,20 @@ import type {
   ReviewRequestFact,
   ReviewState,
   ReviewThreadFact,
+  StackEntryFact,
+  StackFact,
   TimelineEventFact,
 } from '@domain/facts';
-import type { ActorNode, CheckContextNode, PullRequestNode, ReviewTeamsNode, ReviewerNode, ThreadsNode, TimelineNode } from './queries';
+import type {
+  ActorNode,
+  CheckContextNode,
+  PullRequestNode,
+  StackedPullRequestNode,
+  ReviewTeamsNode,
+  ReviewerNode,
+  ThreadsNode,
+  TimelineNode,
+} from './queries';
 
 /** GitHub's placeholder for a deleted account, which GraphQL reports as a null actor. */
 const GHOST: Actor = { id: 'MDQ6VXNlcjEwMTM3', login: 'ghost', isBot: false };
@@ -36,6 +47,7 @@ const STATUS_CONTEXT_STATES: Record<Extract<CheckContextNode, { __typename: 'Sta
   PENDING: 'pending',
   EXPECTED: 'pending',
 };
+const STACK_ENTRY_STATES: Record<StackedPullRequestNode['state'], StackEntryFact['state']> = { OPEN: 'open', MERGED: 'merged', CLOSED: 'closed' };
 /* eslint-enable @typescript-eslint/naming-convention */
 
 /** The conclusions of a completed check run that count as passed. Every other conclusion counts as failed. */
@@ -132,6 +144,34 @@ const byTime =
   (a: T, b: T): number =>
     at(a).getTime() - at(b).getTime();
 
+/** A PR with no Stack, or one the query did not read it for, has none. */
+function toStack(node: PullRequestNode): StackFact | undefined {
+  if (node.stack === null || node.stack === undefined || node.stackEntry === null || node.stackEntry === undefined) {
+    return undefined;
+  }
+  return {
+    number: node.stack.number,
+    position: node.stackEntry.position,
+    size: node.stack.size,
+    // An entry whose PR comes back null is left out.
+    entries: node.stack.entries.nodes.flatMap(({ pullRequest }) =>
+      pullRequest === null
+        ? []
+        : [
+            {
+              repo: pullRequest.repository.nameWithOwner,
+              number: pullRequest.number,
+              title: pullRequest.title,
+              url: pullRequest.url,
+              state: STACK_ENTRY_STATES[pullRequest.state],
+              isDraft: pullRequest.isDraft,
+            },
+          ]
+    ),
+    entriesTruncated: node.stack.entries.pageInfo.hasNextPage,
+  };
+}
+
 /** GitHub types Copilot's coding agent as a Bot when it authors a PR, and as a User when it is assigned one, so its id decides too. */
 export function toActor(node: ActorNode): Actor {
   return { id: node.id, login: node.login, isBot: node.__typename === 'Bot' || node.id.startsWith(BOT_ID_PREFIX) };
@@ -139,6 +179,7 @@ export function toActor(node: ActorNode): Actor {
 
 /** Translates a PR as the details query read it into facts. Its review threads are read separately, so they start empty. */
 export function toPrFacts(node: PullRequestNode): PrFacts {
+  const stack = toStack(node);
   return {
     id: node.id,
     repo: node.repository.nameWithOwner,
@@ -155,6 +196,7 @@ export function toPrFacts(node: PullRequestNode): PrFacts {
     reviewRequests: node.reviewRequests.nodes.flatMap((request) => toReviewRequest(request.requestedReviewer, request.asCodeOwner) ?? []),
     reviewThreads: [],
     timeline: node.timelineItems.nodes.map(toTimelineEvent).sort(byTime((event) => event.at)),
+    ...(stack === undefined ? {} : { stack }),
   };
 }
 
@@ -188,6 +230,7 @@ export function truncatedConnections(node: PullRequestNode, threads: ThreadsNode
     reviews: node.reviews.pageInfo.hasPreviousPage,
     reviewRequests: node.reviewRequests.pageInfo.hasNextPage,
     timelineItems: node.timelineItems.pageInfo.hasNextPage,
+    stackEntries: node.stack?.entries.pageInfo.hasNextPage ?? false,
     reviewThreads: threads?.reviewThreads.pageInfo.hasNextPage ?? false,
     comments: threads?.reviewThreads.nodes.some((thread) => thread.comments.pageInfo.hasNextPage) ?? false,
   });

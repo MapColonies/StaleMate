@@ -170,4 +170,17 @@ describe('FixturePrProvider', function () {
   it('should include every Urgency', function () {
     expect(new Set(trackedPrs.map((pr) => pr.urgency))).toEqual(new Set([null, 0, 1, 2, 3]));
   });
+
+  it('should model a Stack of PRs in one repo, each reporting the same entries in order and its own position', function () {
+    const stacked = sweep.prs.filter((pr) => pr.stack !== undefined);
+
+    expect(stacked.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(stacked.map((pr) => pr.repo)).size).toBe(1);
+
+    for (const [index, pr] of stacked.entries()) {
+      expect(pr.stack).toMatchObject({ position: index + 1, size: stacked.length, entriesTruncated: false });
+      expect(pr.stack?.entries.map((entry) => entry.number)).toStrictEqual(stacked.map(({ number }) => number));
+      expect(pr.stack?.entries[index]).toMatchObject({ number: pr.number, title: pr.title, url: pr.url });
+    }
+  });
 });

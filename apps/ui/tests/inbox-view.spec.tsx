@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Snapshot } from '@/snapshot/types';
 import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
-import { aPr, aSnapshot, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
+import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 import { stubCompactWindow } from './window-width';
 
 const NOW = Date.parse('2026-10-15T09:00:00Z');
@@ -353,5 +353,17 @@ describe('the Inbox’s order', () => {
 
     expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
     expect(new URLSearchParams(window.location.search).get('order')).toBe('oldest');
+  });
+
+  it('shows the Stack Position chip of a PR in a Stack, and opens its siblings, but nothing on a PR with none', async () => {
+    const stack = aStack(2, 4);
+    renderInbox(aSnapshot({ prs: [aPr({ title: 'stacked', stack }), aPr({ title: 'alone' })] }));
+
+    expect(screen.getByRole('button', { name: 'Stack position 2 of 4' })).toHaveTextContent('2/4');
+    expect(screen.getAllByRole('button', { name: /Stack position/ })).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(4);
   });
 });

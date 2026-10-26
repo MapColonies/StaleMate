@@ -11,6 +11,7 @@ import {
   PersonChip,
   RepoName,
   ReviewStatusBadge,
+  StackPositionChip,
   TeamChip,
   URGENCY_FILLS,
   UrgencyBar,
@@ -111,6 +112,9 @@ function BoardCard({ pr, column, context: { viewer, now, jiraBaseUrl, org } }: {
             </span>
             <span className="shrink-0">
               <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
+            </span>
+            <span className="shrink-0">
+              <StackPositionChip pr={pr} />
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-1.5">

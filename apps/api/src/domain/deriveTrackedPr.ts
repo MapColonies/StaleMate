@@ -15,6 +15,23 @@ import {
   toPerson,
 } from './inclusion';
 
+/** The PR's Stack as the contract has it, with the Stack's real size however many entries were read. Absent for a PR with no Stack. */
+function deriveStack(facts: PrFacts): Pick<TrackedPr, 'stack'> {
+  const { stack } = facts;
+  if (stack === undefined) {
+    return {};
+  }
+  return {
+    stack: {
+      number: stack.number,
+      position: stack.position,
+      size: stack.size,
+      siblings: stack.entries.map(({ isDraft, ...entry }) => ({ ...entry, draft: isDraft })),
+      truncated: stack.entriesTruncated,
+    },
+  };
+}
+
 /** The configuration the derivation rules read. */
 export interface DerivationConfig {
   /** Logins that count as Bots, on top of the accounts the code host types as Bot. */
@@ -33,7 +50,7 @@ export interface DerivationConfig {
 export interface TeamFreePr {
   trackedPr: Pick<
     TrackedPr,
-    'id' | 'repo' | 'number' | 'title' | 'url' | 'reviewStatus' | 'approvals' | 'checkStatus' | 'conflicting' | 'jiraTickets' | 'noReviewer'
+    'id' | 'repo' | 'number' | 'title' | 'url' | 'reviewStatus' | 'approvals' | 'checkStatus' | 'conflicting' | 'jiraTickets' | 'noReviewer' | 'stack'
   >;
   /** The accounts around the PR, not yet classified. */
   author: Actor;
@@ -69,6 +86,7 @@ export function deriveTeamFreePr(facts: PrFacts, config: DerivationConfig): Team
       conflicting: facts.mergeable === 'conflicting',
       jiraTickets: deriveJiraTickets(facts.title, config.jiraProjectKeys),
       noReviewer: waitingOn.noReviewer,
+      ...deriveStack(facts),
     },
     author: facts.author,
     participants: deriveParticipantActors(facts, config.botLogins),

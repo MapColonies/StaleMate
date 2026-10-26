@@ -10,4 +10,5 @@ export { NoReviewerFlag } from './no-reviewer-flag';
 export { PersonChip } from './person-chip';
 export { RepoName } from './repo-name';
 export { ReviewStatusBadge } from './review-status-badge';
+export { StackPositionChip } from './stack-position-chip';
 export { TeamChip, WaitingOnChips } from './waiting-on-chips';

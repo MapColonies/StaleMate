@@ -34,6 +34,25 @@ export const waitingOnTeam = (slug: string): WaitingOnParty => ({ type: 'team', 
 /** A clock of `workingDays` Working Days. */
 export const clock = (workingDays: number) => ({ workingMs: Math.round(workingDays * WORKING_DAY), since: '2026-10-01T09:00:00Z' });
 
+/** A Stack of PRs in MapColonies/jobnik numbered from 64, as seen from the PR at `position`. */
+export function aStack(position: number, size: number, overrides: Partial<NonNullable<TrackedPr['stack']>> = {}): NonNullable<TrackedPr['stack']> {
+  return {
+    number: 9,
+    position,
+    size,
+    truncated: false,
+    siblings: Array.from({ length: size }, (_, index) => ({
+      repo: 'MapColonies/jobnik',
+      number: 64 + index,
+      title: `step ${64 + index}`,
+      url: `https://github.com/MapColonies/jobnik/pull/${64 + index}`,
+      state: 'open' as const,
+      draft: false,
+    })),
+    ...overrides,
+  };
+}
+
 let nextNumber = 1;
 
 /** A Tracked PR by a Team Member, Awaiting Review on alice, unless overridden. */

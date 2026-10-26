@@ -9,6 +9,7 @@ import {
   InclusionReasonBadge,
   JiraTickets,
   NoReviewerFlag,
+  StackPositionChip,
   PersonChip,
   RepoName,
   ReviewStatusBadge,
@@ -67,6 +68,9 @@ function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl, org }: CellContex
             {row.original.title}
           </a>
           <span className="ml-1.5 text-xs text-muted-foreground">#{row.original.number}</span>
+          <span className="ml-1.5 inline-flex align-middle">
+            <StackPositionChip pr={row.original} />
+          </span>
         </div>
       ),
     }),

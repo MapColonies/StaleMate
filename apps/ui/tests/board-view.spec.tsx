@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { Snapshot } from '@/snapshot/types';
 import { BoardView } from '@/views/board/board-view';
-import { aPr, aSnapshot, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
+import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 
 const NOW = Date.parse('2026-10-15T09:00:00Z');
 
@@ -129,5 +129,17 @@ describe('the Board’s order', () => {
     renderBoard(snapshot);
 
     expect(screen.getByRole('combobox', { name: 'Order' })).toHaveDisplayValue('Oldest first');
+  });
+
+  it('shows the Stack Position chip of a PR in a Stack, and opens its siblings, but nothing on a PR with none', async () => {
+    const stack = aStack(2, 4);
+    renderBoard(aSnapshot({ prs: [aPr({ title: 'stacked', stack }), aPr({ title: 'alone' })] }));
+
+    expect(screen.getByRole('button', { name: 'Stack position 2 of 4' })).toHaveTextContent('2/4');
+    expect(screen.getAllByRole('button', { name: /Stack position/ })).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(4);
   });
 });

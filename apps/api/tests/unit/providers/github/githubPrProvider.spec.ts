@@ -533,6 +533,100 @@ describe('GithubPrProvider', function () {
       );
     });
 
+    describe('stacks', function () {
+      const entry = (position: number, number: number, overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+        position,
+        pullRequest: {
+          number,
+          title: `feat: step ${number}`,
+          url: `https://github.com/MapColonies/jobnik/pull/${number}`,
+          state: 'OPEN',
+          isDraft: false,
+          repository: { nameWithOwner: 'MapColonies/jobnik' },
+          ...overrides,
+        },
+      });
+
+      const inStack = (position: number, size: number, entries: unknown[], hasNextPage = false): Record<string, unknown> => ({
+        stack: { number: 9, size, entries: { pageInfo: { hasNextPage }, nodes: entries } },
+        stackEntry: { position },
+      });
+
+      it('should read a PR in a Stack with its position, the Stack size and its entries in order', async function () {
+        const facts = await sweepOne(
+          aPrNode(
+            inStack(2, 3, [
+              entry(1, 64, { state: 'MERGED' }),
+              entry(2, 65),
+              entry(3, 66, { state: 'CLOSED', isDraft: true, repository: { nameWithOwner: 'MapColonies/other' } }),
+            ])
+          )
+        );
+
+        expect(facts.stack).toStrictEqual({
+          number: 9,
+          position: 2,
+          size: 3,
+          entriesTruncated: false,
+          entries: [
+            {
+              repo: 'MapColonies/jobnik',
+              number: 64,
+              title: 'feat: step 64',
+              url: 'https://github.com/MapColonies/jobnik/pull/64',
+              state: 'merged',
+              isDraft: false,
+            },
+            {
+              repo: 'MapColonies/jobnik',
+              number: 65,
+              title: 'feat: step 65',
+              url: 'https://github.com/MapColonies/jobnik/pull/65',
+              state: 'open',
+              isDraft: false,
+            },
+            {
+              repo: 'MapColonies/other',
+              number: 66,
+              title: 'feat: step 66',
+              url: 'https://github.com/MapColonies/jobnik/pull/66',
+              state: 'closed',
+              isDraft: true,
+            },
+          ],
+        });
+      });
+
+      it('should report a PR with no Stack as having none', async function () {
+        const facts = await sweepOne(aPrNode({ stack: null, stackEntry: null }));
+
+        expect(facts.stack).toBeUndefined();
+      });
+
+      it('should read a PR whose response carries no stack fields as having none', async function () {
+        const facts = await sweepOne(aPrNode());
+
+        expect(facts.stack).toBeUndefined();
+      });
+
+      it('should leave out an entry whose PR comes back null, keeping the Stack size', async function () {
+        const facts = await sweepOne(aPrNode(inStack(1, 3, [entry(1, 65), { position: 2, pullRequest: null }, entry(3, 67)])));
+
+        expect(facts.stack?.entries.map((e) => e.number)).toStrictEqual([65, 67]);
+        expect(facts.stack?.size).toBe(3);
+        expect(logger.warn).not.toHaveBeenCalled();
+      });
+
+      it('should keep the real size of a Stack longer than the entries it reads, and mark it cut short', async function () {
+        const entries = Array.from({ length: 10 }, (_, index) => entry(index + 1, 60 + index));
+        const facts = await sweepOne(aPrNode(inStack(1, 13, entries, true)));
+
+        expect(facts.stack).toMatchObject({ size: 13, entriesTruncated: true });
+        expect(facts.stack?.entries).toHaveLength(10);
+        expect(logger.warn).toHaveBeenCalledWith(expect.objectContaining({ truncated: ['stackEntries'] }));
+      });
+    });
+
     it('should not warn about a PR it read in full', async function () {
       await sweepOne(aPrNode());
 

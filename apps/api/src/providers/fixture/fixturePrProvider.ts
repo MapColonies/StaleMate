@@ -8,6 +8,7 @@ import type {
   ReviewFact,
   ReviewRequestFact,
   ReviewThreadFact,
+  StackEntryFact,
   TimelineEventFact,
   WatchedTeam,
 } from '@domain/facts';
@@ -405,6 +406,36 @@ class PrGenerator {
   }
 }
 
+/** How many PRs the fixture's Stack holds. */
+const STACK_SIZE = 4;
+
+/**
+ * Puts the first PRs of the repo with the most of them into one Stack, bottom first, so local development and the demo show one.
+ * It only adds the Stack, so it leaves every other fact, and the random stream that made them, as they were.
+ */
+function addStack(prs: PrFacts[]): void {
+  const byRepo = new Map<string, PrFacts[]>();
+  for (const facts of prs) {
+    byRepo.set(facts.repo, [...(byRepo.get(facts.repo) ?? []), facts]);
+  }
+  const [, inRepo] = [...byRepo].sort(([, a], [, b]) => b.length - a.length)[0] ?? [];
+  const members = (inRepo ?? []).slice(0, STACK_SIZE);
+  if (members.length < 2) {
+    return;
+  }
+  const entries: StackEntryFact[] = members.map((facts) => ({
+    repo: facts.repo,
+    number: facts.number,
+    title: facts.title,
+    url: facts.url,
+    state: 'open',
+    isDraft: facts.isDraft,
+  }));
+  for (const [index, facts] of members.entries()) {
+    facts.stack = { number: 1, position: index + 1, size: members.length, entries, entriesTruncated: false };
+  }
+}
+
 /** When a PR last changed: its latest activity. */
 function lastChangedAt(facts: PrFacts): Date {
   const activity = [
@@ -448,6 +479,8 @@ export class FixturePrProvider implements PrProvider {
 
   private generate(now: Date): PrFacts[] {
     const generator = new PrGenerator(new Random(SEED), now);
-    return Array.from({ length: PR_COUNT }, (_, index) => generator.generate(index));
+    const prs = Array.from({ length: PR_COUNT }, (_, index) => generator.generate(index));
+    addStack(prs);
+    return prs;
   }
 }

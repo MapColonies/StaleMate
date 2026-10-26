@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import 'jest-openapi';
+import type { StackEntryFact } from '@domain/facts';
 import { deriveTeamFreePr, deriveTrackedPr } from '@domain/deriveTrackedPr';
 import { aDerivationConfig, anActor, aPrFacts, aTeam } from '@tests/utils/facts';
 
@@ -87,5 +88,95 @@ describe('deriveTrackedPr', function () {
     expect(raster.waitingOn).toContainEqual({ type: 'team', slug: 'infra', viaTeam: false });
     expect(infra.inclusionReasons).toContain('teamReviewRequested');
     expect(raster.inclusionReasons).not.toContain('teamReviewRequested');
+  });
+
+  describe('stack', function () {
+    const entry = (number: number, overrides: Partial<StackEntryFact> = {}): StackEntryFact => ({
+      repo: 'MapColonies/jobnik',
+      number,
+      title: `feat: step ${number}`,
+      url: `https://github.com/MapColonies/jobnik/pull/${number}`,
+      state: 'open',
+      isDraft: false,
+      ...overrides,
+    });
+
+    it('should leave a PR with no Stack without one', function () {
+      const trackedPr = deriveTrackedPr(aPrFacts(), aTeam(), aDerivationConfig(), now);
+
+      expect(trackedPr).not.toHaveProperty('stack');
+    });
+
+    it('should carry a PR’s Stack over as its number, position, size and ordered siblings', function () {
+      const facts = aPrFacts({
+        stack: {
+          number: 9,
+          position: 2,
+          size: 3,
+          entriesTruncated: false,
+          entries: [entry(64, { state: 'merged' }), entry(65), entry(66, { isDraft: true })],
+        },
+      });
+
+      const trackedPr = deriveTrackedPr(facts, aTeam(), aDerivationConfig(), now);
+
+      expect(trackedPr.stack).toStrictEqual({
+        number: 9,
+        position: 2,
+        size: 3,
+        truncated: false,
+        siblings: [
+          {
+            repo: 'MapColonies/jobnik',
+            number: 64,
+            title: 'feat: step 64',
+            url: 'https://github.com/MapColonies/jobnik/pull/64',
+            state: 'merged',
+            draft: false,
+          },
+          {
+            repo: 'MapColonies/jobnik',
+            number: 65,
+            title: 'feat: step 65',
+            url: 'https://github.com/MapColonies/jobnik/pull/65',
+            state: 'open',
+            draft: false,
+          },
+          {
+            repo: 'MapColonies/jobnik',
+            number: 66,
+            title: 'feat: step 66',
+            url: 'https://github.com/MapColonies/jobnik/pull/66',
+            state: 'open',
+            draft: true,
+          },
+        ],
+      });
+      expect(trackedPr).toSatisfySchemaInApiSpec('trackedPr');
+    });
+
+    it('should keep the real size and mark the list cut short when the entries were', function () {
+      const facts = aPrFacts({ stack: { number: 9, position: 1, size: 13, entriesTruncated: true, entries: [entry(65)] } });
+
+      const trackedPr = deriveTrackedPr(facts, aTeam(), aDerivationConfig(), now);
+
+      expect(trackedPr.stack).toMatchObject({ size: 13, truncated: true });
+      expect(trackedPr).toSatisfySchemaInApiSpec('trackedPr');
+    });
+
+    it('should change nothing else about the PR', function () {
+      const plain = deriveTrackedPr(aPrFacts(), aTeam(), aDerivationConfig(), now);
+      const stacked = deriveTrackedPr(
+        aPrFacts({ stack: { number: 9, position: 2, size: 3, entriesTruncated: false, entries: [entry(65)] } }),
+        aTeam(),
+        aDerivationConfig(),
+        now
+      );
+
+      const { stack, ...rest } = stacked;
+
+      expect(stack).toBeDefined();
+      expect(rest).toStrictEqual(plain);
+    });
   });
 });

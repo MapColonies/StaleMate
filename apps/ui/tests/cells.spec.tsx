@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import {
   AgeChip,
@@ -10,12 +11,14 @@ import {
   MovePills,
   NoReviewerFlag,
   ReviewStatusBadge,
+  StackPositionChip,
   WaitingOnChips,
 } from '@/cells';
 import type { TrackedPr } from '@/snapshot/types';
 import {
   JIRA_BASE_URL,
   aPr,
+  aStack,
   clock,
   member,
   outsider,
@@ -297,5 +300,80 @@ describe('InclusionReasonBadge', () => {
 
     expect(screen.getByText('Authored by Team Member')).toBeInTheDocument();
     expect(screen.getByTitle('Why tracked: Authored by Team Member, Reviewed by you')).toBeInTheDocument();
+  });
+});
+
+describe('StackPositionChip', () => {
+  const inStack = (position: number, size: number, overrides: Partial<NonNullable<TrackedPr['stack']>> = {}) =>
+    aPr({ repo: 'MapColonies/jobnik', number: 63 + position, stack: aStack(position, size, overrides) });
+
+  it('shows the Stack Position as position/size', () => {
+    render(<StackPositionChip pr={inStack(2, 4)} />);
+
+    expect(screen.getByRole('button', { name: 'Stack position 2 of 4' })).toHaveTextContent('2/4');
+  });
+
+  it('shows nothing for a PR with no Stack', () => {
+    const { container } = render(<StackPositionChip pr={aPr()} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows the full size of a long Stack even when its list is cut short', async () => {
+    const stack = aStack(1, 13);
+    render(
+      <StackPositionChip
+        pr={aPr({ repo: 'MapColonies/jobnik', number: 64, stack: { ...stack, truncated: true, siblings: stack.siblings.slice(0, 10) } })}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Stack position 1 of 13' })).toHaveTextContent('1/13');
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(10);
+    expect(screen.getByText('Showing the first 10 of 13 PRs.')).toBeInTheDocument();
+  });
+
+  it('says where the current PR is when a cut-short list does not reach it', async () => {
+    const stack = aStack(12, 13);
+    render(
+      <StackPositionChip
+        pr={aPr({ repo: 'MapColonies/jobnik', number: 75, stack: { ...stack, truncated: true, siblings: stack.siblings.slice(0, 10) } })}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    expect(screen.getByText(/This PR is number 12\./)).toBeInTheDocument();
+  });
+
+  it('lists the PRs in the Stack in order, linked, with their state and draft flag, marking the current one', async () => {
+    const stack = aStack(2, 3);
+    const siblings = [{ ...stack.siblings[0]!, state: 'merged' as const }, stack.siblings[1]!, { ...stack.siblings[2]!, draft: true }];
+    render(<StackPositionChip pr={inStack(2, 3, { siblings })} />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    const items = within(screen.getByRole('dialog')).getAllByRole('listitem');
+    expect(items.map((item) => within(item).getByRole('link').textContent)).toEqual(['step 64', 'step 65', 'step 66']);
+    expect(within(items[0]!).getByRole('link')).toHaveAttribute('href', 'https://github.com/MapColonies/jobnik/pull/64');
+    expect(items[0]).toHaveTextContent('Merged');
+    expect(items[1]).toHaveTextContent('Open');
+    expect(items[2]).toHaveTextContent('Draft');
+    expect(items.map((item) => item.getAttribute('aria-current'))).toEqual([null, 'true', null]);
+    expect(items[1]).toHaveTextContent('This PR');
+    expect(screen.queryByText(/Showing the first/)).not.toBeInTheDocument();
+  });
+
+  it('closes the list on Escape', async () => {
+    render(<StackPositionChip pr={inStack(1, 2)} />);
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

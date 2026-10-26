@@ -7,6 +7,9 @@ const RATE_LIMIT = 'rateLimit { cost remaining limit resetAt }';
 const ACTOR = '__typename login ... on Node { id }';
 const REVIEWER = `__typename ... on User { id login } ... on Bot { id login } ... on Mannequin { id login } ... on Team { slug }`;
 
+/** How many of a Stack's entries a PR's read asks for. A longer Stack keeps its real size and is marked cut short. */
+const STACK_ENTRIES_CAP = 10;
+
 interface Page<T> {
   pageInfo: { hasNextPage: boolean };
   nodes: T[];
@@ -129,6 +132,14 @@ export const DETAILS_QUERY = `query PullRequestDetails($ids: [ID!]!) {
         nodes { asCodeOwner requestedReviewer { ${REVIEWER} } }
       }
       reviewThreads(first: 0) { totalCount }
+      stack {
+        number size
+        entries(first: ${STACK_ENTRIES_CAP}) {
+          pageInfo { hasNextPage }
+          nodes { position pullRequest { number title url state isDraft repository { nameWithOwner } } }
+        }
+      }
+      stackEntry { position }
       timelineItems(first: 100, itemTypes: [READY_FOR_REVIEW_EVENT, CONVERT_TO_DRAFT_EVENT, REVIEW_REQUESTED_EVENT, ISSUE_COMMENT]) {
         pageInfo { hasNextPage }
         nodes {
@@ -192,7 +203,23 @@ export interface PullRequestNode {
   };
   reviewRequests: Page<{ asCodeOwner: boolean; requestedReviewer: ReviewerNode | null }>;
   reviewThreads: { totalCount: number };
+  /** Null for a PR with no Stack. Absent from a response recorded before Stacks were read. */
+  stack?: {
+    number: number;
+    size: number;
+    entries: Page<{ position: number; pullRequest: StackedPullRequestNode | null }>;
+  } | null;
+  stackEntry?: { position: number } | null;
   timelineItems: Page<TimelineNode>;
+}
+
+export interface StackedPullRequestNode {
+  number: number;
+  title: string;
+  url: string;
+  state: 'OPEN' | 'MERGED' | 'CLOSED';
+  isDraft: boolean;
+  repository: { nameWithOwner: string };
 }
 
 export interface NodesData<T> {

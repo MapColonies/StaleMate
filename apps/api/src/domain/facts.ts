@@ -86,6 +86,31 @@ export interface HeadCommitFact {
   checkActivity: Date[];
 }
 
+/** A PR in a Stack, as the code host lists it there. */
+export interface StackEntryFact {
+  /** The repository, as owner/name. */
+  repo: string;
+  number: number;
+  title: string;
+  url: string;
+  state: 'open' | 'merged' | 'closed';
+  isDraft: boolean;
+}
+
+/** The Stack a PR belongs to, as the code host reports it. Position and size are the code host's, never renumbered. */
+export interface StackFact {
+  /** The Stack's own number. */
+  number: number;
+  /** The PR's place among the PRs still in the Stack, counted from the first. */
+  position: number;
+  /** How many PRs the Stack holds, whether or not `entries` lists them all. */
+  size: number;
+  /** The PRs the provider read, in Stack order. An entry the provider could not read is left out. */
+  entries: StackEntryFact[];
+  /** The Stack has more entries than the provider read. */
+  entriesTruncated: boolean;
+}
+
 export interface PrFacts {
   /** The code host's id of the PR. */
   id: string;
@@ -108,4 +133,6 @@ export interface PrFacts {
   reviewThreads: ReviewThreadFact[];
   /** Ready-for-review, convert-to-draft, review-requested and comment events, oldest first. */
   timeline: TimelineEventFact[];
+  /** The Stack the PR belongs to. Absent for a PR with no Stack. */
+  stack?: StackFact;
 }
