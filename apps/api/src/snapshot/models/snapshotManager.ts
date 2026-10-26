@@ -69,6 +69,9 @@ export class SnapshotManager {
     if (cached?.key !== key) {
       const endTimer = this.metrics.buildDuration.startTimer();
       const records = await this.store.getRecords();
+      // Whether a sibling is tracked depends on the Team, so it is known only once the Team's slice is.
+      const tracked = new Set(records.flatMap(({ facts, perTeam }) => (perTeam[teamSlug] ? [`${facts.repo}#${facts.number}`] : [])));
+      const isTracked = (repo: string, number: number): boolean => tracked.has(`${repo}#${number}`);
       const snapshot: Snapshot = {
         readAt: snapshotWide.readAt.toISOString(),
         sync,
@@ -81,7 +84,7 @@ export class SnapshotManager {
         team: team.members,
         prs: records.flatMap(({ teamFree, perTeam }) => {
           const teamPart = perTeam[teamSlug];
-          return teamPart ? [withClocks(teamFree, teamPart, this.derivationConfig, nowToTheMinute)] : [];
+          return teamPart ? [withClocks(teamFree, teamPart, this.derivationConfig, nowToTheMinute, isTracked)] : [];
         }),
       };
       const body = JSON.stringify(snapshot);

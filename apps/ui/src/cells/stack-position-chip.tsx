@@ -36,6 +36,7 @@ function SiblingList({ pr, stack }: { pr: Pick<TrackedPr, 'repo' | 'number'>; st
               </span>
               <span className="flex shrink-0 items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
                 {current && <span className="font-medium text-foreground">This PR</span>}
+                {!sibling.tracked && <span title="This Team does not track this PR">Not tracked</span>}
                 {sibling.draft && <span>Draft</span>}
                 <span>{STATE_LABELS[sibling.state]}</span>
               </span>

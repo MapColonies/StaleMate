@@ -358,6 +358,7 @@ components:
         - url
         - state
         - draft
+        - tracked
       properties:
         repo:
           type: string
@@ -378,6 +379,9 @@ components:
             - closed
         draft:
           type: boolean
+        tracked:
+          type: boolean
+          description: Whether the Team being viewed tracks this PR. An untracked PR is shown only by its title, number, state, draft flag and link; StaleMate holds nothing else about it for this Team.
     inclusionReason:
       type: string
       description: Why the PR is a Tracked PR. Listed strongest first.

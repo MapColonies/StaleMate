@@ -368,6 +368,21 @@ describe('StackPositionChip', () => {
     expect(screen.queryByText(/Showing the first/)).not.toBeInTheDocument();
   });
 
+  it('marks the PRs the Team does not track, which show only their title, number, state, draft flag and link', async () => {
+    const stack = aStack(1, 3);
+    const siblings = [stack.siblings[0]!, { ...stack.siblings[1]!, tracked: false, draft: true }, { ...stack.siblings[2]!, tracked: false }];
+    render(<StackPositionChip pr={inStack(1, 3, { siblings })} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    const items = within(screen.getByRole('dialog')).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent?.includes('Not tracked'))).toEqual([false, true, true]);
+    expect(items[1]).toHaveTextContent('Draft');
+    expect(items[1]).toHaveTextContent('Open');
+    expect(items[1]).toHaveTextContent('#65');
+    expect(within(items[1]!).getByRole('link')).toHaveAttribute('href', 'https://github.com/MapColonies/jobnik/pull/65');
+  });
+
   it('closes the list on Escape', async () => {
     render(<StackPositionChip pr={inStack(1, 2)} />);
     await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));

@@ -366,4 +366,16 @@ describe('the Inbox’s order', () => {
 
     expect(within(screen.getByRole('dialog')).getAllByRole('listitem')).toHaveLength(4);
   });
+
+  it('marks a PR in the Stack that the Team does not track', async () => {
+    const stack = aStack(1, 2);
+    const siblings = [stack.siblings[0]!, { ...stack.siblings[1]!, tracked: false }];
+    renderInbox(aSnapshot({ prs: [aPr({ repo: 'MapColonies/jobnik', number: 64, stack: { ...stack, siblings } })] }));
+
+    await userEvent.click(screen.getByRole('button', { name: /Stack position/ }));
+
+    const items = within(screen.getByRole('dialog')).getAllByRole('listitem');
+    expect(items[0]).not.toHaveTextContent('Not tracked');
+    expect(items[1]).toHaveTextContent('Not tracked');
+  });
 });

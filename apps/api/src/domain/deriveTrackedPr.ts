@@ -15,8 +15,12 @@ import {
   toPerson,
 } from './inclusion';
 
+/** The PR's Stack as the contract has it, but for which siblings the Team tracks, which only the Team's slice knows. */
+type Stack = NonNullable<TrackedPr['stack']>;
+export type TeamFreeStack = Omit<Stack, 'siblings'> & { siblings: Omit<Stack['siblings'][number], 'tracked'>[] };
+
 /** The PR's Stack as the contract has it, with the Stack's real size however many entries were read. Absent for a PR with no Stack. */
-function deriveStack(facts: PrFacts): Pick<TrackedPr, 'stack'> {
+function deriveStack(facts: PrFacts): { stack?: TeamFreeStack } {
   const { stack } = facts;
   if (stack === undefined) {
     return {};
@@ -50,8 +54,8 @@ export interface DerivationConfig {
 export interface TeamFreePr {
   trackedPr: Pick<
     TrackedPr,
-    'id' | 'repo' | 'number' | 'title' | 'url' | 'reviewStatus' | 'approvals' | 'checkStatus' | 'conflicting' | 'jiraTickets' | 'noReviewer' | 'stack'
-  >;
+    'id' | 'repo' | 'number' | 'title' | 'url' | 'reviewStatus' | 'approvals' | 'checkStatus' | 'conflicting' | 'jiraTickets' | 'noReviewer'
+  > & { stack?: TeamFreeStack };
   /** The accounts around the PR, not yet classified. */
   author: Actor;
   participants: ParticipantActors;
@@ -105,9 +109,12 @@ export function deriveTeamPart(facts: PrFacts, teamFree: TeamFreePr, team: Team,
   };
 }
 
-/** Completes a Tracked PR as seen from a Team, with its Age, Idle Time and Urgency counted up to `now`. */
-export function withClocks(teamFree: TeamFreePr, teamPart: TeamPart, config: DerivationConfig, now: Date): TrackedPr {
-  const { id, repo, number, title, url, noReviewer, ...rest } = teamFree.trackedPr;
+/** Whether the Team being viewed tracks the PR in `repo` numbered `number`. */
+export type IsTracked = (repo: string, number: number) => boolean;
+
+/** Completes a Tracked PR as seen from a Team, with its Age, Idle Time and Urgency counted up to `now`, and each of its Stack's siblings marked tracked or not by `isTracked`. */
+export function withClocks(teamFree: TeamFreePr, teamPart: TeamPart, config: DerivationConfig, now: Date, isTracked: IsTracked): TrackedPr {
+  const { id, repo, number, title, url, noReviewer, stack, ...rest } = teamFree.trackedPr;
   return {
     id,
     repo,
@@ -118,6 +125,9 @@ export function withClocks(teamFree: TeamFreePr, teamPart: TeamPart, config: Der
     ...teamPart.participants,
     inclusionReasons: teamPart.inclusionReasons,
     ...rest,
+    ...(stack === undefined
+      ? {}
+      : { stack: { ...stack, siblings: stack.siblings.map((sibling) => ({ ...sibling, tracked: isTracked(sibling.repo, sibling.number) })) } }),
     waitingOn: teamPart.waitingOn,
     noReviewer,
     ...deriveClocks(teamFree.clockStarts, config, now),
@@ -127,7 +137,14 @@ export function withClocks(teamFree: TeamFreePr, teamPart: TeamPart, config: Der
 /** Derives a Tracked PR from its facts, as seen from the Team. Age and Idle Time are counted up to `now`. */
 export function deriveTrackedPr(facts: PrFacts, team: Team, config: DerivationConfig, now: Date): TrackedPr {
   const teamFree = deriveTeamFreePr(facts, config);
-  return withClocks(teamFree, deriveTeamPart(facts, teamFree, team, config), config, now);
+  // Seen alone, only the PR itself is known to be tracked.
+  return withClocks(
+    teamFree,
+    deriveTeamPart(facts, teamFree, team, config),
+    config,
+    now,
+    (siblingRepo, siblingNumber) => siblingRepo === facts.repo && siblingNumber === facts.number
+  );
 }
 
 /** Classifies every Team Member. Members whose logins are configured as Bots are Bots. */

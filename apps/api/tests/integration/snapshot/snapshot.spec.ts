@@ -437,6 +437,63 @@ describe('snapshot', function () {
         expect(raster?.waitingOn).toContainEqual({ type: 'team', slug: 'raster', viaTeam: true });
       });
 
+      it('should mark each sibling of a Stack as tracked or not by the Team viewing it, however many Teams track different members', async function () {
+        const stackOf = (id: string, repo: string, number: number, position: number, author: Actor): PrFacts =>
+          aPrFacts({
+            id,
+            repo,
+            number,
+            author,
+            stack: {
+              number: 7,
+              position,
+              size: 3,
+              entriesTruncated: false,
+              entries: [
+                {
+                  repo: 'MapColonies/opa-la',
+                  number: 31,
+                  title: 'feat: base',
+                  url: 'https://github.com/MapColonies/opa-la/pull/31',
+                  state: 'open',
+                  isDraft: false,
+                },
+                {
+                  repo: 'MapColonies/raster-catalog-manager',
+                  number: 32,
+                  title: 'feat: middle',
+                  url: 'https://github.com/MapColonies/raster-catalog-manager/pull/32',
+                  state: 'open',
+                  isDraft: true,
+                },
+                {
+                  repo: 'MapColonies/nowhere',
+                  number: 33,
+                  title: 'feat: top',
+                  url: 'https://github.com/MapColonies/nowhere/pull/33',
+                  state: 'open',
+                  isDraft: false,
+                },
+              ],
+            },
+          });
+        provider.add(stackOf('PR_s1', 'MapColonies/opa-la', 31, 1, anActor({ id: 'U_zed', login: 'zed' })), mondayMorning);
+        provider.add(stackOf('PR_s2', 'MapColonies/raster-catalog-manager', 32, 2, dana), mondayMorning);
+        provider.add(stackOf('PR_s3', 'MapColonies/nowhere', 33, 3, anActor({ id: 'U_zed', login: 'zed' })), mondayMorning);
+        await syncLoop.start();
+
+        const trackedOf = (snapshot: Snapshot, id: string): boolean[] | undefined =>
+          prOf(snapshot, id)?.stack?.siblings.map(({ tracked }) => tracked);
+        const infra = await getSnapshot('infra');
+        const raster = await getSnapshot('raster');
+
+        expect(ids(infra)).toContain('PR_s1');
+        expect(ids(infra)).not.toContain('PR_s2');
+        expect(trackedOf(infra, 'PR_s1')).toEqual([true, false, false]);
+        expect(trackedOf(raster, 'PR_s2')).toEqual([false, true, false]);
+        expect(ids(raster)).not.toContain('PR_s3');
+      });
+
       it('should show a PR no Team tracks in no slice', async function () {
         provider.add(aPrFacts({ id: 'PR_nobody', repo: 'MapColonies/nowhere', author: anActor({ id: 'U_zed', login: 'zed' }) }), mondayMorning);
         await syncLoop.start();

@@ -48,6 +48,7 @@ export function aStack(position: number, size: number, overrides: Partial<NonNul
       url: `https://github.com/MapColonies/jobnik/pull/${64 + index}`,
       state: 'open' as const,
       draft: false,
+      tracked: true,
     })),
     ...overrides,
   };

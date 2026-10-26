@@ -133,6 +133,7 @@ describe('deriveTrackedPr', function () {
             url: 'https://github.com/MapColonies/jobnik/pull/64',
             state: 'merged',
             draft: false,
+            tracked: false,
           },
           {
             repo: 'MapColonies/jobnik',
@@ -141,6 +142,7 @@ describe('deriveTrackedPr', function () {
             url: 'https://github.com/MapColonies/jobnik/pull/65',
             state: 'open',
             draft: false,
+            tracked: false,
           },
           {
             repo: 'MapColonies/jobnik',
@@ -149,6 +151,7 @@ describe('deriveTrackedPr', function () {
             url: 'https://github.com/MapColonies/jobnik/pull/66',
             state: 'open',
             draft: true,
+            tracked: false,
           },
         ],
       });

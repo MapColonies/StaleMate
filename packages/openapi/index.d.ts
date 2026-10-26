@@ -208,6 +208,8 @@ export type components = {
       /** @enum {string} */
       state: 'open' | 'merged' | 'closed';
       draft: boolean;
+      /** @description Whether the Team being viewed tracks this PR. An untracked PR is shown only by its title, number, state, draft flag and link; StaleMate holds nothing else about it for this Team. */
+      tracked: boolean;
     };
     /**
      * @description Why the PR is a Tracked PR. Listed strongest first.
