@@ -283,7 +283,7 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
             />
           </div>
         </div>
-        <FilterBar prs={snapshot.prs} org={org} filters={filters} onChange={setFilters} onReset={resetFilters} />
+        <FilterBar prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} org={org} filters={filters} onChange={setFilters} onReset={resetFilters} />
       </div>
 
       {/* Focusable, so the keyboard can scroll it too. Its outline is inset, as the window's edges would clip one. */}

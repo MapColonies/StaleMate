@@ -1,19 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { isWaitingOnViewer, noReviewerCount, sharedOrg, shortRepoName, viewerOptions, waitingOnViewerCounts } from '@/snapshot/selectors';
-import { aPr, aSnapshot, bot, member, outsider, waitingOnAuthor, waitingOnReviewer, waitingOnTeam, waitingOnTheTeam } from './fixtures/snapshot';
+import {
+  aPr,
+  aSnapshot,
+  aTeam,
+  bot,
+  member,
+  outsider,
+  waitingOnAuthor,
+  waitingOnReviewer,
+  waitingOnTeam,
+  waitingOnTheTeam,
+} from './fixtures/snapshot';
 
 const alice = member('alice');
 const bob = member('bob');
 
 describe('viewerOptions', () => {
   it('offers the Team Members only, sorted, without Bots or service accounts', () => {
-    const team = [member('carol'), bot('mapcolonies-devops'), alice, bot('mapcolonies-org'), bob];
+    const team = aTeam('infra', 'Infra', [member('carol'), bot('mapcolonies-devops'), alice, bot('mapcolonies-org'), bob]);
 
-    expect(viewerOptions(team)).toEqual(['alice', 'bob', 'carol']);
+    expect(viewerOptions([team])).toEqual(['alice', 'bob', 'carol']);
+  });
+
+  it('unites every Team’s members, each once', () => {
+    const infra = aTeam('infra', 'Infra', [alice, bob]);
+    const raster = aTeam('raster', 'Raster', [bob, member('dave'), bot('mapcolonies-devops')]);
+
+    expect(viewerOptions([infra, raster])).toEqual(['alice', 'bob', 'dave']);
   });
 
   it('sorts without regard to case', () => {
-    expect(viewerOptions([member('Zed'), member('amir'), member('CptSchnitz')])).toEqual(['amir', 'CptSchnitz', 'Zed']);
+    expect(viewerOptions([aTeam('infra', 'Infra', [member('Zed'), member('amir'), member('CptSchnitz')])])).toEqual(['amir', 'CptSchnitz', 'Zed']);
   });
 });
 

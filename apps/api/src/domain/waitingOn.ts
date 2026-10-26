@@ -1,23 +1,21 @@
-import type { Actor, PrFacts, ReviewFact, Roster } from './facts';
+import type { Actor, PrFacts, ReviewFact } from './facts';
 import type { Move, WaitingOnParty } from './trackedPr';
 import type { DerivationConfig } from './deriveTrackedPr';
 import type { ReviewOutcome } from './reviewStatus';
 import { isBot } from './bots';
 import { deriveCheckStatus } from './checkStatus';
-import { toPerson } from './inclusion';
+import { type Team, toPerson } from './inclusion';
 import { authorCommentedOnPrAfter, isPrAuthor, threadsOf } from './reviewActivity';
 
-type WaitingOnConfig = Pick<DerivationConfig, 'teamSlug' | 'botLogins' | 'excludedChecks'>;
+type WaitingOnConfig = Pick<DerivationConfig, 'botLogins' | 'excludedChecks'>;
 type Role = Extract<WaitingOnParty, { type: 'person' }>['role'];
+
+/** A party before it is seen from a Team: a person is still an account, and a team request doesn't yet say whether it is to the Team. */
+type TeamFreeParty = { type: 'person'; actor: Actor; role: Role; moves: Move[] } | { type: 'team'; slug: string };
 
 /** Collects the parties the rules pick, each once, in the order they were picked, with every move each one owes. */
 class Parties {
-  private readonly byKey = new Map<string, WaitingOnParty>();
-
-  public constructor(
-    private readonly roster: Roster,
-    private readonly config: WaitingOnConfig
-  ) {}
+  private readonly byKey = new Map<string, TeamFreeParty>();
 
   public get size(): number {
     return this.byKey.size;
@@ -32,19 +30,18 @@ class Parties {
       }
       return;
     }
-    const { login, kind } = toPerson(actor, this.roster, this.config.botLogins);
-    this.add(key, { type: 'person', login, kind, role, moves: [move] });
+    this.add(key, { type: 'person', actor, role, moves: [move] });
   }
 
   public addTeam(slug: string): void {
-    this.add(`team:${slug}`, { type: 'team', slug, viaTeam: slug === this.config.teamSlug });
+    this.add(`team:${slug}`, { type: 'team', slug });
   }
 
-  public toArray(): WaitingOnParty[] {
+  public toArray(): TeamFreeParty[] {
     return [...this.byKey.values()];
   }
 
-  private add(key: string, party: WaitingOnParty): void {
+  private add(key: string, party: TeamFreeParty): void {
     if (!this.byKey.has(key)) {
       this.byKey.set(key, party);
     }
@@ -114,7 +111,7 @@ function addReviewParties(facts: PrFacts, review: ReviewOutcome, config: Waiting
 
 export interface WaitingOn {
   /** Never empty, and never a Bot except a Bot PR's own author. */
-  parties: WaitingOnParty[];
+  parties: TeamFreeParty[];
   noReviewer: boolean;
 }
 
@@ -127,8 +124,8 @@ export interface WaitingOn {
  * A PR Awaiting Review that no reviewer owes a move on, and whose reviews owe the author nothing, has No Reviewer and waits on its author,
  * even while its checks fail or it conflicts.
  */
-export function deriveWaitingOn(facts: PrFacts, review: ReviewOutcome, roster: Roster, config: WaitingOnConfig): WaitingOn {
-  const parties = new Parties(roster, config);
+export function deriveWaitingOn(facts: PrFacts, review: ReviewOutcome, config: WaitingOnConfig): WaitingOn {
+  const parties = new Parties();
   if (review.status === 'draft' || review.status === 'approved') {
     parties.addPerson(facts.author, 'author', review.status === 'draft' ? 'finishDraft' : 'merge');
     return { parties: parties.toArray(), noReviewer: false };
@@ -148,3 +145,16 @@ export function deriveWaitingOn(facts: PrFacts, review: ReviewOutcome, roster: R
   }
   return { parties: parties.toArray(), noReviewer };
 }
+
+/** Sees the parties from a Team: each person's kind relative to it, and whether a team request is to it. */
+export function resolveWaitingOn(parties: readonly TeamFreeParty[], team: Team, config: Pick<DerivationConfig, 'botLogins'>): WaitingOnParty[] {
+  return parties.map((party): WaitingOnParty => {
+    if (party.type === 'team') {
+      return { type: 'team', slug: party.slug, viaTeam: party.slug === team.slug };
+    }
+    const { login, kind } = toPerson(party.actor, team.roster, config.botLogins);
+    return { type: 'person', login, kind, role: party.role, moves: [...party.moves] };
+  });
+}
+
+export type { TeamFreeParty };

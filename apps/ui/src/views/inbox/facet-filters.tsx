@@ -124,6 +124,8 @@ function FacetList<K extends ListFilter>({
 export interface FacetFiltersProps {
   /** Every Tracked PR, so each facet counts over the whole Snapshot. */
   prs: readonly TrackedPr[];
+  /** The slug of the Team the Snapshot is for. */
+  teamSlug: string;
   /** The org every Tracked PR's repo is in, which the Repo facet leaves out. */
   org: string | null;
   filters: Filters;
@@ -135,7 +137,7 @@ export interface FacetFiltersProps {
  * The Inbox's filters over the shared filter model: the switches, the Age and Idle presets, and a facet per list filter.
  * They sit in the sidebar, or in the Filters panel where the window is too narrow for one.
  */
-export function FacetFilters({ prs, org, filters, viewer, onChange }: FacetFiltersProps) {
+export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: FacetFiltersProps) {
   const people = peopleIn(prs);
   // A Waiting On key is a login, or @slug for a team.
   const partyLabel = (key: string) => {
@@ -147,7 +149,7 @@ export function FacetFilters({ prs, org, filters, viewer, onChange }: FacetFilte
   return (
     <>
       <div className="flex flex-col items-start gap-2">
-        <FilterSwitches prs={prs} filters={filters} onChange={onChange} />
+        <FilterSwitches teamSlug={teamSlug} filters={filters} onChange={onChange} />
       </div>
       <Facet title="Age">
         <div className="flex flex-wrap gap-1">

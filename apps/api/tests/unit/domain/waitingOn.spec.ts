@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Actor, CheckFact, PrFacts, ReviewRequestFact } from '@domain/facts';
 import type { WaitingOnParty } from '@domain/trackedPr';
 import { deriveTrackedPr } from '@domain/deriveTrackedPr';
-import { aDerivationConfig, anActor, aPrFacts, aReview, aReviewThread, aRoster, aThreadComment } from '@tests/utils/facts';
+import { aDerivationConfig, anActor, aPrFacts, aReview, aReviewThread, aRoster, aTeam, aThreadComment } from '@tests/utils/facts';
 
 const now = new Date('2026-10-14T12:00:00Z');
 
@@ -15,7 +15,7 @@ const dave = anActor({ id: 'U_dave', login: 'dave' });
 const copilot = anActor({ id: 'BOT_copilot', login: 'copilot-pull-request-reviewer', isBot: true });
 const serviceAccount = anActor({ id: 'U_devops', login: 'mapcolonies-devops' });
 
-const roster = aRoster({ members: [alice, bob, carol] });
+const team = aTeam({ roster: aRoster({ members: [alice, bob, carol] }) });
 
 const earlier = new Date('2026-10-13T07:00:00Z');
 const reviewedAt = new Date('2026-10-13T08:00:00Z');
@@ -38,12 +38,12 @@ function describeParty(party: WaitingOnParty): string {
 
 /** The moves each person owes, keyed as describeParty names them. */
 function movesOf(overrides: Partial<PrFacts>): Record<string, string[]> {
-  const trackedPr = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), roster, aDerivationConfig(), now);
+  const trackedPr = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), team, aDerivationConfig(), now);
   return Object.fromEntries(trackedPr.waitingOn.flatMap((party) => (party.type === 'person' ? [[describeParty(party), party.moves]] : [])));
 }
 
 function waitingOnOf(overrides: Partial<PrFacts>): { waitingOn: string[]; noReviewer: boolean } {
-  const trackedPr = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), roster, aDerivationConfig(), now);
+  const trackedPr = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), team, aDerivationConfig(), now);
   return { waitingOn: trackedPr.waitingOn.map(describeParty), noReviewer: trackedPr.noReviewer };
 }
 
@@ -140,13 +140,13 @@ describe('Waiting On', function () {
 
   describe('a team request', function () {
     it('should name the Team as its own party, which every Team Member counts as Waiting On', function () {
-      const trackedPr = deriveTrackedPr(aPrFacts({ reviewRequests: [teamRequested('infra')] }), roster, aDerivationConfig(), now);
+      const trackedPr = deriveTrackedPr(aPrFacts({ reviewRequests: [teamRequested('infra')] }), team, aDerivationConfig(), now);
 
       expect(trackedPr.waitingOn).toStrictEqual([{ type: 'team', slug: 'infra', viaTeam: true }]);
     });
 
     it('should name another team as a party that leaves no Team Member Waiting On it', function () {
-      const trackedPr = deriveTrackedPr(aPrFacts({ reviewRequests: [teamRequested('raster')] }), roster, aDerivationConfig(), now);
+      const trackedPr = deriveTrackedPr(aPrFacts({ reviewRequests: [teamRequested('raster')] }), team, aDerivationConfig(), now);
 
       expect(trackedPr.waitingOn).toStrictEqual([{ type: 'team', slug: 'raster', viaTeam: false }]);
     });
@@ -316,7 +316,7 @@ describe('Waiting On', function () {
   it('should name the author with their role and each reviewer with theirs', function () {
     const trackedPr = deriveTrackedPr(
       aPrFacts({ author: alice, reviewRequests: [requested(bob)], ...withChecks('failed') }),
-      roster,
+      team,
       aDerivationConfig(),
       now
     );

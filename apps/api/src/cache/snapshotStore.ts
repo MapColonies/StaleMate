@@ -1,5 +1,5 @@
-import type { PrFacts, Roster } from '@domain/facts';
-import type { ClockFreePr } from '@domain/deriveTrackedPr';
+import type { PrFacts, WatchedTeam } from '@domain/facts';
+import type { TeamFreePr, TeamPart } from '@domain/deriveTrackedPr';
 import type { Person } from '@domain/trackedPr';
 
 /** One Tracked PR as StaleMate last read it, derived except for the clocks. */
@@ -9,14 +9,25 @@ export interface PrRecord {
   readAt: Date;
   /** When the code host said the PR last changed, as of that read. */
   updatedAt: Date;
-  derived: ClockFreePr;
+  /** What derives from the facts alone. */
+  teamFree: TeamFreePr;
+  /** What depends on the Team, by slug, for each Team that tracks the PR. Never empty: a PR no Team tracks is not stored. */
+  perTeam: Record<string, TeamPart>;
+}
+
+/** A watched Team as `GET /teams` lists it. */
+export interface TeamSummary {
+  slug: string;
+  name: string;
+  members: Person[];
 }
 
 /** What the Snapshot holds besides its Tracked PRs. */
 export interface SnapshotWide {
-  roster: Roster;
-  /** The Roster's members, classified. */
-  team: Person[];
+  /** Every watched Team's roster, in a stable order. */
+  teams: WatchedTeam[];
+  /** The watched Teams, sorted by display name, with their members classified. */
+  teamList: TeamSummary[];
   /** When the last successful sweep started. */
   readAt: Date;
 }

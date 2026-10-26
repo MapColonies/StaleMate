@@ -14,14 +14,3 @@ export function filterOptions(prs: readonly TrackedPr[]) {
     waitingOn: unique(prs.flatMap((pr) => pr.waitingOn.map(partyKey))),
   };
 }
-
-/** The Team's slug, as requests to it name it; `null` while no PR asks the Team. */
-export function teamSlug(prs: readonly TrackedPr[]): string | null {
-  for (const pr of prs) {
-    const team = pr.waitingOn.find((party) => party.type === 'team' && party.viaTeam);
-    if (team?.type === 'team') {
-      return team.slug;
-    }
-  }
-  return null;
-}

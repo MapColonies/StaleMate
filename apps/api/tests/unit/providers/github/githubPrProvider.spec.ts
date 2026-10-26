@@ -16,6 +16,7 @@ import {
   aPrNode,
   aRateLimit,
   aRosterResponse,
+  aTeamsResponse,
   aSearchResponse,
   aSpyLogger,
   anEmptyGithub,
@@ -36,7 +37,6 @@ describe('GithubPrProvider', function () {
 
   function aProvider(overrides: Partial<GithubPrProviderOptions> = {}): ReturnType<typeof createGithubPrProvider> {
     return createGithubPrProvider({
-      teamSlug: 'infra',
       githubToken: 'ghp_test',
       githubApp: {},
       logger,
@@ -61,24 +61,64 @@ describe('GithubPrProvider', function () {
         )
       );
 
-      const { roster } = await sweep(aProvider());
+      const { teams } = await sweep(aProvider());
 
-      expect(roster).toEqual({
-        members: [
-          { id: 'U_alice', login: 'alice', isBot: false },
-          { id: 'U_bob', login: 'bob', isBot: false },
-        ],
-        repos: ['MapColonies/opa-la'],
-      });
-      expect(github.requestsFor('Roster')[0]?.variables).toEqual({ org: 'MapColonies', team: 'infra' });
+      expect(teams).toEqual([
+        {
+          slug: 'infra',
+          name: 'Infra',
+          roster: {
+            members: [
+              { id: 'U_alice', login: 'alice', isBot: false },
+              { id: 'U_bob', login: 'bob', isBot: false },
+            ],
+            repos: ['MapColonies/opa-la'],
+          },
+        },
+      ]);
+      expect(github.requestsFor('Roster')[0]?.variables).toEqual({ org: 'MapColonies' });
     });
 
-    it('should warn when the Team has more members or repos than it reads', async function () {
+    it('should read every Team but the excluded ones, in a stable order, with their display names', async function () {
+      github.on('Roster', () =>
+        aTeamsResponse([
+          {
+            slug: 'raster',
+            name: 'Raster',
+            members: [
+              { id: 'U_dana', login: 'dana' },
+              { id: 'U_alice', login: 'alice' },
+            ],
+            repos: [],
+          },
+          { slug: 'interns', name: 'Interns', members: [], repos: [] },
+          { slug: 'infra', name: 'Infra', members: [{ id: 'U_bob', login: 'bob' }], repos: [] },
+        ])
+      );
+
+      const { teams } = await sweep(aProvider({ excludedTeams: ['interns'] }));
+
+      expect(teams.map(({ slug, name }) => [slug, name])).toEqual([
+        ['infra', 'Infra'],
+        ['raster', 'Raster'],
+      ]);
+      expect(teams[1]!.roster.members.map(({ login }) => login)).toEqual(['alice', 'dana']);
+    });
+
+    it('should warn when the org has more Teams than it reads', async function () {
+      github.on('Roster', () => aTeamsResponse([], { hasNextPage: true }));
+
+      await sweep(aProvider());
+
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ truncated: ['teams'] }));
+    });
+
+    it('should warn when a Team has more members or repos than it reads', async function () {
       github.on('Roster', () => {
         const response = aRosterResponse([{ id: 'U_alice', login: 'alice' }], []) as {
-          data: { organization: { team: { repositories: { pageInfo: { hasNextPage: boolean } } } } };
+          data: { organization: { teams: { nodes: { repositories: { pageInfo: { hasNextPage: boolean } } }[] } } };
         };
-        response.data.organization.team.repositories.pageInfo.hasNextPage = true;
+        response.data.organization.teams.nodes[0]!.repositories.pageInfo.hasNextPage = true;
         return response;
       });
 
@@ -587,10 +627,10 @@ describe('GithubPrProvider', function () {
       await expect(swept).rejects.not.toBeInstanceOf(SweepError);
     });
 
-    it('should fail the sweep when the Team is not found', async function () {
-      github.on('Roster', () => ({ data: { organization: { team: null }, rateLimit: aRateLimit() } }));
+    it('should fail the sweep when the org is not found', async function () {
+      github.on('Roster', () => ({ data: { organization: null, rateLimit: aRateLimit() } }));
 
-      await expect(sweep(aProvider())).rejects.toThrow('team MapColonies/infra not found');
+      await expect(sweep(aProvider())).rejects.toThrow('org MapColonies not found');
     });
 
     it('should leave out a PR that is gone by the time it is read', async function () {
@@ -746,14 +786,53 @@ describe('GithubPrProvider', function () {
       );
     });
 
-    it('should search the Team Repos, the Team Members and requests to the Team for open PRs', async function () {
+    it('should search the Team Repos, the Team Members and requests to the Team for open PRs, for a one-Team org', async function () {
       await sweep(aProvider());
 
       expect(searchQueries()).toEqual([
-        'is:pr is:open (repo:MapColonies/opa-la OR repo:MapColonies/config)',
+        'is:pr is:open (repo:MapColonies/config OR repo:MapColonies/opa-la)',
         'is:pr is:open org:MapColonies archived:false (author:alice OR assignee:alice OR reviewed-by:alice OR user-review-requested:alice OR author:bob OR assignee:bob OR reviewed-by:bob OR user-review-requested:bob)',
         'is:pr is:open org:MapColonies archived:false team-review-requested:MapColonies/infra',
       ]);
+    });
+
+    it('should search the union of every Team once, and discover a PR found through several Teams once', async function () {
+      github.on('Roster', () =>
+        aTeamsResponse([
+          {
+            slug: 'raster',
+            name: 'Raster',
+            members: [
+              { id: 'U_bob', login: 'bob' },
+              { id: 'U_dana', login: 'dana' },
+            ],
+            repos: [{ nameWithOwner: 'MapColonies/opa-la', isArchived: false }],
+          },
+          {
+            slug: 'infra',
+            name: 'Infra',
+            members: [
+              { id: 'U_alice', login: 'alice' },
+              { id: 'U_bob', login: 'bob' },
+            ],
+            repos: [
+              { nameWithOwner: 'MapColonies/opa-la', isArchived: false },
+              { nameWithOwner: 'MapColonies/config', isArchived: false },
+            ],
+          },
+        ])
+      );
+      github.on('SearchPullRequests', () => aSearchResponse(['PR_1']));
+
+      const { discovery } = await sweep(aProvider());
+
+      expect(searchQueries()).toEqual([
+        'is:pr is:open (repo:MapColonies/config OR repo:MapColonies/opa-la)',
+        'is:pr is:open org:MapColonies archived:false (author:alice OR assignee:alice OR reviewed-by:alice OR user-review-requested:alice OR author:bob OR assignee:bob OR reviewed-by:bob OR user-review-requested:bob OR author:dana OR assignee:dana OR reviewed-by:dana OR user-review-requested:dana)',
+        'is:pr is:open org:MapColonies archived:false (team-review-requested:MapColonies/infra OR team-review-requested:MapColonies/raster)',
+      ]);
+      expect(discovery.prs.map(({ id }) => id)).toEqual(['PR_1']);
+      expect(github.requestsFor('PullRequestDetails').flatMap((request) => requestedIds(request.variables))).toEqual(['PR_1']);
     });
 
     it('should discover the Roster and each PR found once, with when GitHub last saw it change, without reading it', async function () {
@@ -771,13 +850,19 @@ describe('GithubPrProvider', function () {
       const discovery = await aProvider().discover();
 
       expect(discovery).toEqual({
-        roster: {
-          members: [
-            { id: 'U_alice', login: 'alice', isBot: false },
-            { id: 'U_bob', login: 'bob', isBot: false },
-          ],
-          repos: ['MapColonies/opa-la', 'MapColonies/config'],
-        },
+        teams: [
+          {
+            slug: 'infra',
+            name: 'Infra',
+            roster: {
+              members: [
+                { id: 'U_alice', login: 'alice', isBot: false },
+                { id: 'U_bob', login: 'bob', isBot: false },
+              ],
+              repos: ['MapColonies/config', 'MapColonies/opa-la'],
+            },
+          },
+        ],
         prs: [
           { id: 'PR_1', updatedAt: new Date('2026-10-13T09:00:00Z') },
           { id: 'PR_2', updatedAt: new Date('2026-10-14T10:00:00Z') },
@@ -787,7 +872,10 @@ describe('GithubPrProvider', function () {
     });
 
     it('should split a search over many Team Repos into queries of at most 50 repos', async function () {
-      const repos = Array.from({ length: 60 }, (_, index) => ({ nameWithOwner: `MapColonies/repo${index}`, isArchived: false }));
+      const repos = Array.from({ length: 60 }, (_, index) => ({
+        nameWithOwner: `MapColonies/repo${String(index).padStart(2, '0')}`,
+        isArchived: false,
+      }));
       github.on('Roster', () => aRosterResponse([{ id: 'U_alice', login: 'alice' }], repos));
 
       await sweep(aProvider());
@@ -807,7 +895,7 @@ describe('GithubPrProvider', function () {
     });
 
     it('should split a search over many Team Members into queries of at most 12 members', async function () {
-      const members = Array.from({ length: 13 }, (_, index) => ({ id: `U_${index}`, login: `member${index}` }));
+      const members = Array.from({ length: 13 }, (_, index) => ({ id: `U_${index}`, login: `member${String(index).padStart(2, '0')}` }));
       github.on('Roster', () => aRosterResponse(members, [{ nameWithOwner: 'MapColonies/opa-la', isArchived: false }]));
 
       await sweep(aProvider());
@@ -856,6 +944,76 @@ describe('GithubPrProvider', function () {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ query: expect.stringContaining('repo:') as unknown, results: 801 })
       );
+    });
+
+    it('should search the halves of a batch whose search reports more than 1,000 results', async function () {
+      github.on('Roster', () =>
+        aRosterResponse(
+          [
+            { id: 'U_alice', login: 'alice' },
+            { id: 'U_bob', login: 'bob' },
+          ],
+          []
+        )
+      );
+      github.on('SearchPullRequests', ({ variables }) => {
+        const query = String(variables.query);
+        if (query.includes('alice') && query.includes('bob')) {
+          return aSearchResponse(['PR_1'], { issueCount: 1001 });
+        }
+        return aSearchResponse([query.includes('alice') ? 'PR_alice' : 'PR_bob', 'PR_1'], { issueCount: 2 });
+      });
+
+      await sweep(aProvider());
+
+      expect(
+        github
+          .requestsFor('PullRequestDetails')
+          .flatMap((request) => requestedIds(request.variables))
+          .sort()
+      ).toEqual(['PR_1', 'PR_alice', 'PR_bob']);
+      expect(github.requestsFor('SearchPullRequests')).toHaveLength(4);
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('should keep splitting a half that is itself over the cap', async function () {
+      github.on('Roster', () =>
+        aRosterResponse(
+          [
+            { id: 'U_alice', login: 'alice' },
+            { id: 'U_bob', login: 'bob' },
+            { id: 'U_carol', login: 'carol' },
+          ],
+          []
+        )
+      );
+      github.on('SearchPullRequests', ({ variables }) => {
+        const query = String(variables.query);
+        const people = ['alice', 'bob', 'carol'].filter((login) => query.includes(`author:${login}`));
+        return people.length > 1 ? aSearchResponse([], { issueCount: 1001 }) : aSearchResponse(people.map((login) => `PR_${login}`));
+      });
+
+      await sweep(aProvider());
+
+      expect(
+        github
+          .requestsFor('PullRequestDetails')
+          .flatMap((request) => requestedIds(request.variables))
+          .sort()
+      ).toEqual(['PR_alice', 'PR_bob', 'PR_carol']);
+      expect(github.requestsFor('SearchPullRequests')).toHaveLength(6);
+    });
+
+    it('should warn and keep the results of a single-term search over the cap', async function () {
+      github.on('SearchPullRequests', ({ variables }) =>
+        String(variables.query).includes('repo:MapColonies/opa-la') ? aSearchResponse(['PR_1'], { issueCount: 1001 }) : aSearchResponse([])
+      );
+
+      await sweep(aProvider());
+
+      expect(github.requestsFor('PullRequestDetails').flatMap((request) => requestedIds(request.variables))).toEqual(['PR_1']);
+      expect(github.requestsFor('SearchPullRequests')).toHaveLength(5);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ query: 'is:pr is:open repo:MapColonies/opa-la', results: 1001 }));
     });
 
     it('should read every page of a search', async function () {

@@ -14,7 +14,7 @@ data:
   TELEMETRY_TRACING_ENABLED: 'true'
   TELEMETRY_TRACING_URL: {{ $tracingUrl | quote }}
   {{- end }}
-  TEAM_SLUG: {{ .Values.team.slug | quote }}
+  EXCLUDED_TEAMS: {{ .Values.teams.excluded | toJson | quote }}
   BOTS_LOGINS: {{ .Values.bots.logins | toJson | quote }}
   EXTRA_NON_WORKING_DAYS: {{ .Values.extraNonWorkingDays | toJson | quote }}
   URGENCY_THRESHOLDS: {{ .Values.urgency.thresholds | toJson | quote }}

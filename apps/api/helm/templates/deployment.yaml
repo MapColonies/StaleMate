@@ -89,7 +89,8 @@ spec:
             httpGet:
               path: /liveness
               port: {{ .Values.env.targetPort }}
-          # Passes only once the first sweep has produced a Snapshot. A bad App key on first deploy leaves the pod never ready.
+          # Passes only once the first sweep has produced a Snapshot, which takes a few minutes at org scale. A bad App key on first deploy leaves the pod never ready.
+          # Liveness never waits for it, and the rollout keeps the old pod until this one is ready.
           readinessProbe:
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}

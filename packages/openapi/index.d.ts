@@ -4,6 +4,23 @@
 
 import type { TypedRequestHandlers as ImportedTypedRequestHandlers } from '@map-colonies/openapi-helpers/typedRequestHandler';
 export type paths = {
+  '/teams': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** returns the watched Teams, sorted by display name */
+    get: operations['getTeams'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/snapshot': {
     parameters: {
       query?: never;
@@ -11,7 +28,7 @@ export type paths = {
       path?: never;
       cookie?: never;
     };
-    /** returns the latest Snapshot, with Age and Idle Time computed against the request time */
+    /** returns one Team's slice of the latest Snapshot, with Age and Idle Time computed against the request time */
     get: operations['getSnapshot'];
     put?: never;
     post?: never;
@@ -44,6 +61,7 @@ export type components = {
   schemas: {
     /** @description Every Tracked PR as StaleMate last read it from the code host. */
     snapshot: {
+      teamInfo: components['schemas']['teamRef'];
       /**
        * Format: date-time
        * @description When the code host was read for this Snapshot.
@@ -54,6 +72,23 @@ export type components = {
       /** @description The Team Members. Members whose logins are configured as Bots have kind bot. */
       team: components['schemas']['person'][];
       prs: components['schemas']['trackedPr'][];
+    };
+    /** @description A Team by its slug and GitHub display name. */
+    teamRef: {
+      /** @example infra */
+      slug: string;
+      /**
+       * @description The GitHub display name.
+       * @example Infra
+       */
+      name: string;
+    };
+    watchedTeam: components['schemas']['teamRef'] & {
+      /** @description The Team Members. Members whose logins are configured as Bots have kind bot. */
+      members: components['schemas']['person'][];
+    };
+    error: {
+      message: string;
     };
     warming: {
       /** @enum {string} */
@@ -212,7 +247,7 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
-  getSnapshot: {
+  getTeams: {
     parameters: {
       query?: never;
       header?: never;
@@ -227,7 +262,57 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
+          'application/json': components['schemas']['watchedTeam'][];
+        };
+      };
+      /** @description No sweep of the code host has succeeded yet */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['warming'];
+        };
+      };
+    };
+  };
+  getSnapshot: {
+    parameters: {
+      query: {
+        /** @description The slug of a watched Team. */
+        team: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
           'application/json': components['schemas']['snapshot'];
+        };
+      };
+      /** @description The team query parameter is missing */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error'];
+        };
+      };
+      /** @description The slug is not a watched Team */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error'];
         };
       };
       /** @description No sweep of the code host has succeeded yet */

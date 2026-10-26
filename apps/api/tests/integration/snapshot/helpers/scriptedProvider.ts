@@ -1,10 +1,10 @@
-import type { PrFacts, Roster } from '@domain/facts';
+import type { PrFacts, WatchedTeam } from '@domain/facts';
 import type { Discovery, PrProvider } from '@src/providers/prProvider';
 import { FixturePrProvider } from '@src/providers/fixture/fixturePrProvider';
 
 /**
  * Serves the fixtures, or fails or waits when a test tells it to. A test can also change what the code host holds:
- * the Roster, which PRs are open, and when a PR last changed.
+ * the Teams, which PRs are open, and when a PR last changed.
  */
 export class ScriptedProvider implements PrProvider {
   /** How many sweeps started, each with a discovery. */
@@ -15,15 +15,19 @@ export class ScriptedProvider implements PrProvider {
   public failure: Error | undefined = undefined;
   /** Thrown by every read while set, after discovery succeeded. */
   public readFailure: Error | undefined = undefined;
-  /** Replaces the fixtures' Roster while set. */
-  public roster: Roster | undefined = undefined;
-  private readonly fixture = new FixturePrProvider('infra');
+  /** Replaces the fixtures' Teams while set. */
+  public teams: WatchedTeam[] | undefined = undefined;
+  private readonly fixture: FixturePrProvider;
   /** PRs a test opened, or put in place of a fixture's PR of the same id. */
   private readonly added = new Map<string, { facts: PrFacts; updatedAt: Date }>();
   private readonly removed = new Set<string>();
   private readonly closedAtRead = new Set<string>();
   private readonly touchedAt = new Map<string, Date>();
   private gate: Promise<void> | undefined;
+
+  public constructor(excludedTeams: readonly string[] = []) {
+    this.fixture = new FixturePrProvider(excludedTeams);
+  }
 
   public async discover(): Promise<Discovery> {
     this.sweeps++;
@@ -33,7 +37,7 @@ export class ScriptedProvider implements PrProvider {
     const prs = [...fixture.prs.filter((pr) => !this.added.has(pr.id)), ...added]
       .filter((pr) => !this.removed.has(pr.id))
       .map((pr) => ({ ...pr, updatedAt: this.touchedAt.get(pr.id) ?? pr.updatedAt }));
-    return { roster: this.roster ?? fixture.roster, prs };
+    return { teams: this.teams ?? fixture.teams, prs };
   }
 
   public async read(ids: readonly string[]): Promise<PrFacts[]> {

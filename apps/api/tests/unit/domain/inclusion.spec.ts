@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor, PrFacts, ReviewRequestFact } from '@domain/facts';
 import type { InclusionReason } from '@domain/trackedPr';
-import { deriveTrackedPr, deriveTeam } from '@domain/deriveTrackedPr';
-import { aDerivationConfig, anActor, aPrFacts, aReview, aRoster } from '@tests/utils/facts';
+import { deriveTrackedPr, deriveMembers } from '@domain/deriveTrackedPr';
+import { aDerivationConfig, anActor, aPrFacts, aReview, aRoster, aTeam } from '@tests/utils/facts';
 
 const now = new Date('2026-10-14T12:00:00Z');
 
@@ -16,13 +16,14 @@ const renovate = anActor({ id: 'BOT_renovate', login: 'renovate', isBot: true })
 const serviceAccount = anActor({ id: 'U_devops', login: 'mapcolonies-devops' });
 
 const roster = aRoster({ members: [alice, bob, serviceAccount], repos: ['MapColonies/opa-la'] });
+const team = aTeam({ roster });
 const outsideRepo = 'MapColonies/raster-catalog-manager';
 
 const requested = (reviewer: Actor): ReviewRequestFact => ({ type: 'person', reviewer, asCodeOwner: false });
 const teamRequested = (slug: string): ReviewRequestFact => ({ type: 'team', slug, asCodeOwner: false });
 
 function derive(overrides: Partial<PrFacts>): ReturnType<typeof deriveTrackedPr> {
-  return deriveTrackedPr(aPrFacts({ author: dave, ...overrides }), roster, aDerivationConfig(), now);
+  return deriveTrackedPr(aPrFacts({ author: dave, ...overrides }), team, aDerivationConfig(), now);
 }
 
 describe('Inclusion Reasons', function () {
@@ -93,7 +94,7 @@ describe('author kind', function () {
   });
 
   it('should classify every Team Member', function () {
-    const team = deriveTeam(roster, aDerivationConfig());
+    const team = deriveMembers(roster, aDerivationConfig());
 
     expect(team).toEqual([
       { login: 'alice', kind: 'member' },

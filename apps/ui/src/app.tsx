@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFilters } from '@/filters/use-filters';
-import { STORAGE_KEYS, useStoredString } from '@/lib/local-storage';
+import { STORAGE_KEYS, migrateNotificationKeys, migrateRememberedTeam, useStoredString } from '@/lib/local-storage';
 import { useNow } from '@/lib/use-now';
 import { popUp } from '@/notifications/pop-up';
 import { useNotifications } from '@/notifications/use-notifications';
 import { useOsNotifications } from '@/notifications/use-os-notifications';
 import { viewerOptions } from '@/snapshot/selectors';
-import { isWarming, useSnapshot } from '@/snapshot/use-snapshot';
+import { UnknownTeamError, isWarming, useSnapshot, useTeams } from '@/snapshot/use-snapshot';
+import { FirstVisitModal } from '@/shell/first-visit-modal';
 import { HeaderCounts } from '@/shell/header-counts';
 import { NewVersionBanner } from '@/shell/new-version-banner';
 import { NotificationsDrawer } from '@/shell/notifications-drawer';
@@ -14,6 +15,8 @@ import { OutOfDateBanner } from '@/shell/out-of-date-banner';
 import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
 import { ThemeToggle } from '@/shell/theme-toggle';
 import { useTheme } from '@/shell/use-theme';
+import { TeamPicker } from '@/shell/team-picker';
+import { useTeam } from '@/shell/use-team';
 import { ViewerPicker } from '@/shell/viewer-picker';
 import { useLastView } from '@/shell/use-last-view';
 import { ViewSwitcher } from '@/shell/view-switcher';
@@ -38,29 +41,41 @@ function apiProblem(error: unknown, isError: boolean): ApiProblem | null {
   return isWarming(error) ? 'restarted' : 'unreachable';
 }
 
-/** What shows before there is a Snapshot to show. */
-function StartupState({ error }: { error: unknown }) {
-  let message = 'Loading…';
+/** What shows before there is something to show: why not yet. */
+function startupMessage(error: unknown): string {
   if (isWarming(error)) {
-    message = error.sync.lastError
+    return error.sync.lastError
       ? `Waiting for the first sync with GitHub — the last attempt failed: ${error.sync.lastError}`
       : 'Waiting for the first sync with GitHub…';
-  } else if (error) {
-    message = 'Can’t reach the StaleMate API. Retrying…';
   }
-  return <p className="p-10 text-center text-muted-foreground">{message}</p>;
+  return error ? 'Can’t reach the StaleMate API. Retrying…' : 'Loading…';
 }
 
 export default function App() {
+  // Before anything reads them: each Viewer's Notifications from before they were kept per Team move to infra's, and a
+  // browser that has used StaleMate before remembers infra, so only a new one is asked which Team.
+  useState(() => {
+    migrateNotificationKeys();
+    migrateRememberedTeam();
+  });
   const os = useOsNotifications();
-  const { data: snapshot, error, isError } = useSnapshot({ inBackground: os.enabled });
+  const { data: teams, error: teamsError } = useTeams();
+  const knownTeams = useMemo(() => teams?.map((team) => team.slug), [teams]);
+  const { team, selectTeam, dropTeam } = useTeam(knownTeams);
+  const { data: snapshot, error, isError } = useSnapshot({ team, inBackground: os.enabled });
+  // A Team the API turned away is dropped, and the Snapshot is asked for again without it.
+  useEffect(() => {
+    if (team !== null && error instanceof UnknownTeamError) {
+      dropTeam(team);
+    }
+  }, [team, error, dropTeam]);
   const [storedViewer, setViewer] = useStoredString(STORAGE_KEYS.viewer);
   const [view, setView] = useLastView();
   const theme = useTheme();
   const now = useNow();
 
-  const options = useMemo(() => (snapshot ? viewerOptions(snapshot.team) : []), [snapshot]);
-  // A stored Viewer who has left the Team is no Viewer.
+  const options = useMemo(() => (teams ? viewerOptions(teams) : []), [teams]);
+  // A stored Viewer who is in no Team is no Viewer.
   const viewer = storedViewer !== null && options.includes(storedViewer) ? storedViewer : null;
   const { filters } = useFilters();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -77,11 +92,12 @@ export default function App() {
         <Logo />
         <ViewSwitcher view={view} onChange={setView} />
         {/* When the bar runs short, the counts give way first; the controls on the right never do. */}
-        {snapshot && <HeaderCounts prs={snapshot.prs} viewer={viewer} />}
+        {snapshot && <HeaderCounts prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} viewer={viewer} />}
         <div className="ml-auto flex shrink-0 items-center gap-4">
-          {snapshot && <SyncStatus snapshot={snapshot} now={now} apiProblem={apiProblem(error, isError)} />}
+          {snapshot && team !== null && <SyncStatus snapshot={snapshot} team={team} now={now} apiProblem={apiProblem(error, isError)} />}
           <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />
-          {snapshot && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
+          {teams && team !== null && <TeamPicker teams={teams} team={team} onChange={selectTeam} />}
+          {teams && team !== null && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
           <NotificationsDrawer
             notifications={notifications}
             prs={snapshot?.prs ?? []}
@@ -101,8 +117,21 @@ export default function App() {
         {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
         {snapshot && view === 'inbox' && <InboxView snapshot={snapshot} viewer={viewer} now={now} />}
         {snapshot && view === 'board' && <BoardView snapshot={snapshot} viewer={viewer} now={now} />}
-        {!snapshot && <StartupState error={error} />}
+        {team !== null && !snapshot && <p className="p-10 text-center text-muted-foreground">{startupMessage(error)}</p>}
       </main>
+      {team === null && (
+        <FirstVisitModal
+          teams={teams}
+          viewers={options}
+          status={startupMessage(teamsError)}
+          onChoose={(slug, login) => {
+            selectTeam(slug);
+            if (login !== null) {
+              setViewer(login);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -202,7 +202,7 @@ export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
     // The Board fills the window: the columns scroll down on their own, and the Board scrolls across.
     <section className="flex h-full flex-col">
       <div className="shrink-0 space-y-2.5 border-b bg-background px-5 py-3">
-        <FilterBar prs={snapshot.prs} org={org} filters={filters} onChange={setFilters} onReset={resetFilters} />
+        <FilterBar prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} org={org} filters={filters} onChange={setFilters} onReset={resetFilters} />
         <div className="flex items-center gap-3">
           <OrderSelect order={order} onChange={setOrder} />
           <StatsStrip stats={stats} thresholds={snapshot.config.urgencyThresholds} viewer={viewer} />

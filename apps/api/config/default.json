@@ -29,8 +29,8 @@
       }
     }
   },
-  "team": {
-    "slug": "infra"
+  "teams": {
+    "excluded": []
   },
   "bots": {
     "logins": ["mapcolonies-devops", "mapcolonies-org"]

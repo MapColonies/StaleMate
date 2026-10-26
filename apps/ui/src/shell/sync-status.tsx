@@ -125,10 +125,21 @@ function SyncLine({ status }: { status: Status }) {
 }
 
 /** How fresh the Snapshot is, and "Refresh now": a line of text, or a dot below 1280px. */
-export function SyncStatus({ snapshot, now, apiProblem }: { snapshot: Snapshot; now: number; apiProblem: ApiProblem | null }) {
+export function SyncStatus({
+  snapshot,
+  team,
+  now,
+  apiProblem,
+}: {
+  snapshot: Snapshot;
+  /** The Team the Snapshot was asked for. */
+  team: string;
+  now: number;
+  apiProblem: ApiProblem | null;
+}) {
   const compact = useCompact();
   // Here, not in the dot or the line, so a failed refresh still shows after the window crosses 1280px.
-  const refresh = useRefresh();
+  const refresh = useRefresh(team);
   const { sync, readAt } = snapshot;
   const syncing = sync.state === 'syncing' || refresh.isPending;
   const cooldownSeconds = Math.ceil((refreshAvailableAt(snapshot) - now) / SECOND);

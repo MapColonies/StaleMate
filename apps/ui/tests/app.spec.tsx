@@ -1,11 +1,11 @@
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/app';
-import type { Snapshot, SyncState } from '@/snapshot/types';
-import { onRequest, requests } from './http-stub';
-import { aPr, aSnapshot, bot, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
+import type { Snapshot, SyncState, WatchedTeam } from '@/snapshot/types';
+import { onRequest, requests, requestsWithQuery } from './http-stub';
+import { aPr, aSnapshot, aTeam, bot, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 import { stubCompactWindow } from './window-width';
 
 const SECOND = 1000;
@@ -24,14 +24,21 @@ function renderApp() {
   return { ...rendered, queryClient };
 }
 
-function serve(snapshot: Snapshot): void {
+/** Serves the Snapshot, and /teams listing its Team with the Snapshot's members unless `teams` says otherwise. */
+function serve(snapshot: Snapshot, teams: WatchedTeam[] = [aTeam(snapshot.teamInfo.slug, snapshot.teamInfo.name, snapshot.team)]): void {
   onRequest('GET', '/api/snapshot', { status: 200, body: snapshot });
+  onRequest('GET', '/api/teams', { status: 200, body: teams });
 }
 
 /** A Snapshot read 40 s ago, whose sweep's refresh cooldown has passed. */
 function aFreshSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return aSnapshot({ readAt: ago(40 * SECOND), sync: { state: 'idle', lastAttemptAt: ago(40 * SECOND) }, ...overrides });
 }
+
+// Most tests are about a browser that has been here before, and remembers infra; the first visit has its own.
+beforeEach(() => {
+  window.localStorage.setItem('stalemate.team', 'infra');
+});
 
 const alice = member('alice');
 const bob = member('bob');
@@ -43,7 +50,11 @@ describe('before the first sync', () => {
     renderApp();
 
     await screen.findByText(/waiting for the first sync/i);
-    expect(requests().filter((request) => request !== 'GET /version.json')).toEqual(['GET /api/snapshot']);
+    expect(
+      requests()
+        .filter((request) => request !== 'GET /version.json')
+        .sort()
+    ).toEqual(['GET /api/snapshot', 'GET /api/teams']);
   });
 
   it('says why the first sync is failing', async () => {
@@ -99,6 +110,195 @@ describe('"I am…"', () => {
     renderApp();
 
     expect(await screen.findByLabelText(/I am/)).toHaveValue('');
+  });
+});
+
+const raster = aTeam('raster', 'Raster Team', [member('dave'), bob]);
+const infra = aTeam('infra', 'Infra', [alice, bob, bot('mapcolonies-devops')]);
+
+/** Serves the Teams, and each one's slice on `?team=`; without it, infra's. */
+function serveTeams(slices: Record<string, Snapshot>): void {
+  const teams = Object.values(slices).map((slice) => aTeam(slice.teamInfo.slug, slice.teamInfo.name, slice.team));
+  onRequest('GET', '/api/teams', { status: 200, body: teams });
+  onRequest('GET', '/api/snapshot', (url) => {
+    const slice = slices[url.searchParams.get('team') ?? 'infra'];
+    return slice ? { status: 200, body: slice } : { status: 404, body: { message: 'unknown team' } };
+  });
+}
+
+const raster_slice = (overrides: Partial<Snapshot> = {}) =>
+  aFreshSnapshot({ teamInfo: { slug: 'raster', name: 'Raster Team' }, team: raster.members, ...overrides });
+
+describe('the Team dropdown', () => {
+  const rasterPr = aPr({ title: 'Raster only', author: member('dave'), waitingOn: [{ type: 'team', slug: 'raster', viaTeam: true }] });
+  const infraPr = aPr({ title: 'Infra only' });
+
+  function serveBoth(): void {
+    serveTeams({ infra: aFreshSnapshot({ prs: [infraPr] }), raster: raster_slice({ prs: [rasterPr] }) });
+  }
+
+  it('lists the Teams by display name, with the slug as the value', async () => {
+    serveBoth();
+
+    renderApp();
+
+    const picker = await screen.findByLabelText('Team');
+    const options = within(picker).getAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual(['Infra', 'Raster Team']);
+    expect(options.map((option) => option.getAttribute('value'))).toEqual(['infra', 'raster']);
+  });
+
+  it('shows the Team picked, asking for its Snapshot and writing ?team= and the remembered Team', async () => {
+    serveBoth();
+    renderApp();
+    await screen.findByText('Infra only');
+
+    await userEvent.selectOptions(screen.getByLabelText('Team'), 'raster');
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+    expect(screen.queryByText('Infra only')).not.toBeInTheDocument();
+    expect(requestsWithQuery()).toContain('GET /api/snapshot?team=raster');
+    expect(window.location.search).toBe('?team=raster');
+    expect(window.localStorage.getItem('stalemate.team')).toBe('raster');
+    expect(screen.getByLabelText('Team')).toHaveValue('raster');
+  });
+
+  it('opens the Team in the URL', async () => {
+    window.history.replaceState(null, '', '/?team=raster');
+    window.localStorage.setItem('stalemate.team', 'infra');
+    serveBoth();
+
+    renderApp();
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+    // Opening a link leaves the remembered Team alone.
+    expect(window.localStorage.getItem('stalemate.team')).toBe('infra');
+  });
+
+  it('opens the remembered Team when the URL names none', async () => {
+    window.localStorage.setItem('stalemate.team', 'raster');
+    serveBoth();
+
+    renderApp();
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+  });
+
+  it('drops a Team that is not in /teams, from the URL and from storage', async () => {
+    window.history.replaceState(null, '', '/?team=ghost');
+    window.localStorage.setItem('stalemate.team', 'phantom');
+    serveBoth();
+
+    renderApp();
+
+    // Neither is a Team, so the visitor is asked.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await waitFor(() => expect(window.location.search).toBe(''));
+    expect(window.localStorage.getItem('stalemate.team')).toBeNull();
+  });
+
+  it('falls back to the remembered Team when the URL names an unknown one', async () => {
+    window.history.replaceState(null, '', '/?team=ghost');
+    window.localStorage.setItem('stalemate.team', 'raster');
+    serveBoth();
+
+    renderApp();
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+  });
+
+  it('drops a Team the Snapshot is answered 404 for', async () => {
+    window.history.replaceState(null, '', '/?team=gone');
+    window.localStorage.setItem('stalemate.team', 'gone');
+    onRequest('GET', '/api/teams', { status: 200, body: [infra, aTeam('gone', 'Gone', [])] });
+    onRequest('GET', '/api/snapshot', (url) =>
+      url.searchParams.get('team') === 'gone'
+        ? { status: 404, body: { message: 'unknown team' } }
+        : { status: 200, body: aFreshSnapshot({ prs: [infraPr] }) }
+    );
+
+    renderApp();
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(window.location.search).toBe('');
+    expect(window.localStorage.getItem('stalemate.team')).toBeNull();
+  });
+
+  it('asks again when the remembered Team no longer exists, rather than landing on another', async () => {
+    window.localStorage.setItem('stalemate.team', 'phantom');
+    serveBoth();
+
+    renderApp();
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await waitFor(() => expect(window.localStorage.getItem('stalemate.team')).toBeNull());
+    expect(screen.queryByText('Infra only')).not.toBeInTheDocument();
+  });
+
+  it('names the Team of the Snapshot in the header counts, the switch and the Inbox', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'dave');
+    window.localStorage.setItem('stalemate.view', 'inbox');
+    window.history.replaceState(null, '', '/?team=raster');
+    serveBoth();
+
+    renderApp();
+
+    expect(await screen.findByTestId('my-turn')).toHaveTextContent('via @raster');
+    expect(screen.getByText('Ignore requests to @raster')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Rest of Raster Team' })).toBeInTheDocument();
+  });
+
+  describe('"I am…"', () => {
+    it('lists every Team’s members, and keeps the Viewer across Team switches', async () => {
+      window.localStorage.setItem('stalemate.viewer', 'alice');
+      serveBoth();
+      renderApp();
+      const picker = await screen.findByLabelText(/I am/);
+      expect(
+        within(picker)
+          .getAllByRole('option')
+          .map((option) => option.textContent)
+      ).toEqual(['Pick yourself…', 'alice', 'bob', 'carol', 'dave']);
+
+      await userEvent.selectOptions(screen.getByLabelText('Team'), 'raster');
+      await screen.findByText('Raster only');
+
+      expect(screen.getByLabelText(/I am/)).toHaveValue('alice');
+    });
+
+    it('never changes the Team when the Viewer picks themselves', async () => {
+      window.history.replaceState(null, '', '/?team=raster');
+      serveBoth();
+      renderApp();
+      await screen.findByText('Raster only');
+
+      await userEvent.selectOptions(screen.getByLabelText(/I am/), 'alice');
+
+      expect(screen.getByLabelText('Team')).toHaveValue('raster');
+      expect(window.location.search).toBe('?team=raster');
+    });
+  });
+
+  describe('switching Team', () => {
+    it('clears the filters but keeps the view, tab, sort, order, hidden columns, theme and Viewer', async () => {
+      window.localStorage.setItem('stalemate.viewer', 'alice');
+      window.localStorage.setItem('stalemate.view', 'table');
+      window.localStorage.setItem('stalemate.theme', 'dark');
+      window.localStorage.setItem('stalemate.table.hiddenColumns', JSON.stringify(['repo']));
+      window.history.replaceState(null, '', '/?team=infra&repo=MapColonies%2Fopa-la&q=thing&hideBots=0&tab=mine&sort=repo.asc&order=oldest');
+      serveBoth();
+      renderApp();
+      await screen.findByLabelText('Team');
+
+      await userEvent.selectOptions(screen.getByLabelText('Team'), 'raster');
+
+      const params = new URLSearchParams(window.location.search);
+      expect(Object.fromEntries(params)).toEqual({ team: 'raster', tab: 'mine', sort: 'repo.asc', order: 'oldest' });
+      expect(window.localStorage.getItem('stalemate.view')).toBe('table');
+      expect(window.localStorage.getItem('stalemate.theme')).toBe('dark');
+      expect(window.localStorage.getItem('stalemate.table.hiddenColumns')).toBe(JSON.stringify(['repo']));
+      expect(screen.getByLabelText(/I am/)).toHaveValue('alice');
+    });
   });
 });
 
@@ -550,7 +750,7 @@ describe('the Notifications bell', () => {
   it('starts over quietly when what this browser saved is damaged', async () => {
     window.localStorage.setItem('stalemate.viewer', 'alice');
     window.localStorage.setItem(
-      'stalemate.notifications.alice',
+      'stalemate.notifications.infra.alice',
       JSON.stringify({ hideViaTeam: false, seenAt: Date.now(), owed: {}, notifications: [null] })
     );
 
@@ -569,6 +769,74 @@ describe('the Notifications bell', () => {
     await waitFor(() => expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument());
 
     await userEvent.selectOptions(screen.getByLabelText(/I am/), 'alice');
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+  });
+});
+
+describe('Notifications per Team', () => {
+  const onAlice = (title: string) => aPr({ title, author: bob, waitingOn: [waitingOnReviewer(alice)] });
+  const rasterSlice = (prs: Snapshot['prs']) => raster_slice({ prs });
+  const count = () => screen.queryByTestId('notification-count');
+
+  it('moves a Viewer’s Notifications from before Teams to infra’s, dismissals kept', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const kept = onAlice('Still there');
+    const dismissed = onAlice('Dismissed');
+    window.localStorage.setItem(
+      'stalemate.notifications.alice',
+      JSON.stringify({
+        hideViaTeam: false,
+        seenAt: Date.now(),
+        owed: { [kept.id]: ['review'], [dismissed.id]: ['review'] },
+        notifications: [{ prId: kept.id, moves: ['review'], noticedAt: Date.now() }],
+      })
+    );
+    serve(aFreshSnapshot({ prs: [kept, dismissed] }));
+
+    renderApp();
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+    expect(window.localStorage.getItem('stalemate.notifications.alice')).toBeNull();
+    expect(window.localStorage.getItem('stalemate.notifications.infra.alice')).not.toBeNull();
+  });
+
+  it('keeps state already under infra’s key over the old one', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const state = (notifications: unknown[]) => JSON.stringify({ hideViaTeam: false, seenAt: Date.now(), owed: {}, notifications });
+    window.localStorage.setItem('stalemate.notifications.alice', state([null]));
+    window.localStorage.setItem('stalemate.notifications.infra.alice', state([]));
+    serve(aFreshSnapshot());
+
+    renderApp();
+
+    await screen.findByTestId('no-reviewer');
+    expect(window.localStorage.getItem('stalemate.notifications.alice')).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem('stalemate.notifications.infra.alice') ?? '{}').notifications).toEqual([]);
+  });
+
+  it('raises none by switching Team, and shows a Team’s news since it was last seen on coming back', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const infraOld = onAlice('Infra old');
+    const rasterPr = onAlice('Raster one');
+    let infraPrs = [infraOld];
+    onRequest('GET', '/api/teams', { status: 200, body: [infra, raster] });
+    onRequest('GET', '/api/snapshot', (url) => ({
+      status: 200,
+      body: url.searchParams.get('team') === 'raster' ? rasterSlice([rasterPr]) : aFreshSnapshot({ prs: infraPrs }),
+    }));
+    const { queryClient } = renderApp();
+    await screen.findByText('Infra old');
+
+    await userEvent.selectOptions(screen.getByLabelText('Team'), 'raster');
+    await screen.findByText('Raster one');
+    expect(count()).not.toBeInTheDocument();
+
+    // News lands on infra while the tab looks at raster.
+    infraPrs = [infraOld, onAlice('Infra news')];
+    await userEvent.selectOptions(screen.getByLabelText('Team'), 'infra');
+    await screen.findByText('Infra news');
+    await act(() => queryClient.refetchQueries());
+
     expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
   });
 });
@@ -709,7 +977,7 @@ describe('the Notifications drawer', () => {
 
     /** The browser tells the tabs another tab saved Alice's Notifications. */
     function storageEvent(): void {
-      const key = 'stalemate.notifications.alice';
+      const key = 'stalemate.notifications.infra.alice';
       act(() => {
         window.dispatchEvent(new StorageEvent('storage', { key, newValue: window.localStorage.getItem(key), storageArea: window.localStorage }));
       });
@@ -1091,5 +1359,171 @@ describe('OS notifications', () => {
 
       expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
     });
+  });
+});
+
+describe('the first visit', () => {
+  const infraPr = aPr({ title: 'Infra only' });
+  const rasterPr = aPr({ title: 'Raster only', author: member('dave'), waitingOn: [{ type: 'team', slug: 'raster', viaTeam: true }] });
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    serveTeams({ infra: aFreshSnapshot({ prs: [infraPr] }), raster: raster_slice({ prs: [rasterPr] }) });
+  });
+
+  it('asks which Team before any PR loads, and makes no Snapshot request', async () => {
+    renderApp();
+
+    const modal = await screen.findByRole('dialog');
+    expect(await within(modal).findByLabelText('Team')).toHaveValue('');
+    expect(within(modal).getByRole('button', { name: 'Show PRs' })).toBeDisabled();
+    expect(requests().filter((request) => request.includes('/snapshot'))).toEqual([]);
+  });
+
+  it('cannot be dismissed with Escape or a click outside', async () => {
+    renderApp();
+    await within(await screen.findByRole('dialog')).findByLabelText('Team');
+
+    await userEvent.keyboard('{Escape}');
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(document.body);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('shows the Team chosen, with the person if one is, and remembers both', async () => {
+    renderApp();
+    const modal = await screen.findByRole('dialog');
+
+    await userEvent.selectOptions(await within(modal).findByLabelText('Team'), 'raster');
+    await userEvent.selectOptions(within(modal).getByLabelText(/I am/), 'dave');
+    await userEvent.click(within(modal).getByRole('button', { name: 'Show PRs' }));
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('stalemate.team')).toBe('raster');
+    expect(window.localStorage.getItem('stalemate.viewer')).toBe('dave');
+    expect(window.location.search).toBe('?team=raster');
+    expect(requestsWithQuery().filter((request) => request.includes('/snapshot'))).toEqual(['GET /api/snapshot?team=raster']);
+  });
+
+  it('lets the visitor skip "I am"', async () => {
+    renderApp();
+    const modal = await screen.findByRole('dialog');
+
+    await userEvent.selectOptions(await within(modal).findByLabelText('Team'), 'infra');
+    await userEvent.click(within(modal).getByRole('button', { name: 'Show PRs' }));
+
+    expect(await screen.findByText('Infra only')).toBeInTheDocument();
+    expect(window.localStorage.getItem('stalemate.viewer')).toBeNull();
+    expect(screen.getByLabelText(/I am/)).toHaveValue('');
+  });
+
+  it.each([
+    ['stalemate.viewer', 'alice'],
+    ['stalemate.theme', 'light'],
+    ['stalemate.notifications.alice', '{}'],
+  ])('goes straight to infra for a browser that has %s, without the modal', async (key, value) => {
+    window.localStorage.setItem(key, value);
+
+    renderApp();
+
+    expect(await screen.findByText('Infra only')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('stalemate.team')).toBe('infra');
+  });
+
+  it('asks with the modal, not infra, once the migration has run and the remembered Team is gone', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    window.localStorage.setItem('stalemate.team', 'phantom');
+
+    renderApp();
+    await waitFor(() => expect(window.localStorage.getItem('stalemate.team')).toBeNull());
+    cleanup();
+    renderApp();
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(window.localStorage.getItem('stalemate.team')).toBeNull();
+  });
+
+  it('prefers the URL, then the remembered Team, over the migration', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    window.localStorage.setItem('stalemate.team', 'raster');
+
+    renderApp();
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+    expect(window.localStorage.getItem('stalemate.team')).toBe('raster');
+  });
+
+  it('prefers the URL over the migration', async () => {
+    window.history.replaceState(null, '', '/?team=raster');
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+
+    renderApp();
+
+    expect(await screen.findByText('Raster only')).toBeInTheDocument();
+  });
+
+  it('falls through an unknown URL Team to the migration', async () => {
+    window.history.replaceState(null, '', '/?team=ghost');
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+
+    renderApp();
+
+    expect(await screen.findByText('Infra only')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('falls through an unknown URL Team to the modal on a new browser', async () => {
+    window.history.replaceState(null, '', '/?team=ghost');
+
+    renderApp();
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Team')).toHaveValue('');
+  });
+
+  it('says the API is warming while /teams cannot answer', async () => {
+    onRequest('GET', '/api/teams', { status: 503, body: { status: 'warming', sync: { state: 'idle', lastAttemptAt: ago(MINUTE) } } });
+
+    renderApp();
+
+    const modal = await screen.findByRole('dialog');
+    expect(await within(modal).findByText(/Waiting for the first sync with GitHub/)).toBeInTheDocument();
+    expect(within(modal).queryByLabelText('Team')).not.toBeInTheDocument();
+    expect(requests().filter((request) => request.includes('/snapshot'))).toEqual([]);
+  });
+
+  it('shows the pickers once /teams answers, after it was warming on load', async () => {
+    window.localStorage.setItem('stalemate.team', 'infra');
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const snapshot = aFreshSnapshot();
+      serve(snapshot);
+      onRequest('GET', '/api/teams', { status: 503, body: { status: 'warming', sync: { state: 'syncing' } } });
+
+      renderApp();
+      await waitFor(() => expect(requests().some((request) => request.includes('/api/teams'))).toBe(true));
+      await waitFor(() => expect(requests().join()).toContain('/api/snapshot'));
+      expect(screen.queryByLabelText('I am')).not.toBeInTheDocument();
+
+      serve(snapshot);
+      await act(() => vi.advanceTimersByTimeAsync(15 * SECOND));
+
+      expect(await screen.findByLabelText('I am')).toBeInTheDocument();
+      expect(screen.getByLabelText('Team')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says the API cannot be reached while /teams cannot answer', async () => {
+    onRequest('GET', '/api/teams', 'unreachable');
+
+    renderApp();
+
+    expect(await within(await screen.findByRole('dialog')).findByText(/can’t reach the StaleMate API/i)).toBeInTheDocument();
+    expect(requests().filter((request) => request.includes('/snapshot'))).toEqual([]);
   });
 });

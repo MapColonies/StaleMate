@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers -- fixture data */
 import type { Actor, PrFacts, ReviewFact, ReviewThreadFact, Roster, ThreadCommentFact } from '@domain/facts';
+import type { Team } from '@domain/inclusion';
 import type { DerivationConfig } from '@domain/deriveTrackedPr';
 
 export function anActor(overrides: Partial<Actor> = {}): Actor {
@@ -61,9 +62,12 @@ export function aRoster(overrides: Partial<Roster> = {}): Roster {
   };
 }
 
+export function aTeam(overrides: Partial<Team> = {}): Team {
+  return { slug: 'infra', roster: aRoster(), ...overrides };
+}
+
 export function aDerivationConfig(overrides: Partial<DerivationConfig> = {}): DerivationConfig {
   return {
-    teamSlug: 'infra',
     botLogins: ['mapcolonies-devops', 'mapcolonies-org'],
     urgencyThresholds: [2, 4, 8],
     extraNonWorkingDays: ['2026-10-27'],

@@ -1,0 +1,18 @@
+{
+  "data": {
+    "search": {
+      "issueCount": 0,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": []
+    },
+    "rateLimit": {
+      "cost": 1,
+      "remaining": 4932,
+      "limit": 5000,
+      "resetAt": "2026-10-26T10:28:36Z"
+    }
+  }
+}

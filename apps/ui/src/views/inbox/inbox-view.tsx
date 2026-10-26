@@ -28,12 +28,13 @@ import { type Bucket, type BucketKey, inboxBuckets } from './buckets';
 import { FacetSidebar } from './facet-filters';
 import { FiltersPanel } from './filters-panel';
 
-const BUCKET_HEADINGS: Record<BucketKey, { title: string; hint: string; icon: ReactNode }> = {
+/** The Rest of the Team is named for the Team the Snapshot is for. */
+const bucketHeadings = (teamName: string): Record<BucketKey, { title: string; hint: string; icon: ReactNode }> => ({
   yourTurn: { title: 'Your turn', hint: 'You owe the next move', icon: <Inbox className="size-4" /> },
   yourPrs: { title: 'Your PRs, waiting on others', hint: 'Nudge someone?', icon: <Send className="size-4" /> },
   noReviewer: { title: 'No Reviewer', hint: 'Nobody owes a review — the author has to find a reviewer', icon: <TriangleAlert className="size-4" /> },
-  rest: { title: 'Rest of the Team', hint: 'Waiting on someone else', icon: <Eye className="size-4" /> },
-};
+  rest: { title: `Rest of ${teamName}`, hint: 'Waiting on someone else', icon: <Eye className="size-4" /> },
+});
 
 /** What the rows need beyond the PR. */
 interface RowContext {
@@ -41,6 +42,8 @@ interface RowContext {
   hideViaTeam: boolean;
   now: number;
   jiraBaseUrl: string | undefined;
+  /** The display name of the Team the Snapshot is for. */
+  teamName: string;
   /** The org every Tracked PR's repo is in, which the rows leave out. */
   org: string | null;
   /** Whether the window is too narrow for Waiting On to have a column of its own. */
@@ -108,7 +111,7 @@ function InboxRow({ pr, context: { viewer, hideViaTeam, now, jiraBaseUrl, org, c
 
 function BucketSection({ bucket, context, defaultOpen }: { bucket: Bucket; context: RowContext; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { title, hint, icon } = BUCKET_HEADINGS[bucket.key];
+  const { title, hint, icon } = bucketHeadings(context.teamName)[bucket.key];
   return (
     <section aria-label={title}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="mb-2 flex w-full items-center gap-2 text-left">
@@ -141,9 +144,17 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const buckets = useMemo(() => inboxBuckets(filtered, viewer, filters, order), [filtered, viewer, filters, order]);
   const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
   const compact = useCompact();
-  const context: RowContext = { viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org, compact };
+  const context: RowContext = {
+    viewer,
+    hideViaTeam: filters.hideViaTeam,
+    now,
+    jiraBaseUrl: snapshot.config.jiraBaseUrl,
+    teamName: snapshot.teamInfo.name,
+    org,
+    compact,
+  };
   const active = activeFilterCount(filters);
-  const filterProps = { prs: snapshot.prs, org, filters, viewer, onChange: setFilters };
+  const filterProps = { prs: snapshot.prs, teamSlug: snapshot.teamInfo.slug, org, filters, viewer, onChange: setFilters };
 
   return (
     <div className="flex min-h-full">

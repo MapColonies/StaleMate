@@ -9,15 +9,15 @@
       "nodes": [
         {
           "id": "PR_kwDOE7Sle86IQw5X",
-          "updatedAt": "2025-02-03T10:37:51Z"
+          "updatedAt": "2025-03-12T07:03:34Z"
         }
       ]
     },
     "rateLimit": {
       "cost": 1,
-      "remaining": 4970,
+      "remaining": 4927,
       "limit": 5000,
-      "resetAt": "2026-10-15T08:07:02Z"
+      "resetAt": "2026-10-26T10:28:36Z"
     }
   }
 }

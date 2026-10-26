@@ -9,15 +9,22 @@ import { typeSymbol } from '@map-colonies/schemas/build/schemas/symbol';
 
 const stalemateSchema = {
   type: 'object',
-  required: ['team', 'bots', 'extraNonWorkingDays', 'urgency', 'checks', 'jira', 'sync', 'provider', 'githubApp'],
+  required: ['teams', 'bots', 'extraNonWorkingDays', 'urgency', 'checks', 'jira', 'sync', 'provider', 'githubApp'],
   properties: {
-    team: {
+    teams: {
       type: 'object',
       default: {},
-      required: ['slug'],
+      required: ['excluded'],
       additionalProperties: false,
       properties: {
-        slug: { type: 'string', default: 'infra', description: 'The slug of the GitHub Team whose PRs are tracked', 'x-env-value': 'TEAM_SLUG' },
+        excluded: {
+          type: 'array',
+          default: [],
+          description: 'Slugs of the GitHub Teams StaleMate leaves out. Every other Team in the org is watched',
+          items: { type: 'string' },
+          'x-env-value': 'EXCLUDED_TEAMS',
+          'x-env-format': 'json',
+        },
       },
     },
     bots: {

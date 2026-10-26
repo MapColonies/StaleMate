@@ -8,8 +8,8 @@ import type {
   ReviewFact,
   ReviewRequestFact,
   ReviewThreadFact,
-  Roster,
   TimelineEventFact,
+  WatchedTeam,
 } from '@domain/facts';
 import { deriveJiraTickets } from '@domain/jiraTickets';
 import { deriveInclusionReasons } from '@domain/inclusion';
@@ -19,6 +19,7 @@ import {
   DEPENDENCIES,
   ENVIRONMENTS,
   HUMAN_TITLES,
+  INFRA_TEAM_SLUG,
   MEMBERS,
   ORG,
   OTHER_REPOS,
@@ -26,6 +27,9 @@ import {
   OUTSIDERS,
   SERVICE_ACCOUNTS,
   TEAM_REPOS,
+  TEAMLESS,
+  THREE_D_TEAM_SLUG,
+  UNOWNED_REPOS,
 } from './fixtureData';
 
 const SEED = 20261012;
@@ -95,7 +99,44 @@ const byTime =
   (a: T, b: T): number =>
     at(a).getTime() - at(b).getTime();
 
-const ROSTER: Roster = { members: [...MEMBERS, ...SERVICE_ACCOUNTS], repos: TEAM_REPOS.map((name) => `${ORG}/${name}`) };
+const inOrg = (names: readonly string[]): string[] => names.map((name) => `${ORG}/${name}`);
+const actorNamed = (actors: readonly Actor[], login: string): Actor => {
+  const actor = actors.find((candidate) => candidate.login === login);
+  if (actor === undefined) {
+    throw new Error(`the fixture has no ${login}`);
+  }
+  return actor;
+};
+const outsider = (login: string): Actor => actorNamed(OUTSIDERS, login);
+const member = (login: string): Actor => actorNamed(MEMBERS, login);
+
+/**
+ * The Teams the fixture watches, with their real slugs and display names. People and repos sit in more than one Team:
+ * CptSchnitz and alex131290 also belong to raster and 3d, and shared-workflows to raster as well as infra.
+ */
+const TEAMS: WatchedTeam[] = [
+  { slug: INFRA_TEAM_SLUG, name: 'Infra', roster: { members: [...MEMBERS, ...SERVICE_ACCOUNTS], repos: inOrg(TEAM_REPOS) } },
+  {
+    slug: OTHER_TEAM_SLUG,
+    name: 'Raster',
+    roster: {
+      members: [outsider('dana-raster'), outsider('eyal-gis'), member('CptSchnitz')],
+      repos: inOrg(['raster-catalog-manager', 'discrete-overseer', 'shared-workflows']),
+    },
+  },
+  {
+    slug: THREE_D_TEAM_SLUG,
+    name: '3D',
+    roster: { members: [outsider('yoav-3d'), outsider('noam-catalog'), member('alex131290')], repos: inOrg(['3d-ingestion-service']) },
+  },
+  {
+    slug: 'vector',
+    name: 'Vector',
+    roster: { members: [outsider('shira-vector'), outsider('tal-export')], repos: inOrg(['vector-tiles-server', 'export-manager']) },
+  },
+];
+
+const isTrackedBy = (facts: PrFacts, teams: readonly WatchedTeam[]): boolean => teams.some((team) => deriveInclusionReasons(facts, team).length > 0);
 
 /** Generates one PR's facts. The domain derives everything else, so the facts set up each case rather than state it. */
 class PrGenerator {
@@ -103,7 +144,6 @@ class PrGenerator {
 
   public constructor(
     private readonly random: Random,
-    private readonly teamSlug: string,
     private readonly now: Date
   ) {}
 
@@ -111,7 +151,9 @@ class PrGenerator {
     const { random, now } = this;
     const inTeamRepo = random.chance(0.72);
     const repoName = random.pick(inTeamRepo ? TEAM_REPOS : OTHER_REPOS);
-    const author = this.pickAuthor(inTeamRepo);
+    const unowned = UNOWNED_REPOS.includes(repoName);
+    const author = unowned && random.chance(0.5) ? random.pick(TEAMLESS) : this.pickAuthor(inTeamRepo);
+    const teamless = unowned && TEAMLESS.includes(author);
     // Service accounts are configured as Bots, so they count as Bots here too.
     const byBot = author.isBot || SERVICE_ACCOUNTS.includes(author);
 
@@ -127,7 +169,7 @@ class PrGenerator {
       timeline.push({ type: 'readyForReview', at: readyAt, actor: author });
     }
 
-    const reviewerPool = (inTeamRepo ? MEMBERS : [...MEMBERS, ...OUTSIDERS]).filter((candidate) => candidate !== author);
+    const reviewerPool = (teamless ? TEAMLESS : inTeamRepo ? MEMBERS : [...MEMBERS, ...OUTSIDERS]).filter((candidate) => candidate !== author);
     const headCommit = this.headCommit(index, readyAt, byBot);
     const facts: PrFacts = {
       id: `PR_fixture_${index}`,
@@ -253,12 +295,12 @@ class PrGenerator {
       case 'nobody':
         return;
       case 'requested': {
-        const pool = OUTSIDERS.includes(facts.author) && !inTeamRepo ? MEMBERS : reviewerPool;
+        const pool = OUTSIDERS.includes(facts.author) && !inTeamRepo && !TEAMLESS.includes(facts.author) ? MEMBERS : reviewerPool;
         this.request(facts, random.sample(pool, random.chance(0.3) ? 2 : 1));
         if (inTeamRepo && random.chance(0.12)) {
-          this.requestTeam(facts, this.teamSlug);
+          this.requestTeam(facts, INFRA_TEAM_SLUG);
         } else if (random.chance(0.03)) {
-          this.requestTeam(facts, OTHER_TEAM_SLUG);
+          this.requestTeam(facts, index % 2 === 0 ? OTHER_TEAM_SLUG : THREE_D_TEAM_SLUG);
         }
         return;
       }
@@ -302,9 +344,12 @@ class PrGenerator {
     }
   }
 
-  /** A PR that isn't a Tracked PR yet, outside the Team Repos with no Team Member involved, gets a Team Member's comment. */
+  /**
+   * A PR no Team tracks, outside the Team Repos with no Team Member involved, gets an Infra Team Member's comment,
+   * except in a repo no Team is granted, where some PRs stay untracked.
+   */
   private ensureTracked(facts: PrFacts, index: number): void {
-    if (deriveInclusionReasons(facts, ROSTER, this.teamSlug).length > 0) {
+    if (isTrackedBy(facts, TEAMS) || UNOWNED_REPOS.includes(facts.repo.slice(ORG.length + 1))) {
       return;
     }
     facts.reviews.push({
@@ -382,14 +427,18 @@ export class FixturePrProvider implements PrProvider {
   private firstDiscoveredAt: Date | undefined;
 
   public constructor(
-    private readonly teamSlug: string,
+    private readonly excludedTeams: readonly string[] = [],
     private readonly now: () => Date = (): Date => new Date()
   ) {}
 
   public async discover(): Promise<Discovery> {
     this.firstDiscoveredAt ??= this.now();
-    const prs = this.generate(this.firstDiscoveredAt).map((facts) => ({ id: facts.id, updatedAt: lastChangedAt(facts) }));
-    return Promise.resolve({ roster: ROSTER, prs });
+    const teams = TEAMS.filter(({ slug }) => !this.excludedTeams.includes(slug));
+    // Like a real discovery, it finds only PRs some watched Team tracks.
+    const prs = this.generate(this.firstDiscoveredAt)
+      .filter((facts) => isTrackedBy(facts, teams))
+      .map((facts) => ({ id: facts.id, updatedAt: lastChangedAt(facts) }));
+    return Promise.resolve({ teams, prs });
   }
 
   public async read(ids: readonly string[]): Promise<PrFacts[]> {
@@ -398,7 +447,7 @@ export class FixturePrProvider implements PrProvider {
   }
 
   private generate(now: Date): PrFacts[] {
-    const generator = new PrGenerator(new Random(SEED), this.teamSlug, now);
+    const generator = new PrGenerator(new Random(SEED), now);
     return Array.from({ length: PR_COUNT }, (_, index) => generator.generate(index));
   }
 }

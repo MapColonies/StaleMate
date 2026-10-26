@@ -65,18 +65,36 @@ export function aRateLimit(overrides: Partial<{ cost: number; remaining: number;
   return { cost: 1, remaining: 4900, limit: 5000, resetAt: '2026-10-15T07:00:00Z', ...overrides };
 }
 
-export function aRosterResponse(members: { id: string; login: string }[], repos: { nameWithOwner: string; isArchived: boolean }[]): object {
+export interface TeamNode {
+  slug: string;
+  name: string;
+  members: { id: string; login: string }[];
+  repos: { nameWithOwner: string; isArchived: boolean }[];
+}
+
+/** The org's Teams, in the order GitHub lists them. */
+export function aTeamsResponse(teams: TeamNode[], options: { hasNextPage?: boolean } = {}): object {
   return {
     data: {
       organization: {
-        team: {
-          members: { pageInfo: { hasNextPage: false }, nodes: members.map((member) => ({ __typename: 'User', ...member })) },
-          repositories: { pageInfo: { hasNextPage: false }, nodes: repos },
+        teams: {
+          pageInfo: { hasNextPage: options.hasNextPage ?? false },
+          nodes: teams.map(({ slug, name, members, repos }) => ({
+            slug,
+            name,
+            members: { pageInfo: { hasNextPage: false }, nodes: members.map((member) => ({ __typename: 'User', ...member })) },
+            repositories: { pageInfo: { hasNextPage: false }, nodes: repos },
+          })),
         },
       },
       rateLimit: aRateLimit(),
     },
   };
+}
+
+/** An org with the one Team, infra. */
+export function aRosterResponse(members: { id: string; login: string }[], repos: { nameWithOwner: string; isArchived: boolean }[]): object {
+  return aTeamsResponse([{ slug: 'infra', name: 'Infra', members, repos }]);
 }
 
 /** Finds these PRs, given by id alone or with when GitHub last saw them change. */

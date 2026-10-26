@@ -77,7 +77,7 @@ describe('the Inbox', () => {
       'Your turn',
       'Your PRs, waiting on others',
       'No Reviewer',
-      'Rest of the Team',
+      'Rest of Infra',
     ]);
     expect(titlesIn('Your turn')).toEqual(['asks alice', 'asks the Team']);
     expect(titlesIn('Your PRs, waiting on others')).toEqual(['alice’s own']);
@@ -94,10 +94,10 @@ describe('the Inbox', () => {
   it('folds the rest of the team away, until opened', async () => {
     renderInbox(snapshot, 'alice');
 
-    expect(titlesIn('Rest of the Team')).toEqual([]);
-    await userEvent.click(within(bucket('Rest of the Team')).getByRole('button', { name: /Rest of the Team/ }));
+    expect(titlesIn('Rest of Infra')).toEqual([]);
+    await userEvent.click(within(bucket('Rest of Infra')).getByRole('button', { name: /Rest of Infra/ }));
 
-    expect(titlesIn('Rest of the Team')).toEqual(['on carol']);
+    expect(titlesIn('Rest of Infra')).toEqual(['on carol']);
   });
 
   it('asks who the Viewer is without one, and shows what is not theirs', () => {
@@ -106,7 +106,7 @@ describe('the Inbox', () => {
     expect(screen.getByText(/I am…/)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Your turn' })).not.toBeInTheDocument();
     expect(titlesIn('No Reviewer')).toEqual(['nobody asked']);
-    expect(titlesIn('Rest of the Team')).toHaveLength(4);
+    expect(titlesIn('Rest of Infra')).toHaveLength(4);
   });
 
   it('shows each PR’s repo without the org every PR shares, with the full name on hover', () => {

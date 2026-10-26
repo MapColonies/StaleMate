@@ -1,7 +1,7 @@
 {
   "data": {
     "search": {
-      "issueCount": 6,
+      "issueCount": 4,
       "pageInfo": {
         "hasNextPage": false,
         "endCursor": null
@@ -9,35 +9,27 @@
       "nodes": [
         {
           "id": "PR_kwDOJLgOiM8AAAABHSqmzA",
-          "updatedAt": "2026-10-08T13:03:32Z"
+          "updatedAt": "2026-10-25T15:25:26Z"
         },
         {
           "id": "PR_kwDONpnaH87ryZPL",
-          "updatedAt": "2026-06-29T12:54:29Z"
+          "updatedAt": "2026-06-29T12:53:11Z"
         },
         {
           "id": "PR_kwDOQm1CY869UpEM",
-          "updatedAt": "2026-10-12T17:24:57Z"
+          "updatedAt": "2026-10-12T17:23:51Z"
         },
         {
           "id": "PR_kwDOL-jpMs6psB8a",
           "updatedAt": "2025-09-21T07:30:49Z"
-        },
-        {
-          "id": "PR_kwDOO5rrzc6iOO7n",
-          "updatedAt": "2025-10-30T06:44:40Z"
-        },
-        {
-          "id": "PR_kwDOLjZFFs6Kq0bL",
-          "updatedAt": "2025-03-13T09:26:44Z"
         }
       ]
     },
     "rateLimit": {
       "cost": 1,
-      "remaining": 4971,
+      "remaining": 4930,
       "limit": 5000,
-      "resetAt": "2026-10-15T08:07:02Z"
+      "resetAt": "2026-10-26T10:28:36Z"
     }
   }
 }

@@ -37,11 +37,16 @@ function perPrQuery(operation: string, sizeVariable: string, selection: (size: s
   };
 }
 
-export const ROSTER_QUERY = `query Roster($org: String!, $team: String!) {
+export const ROSTER_QUERY = `query Roster($org: String!) {
   organization(login: $org) {
-    team(slug: $team) {
-      members(first: 100, membership: ALL) { pageInfo { hasNextPage } nodes { __typename id login } }
-      repositories(first: 100) { pageInfo { hasNextPage } nodes { nameWithOwner isArchived } }
+    teams(first: 100) {
+      pageInfo { hasNextPage }
+      nodes {
+        slug
+        name
+        members(first: 100, membership: ALL) { pageInfo { hasNextPage } nodes { __typename id login } }
+        repositories(first: 100) { pageInfo { hasNextPage } nodes { nameWithOwner isArchived } }
+      }
     }
   }
   ${RATE_LIMIT}
@@ -76,10 +81,12 @@ export interface ActorNode {
 
 export interface RosterData {
   organization: {
-    team: {
+    teams: Page<{
+      slug: string;
+      name: string;
       members: Page<ActorNode>;
       repositories: Page<{ nameWithOwner: string; isArchived: boolean }>;
-    } | null;
+    }>;
   } | null;
 }
 

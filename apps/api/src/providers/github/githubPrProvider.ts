@@ -1,5 +1,5 @@
 import type { Logger } from '@map-colonies/js-logger';
-import type { PrFacts, Roster } from '@domain/facts';
+import type { PrFacts, WatchedTeam } from '@domain/facts';
 import type { SyncMetrics } from '../../sync/syncMetrics';
 import type { DiscoveredPr, Discovery, PrProvider } from '../prProvider';
 import { createGetToken, type GithubAuthConfig } from './auth';
@@ -29,6 +29,11 @@ const ORG = 'MapColonies';
 const MAX_SEARCH_TERMS = 50;
 
 /** A search returns at most 1,000 results. */
+const SEARCH_RESULTS_CAP = 1000;
+
+const HALVES = 2;
+
+/** A search this near the cap is warned about early. */
 const SEARCH_RESULTS_WARNING = 800;
 
 /** GitHub kills a call that takes over 10 s, and 50 PRs take about 5 s. */
@@ -44,27 +49,54 @@ function sizedRead(id: string, count: number): SizedRead {
   return { id, size: Math.min(count + SIZE_HEADROOM, MAX_PAGE_SIZE) };
 }
 
+/** A search for PRs matching any of the groups of qualifiers; a group is never split across searches, so it is the smallest a search can get. */
+interface SearchBatch {
+  base: string;
+  groups: string[][];
+}
+
+function queryOf({ base, groups }: SearchBatch): string {
+  const terms = groups.flat();
+  return terms.length === 1 ? `${base} ${terms[0]}` : `${base} (${terms.join(' OR ')})`;
+}
+
 /**
  * Builds the searches that find PRs matching any of the groups of qualifiers, each group kept in one search.
  * In advanced search a bare space between qualifiers means AND, so they are joined by OR.
  */
-function anyOf(base: string, qualifierGroups: readonly string[][]): string[] {
-  const queries: string[] = [];
-  let terms: string[] = [];
+function anyOf(base: string, qualifierGroups: readonly string[][]): SearchBatch[] {
+  const batches: SearchBatch[] = [];
+  let groups: string[][] = [];
+  let termCount = 0;
   const flush = (): void => {
-    if (terms.length > 0) {
-      queries.push(`${base} (${terms.join(' OR ')})`);
-      terms = [];
+    if (groups.length > 0) {
+      batches.push({ base, groups });
+      groups = [];
+      termCount = 0;
     }
   };
   for (const qualifiers of qualifierGroups) {
-    if (terms.length + qualifiers.length > MAX_SEARCH_TERMS) {
+    if (termCount + qualifiers.length > MAX_SEARCH_TERMS) {
       flush();
     }
-    terms.push(...qualifiers);
+    groups.push(qualifiers);
+    termCount += qualifiers.length;
   }
   flush();
-  return queries;
+  return batches;
+}
+
+function compare(a: string, b: string): number {
+  return Number(a > b) - Number(a < b);
+}
+
+function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
+  return [...new Map(items.map((item) => [key(item), item])).values()];
+}
+
+/** The distinct values, sorted. */
+function unique(values: readonly string[]): string[] {
+  return [...new Set(values)].sort(compare);
 }
 
 function chunk<T>(items: readonly T[], size: number): T[][] {
@@ -96,20 +128,20 @@ class StepCosts {
   }
 }
 
-/** Discovers the Team and its Tracked PRs on GitHub, and reads chosen PRs, through GraphQL. */
+/** Discovers every watched Team and its Tracked PRs on GitHub, and reads chosen PRs, through GraphQL. */
 class GithubPrProvider implements PrProvider {
   public constructor(
     private readonly client: GraphqlClient,
-    private readonly teamSlug: string,
+    private readonly excludedTeams: ReadonlySet<string>,
     private readonly logger: Logger,
     private readonly batchSize: number
   ) {}
 
   public async discover(): Promise<Discovery> {
     return this.logged('discovered PRs on GitHub', async (costs) => {
-      const roster = await costs.measure('roster', async () => this.readRoster());
-      const prs = await costs.measure('search', async () => this.searchTracked(roster));
-      return { result: { roster, prs }, prs: prs.length };
+      const teams = await costs.measure('roster', async () => this.readTeams());
+      const prs = await costs.measure('search', async () => this.searchTracked(teams));
+      return { result: { teams, prs }, prs: prs.length };
     });
   }
 
@@ -194,68 +226,111 @@ class GithubPrProvider implements PrProvider {
     return nodes;
   }
 
-  /** Finds the open PRs in the Team Repos, those a Team Member is involved in, and those that ask the Team for review. */
-  private async searchTracked(roster: Roster): Promise<DiscoveredPr[]> {
+  /** Searches over the union of every watched Team: its repos, its members' four terms, and requests to any of the Teams. */
+  private async searchTracked(teams: readonly WatchedTeam[]): Promise<DiscoveredPr[]> {
     const open = 'is:pr is:open';
     const inLiveOrgRepos = `${open} org:${ORG} archived:false`;
-    const queries = [
+    const repos = unique(teams.flatMap((team) => team.roster.repos));
+    const members = uniqueBy(
+      teams.flatMap((team) => team.roster.members),
+      ({ id }) => id
+    ).sort((a, b) => compare(a.login, b.login));
+    const batches: SearchBatch[] = [
       ...anyOf(
         open,
-        roster.repos.map((repo) => [`repo:${repo}`])
+        repos.map((repo) => [`repo:${repo}`])
       ),
       ...anyOf(
         inLiveOrgRepos,
-        roster.members.map(({ login }) => [`author:${login}`, `assignee:${login}`, `reviewed-by:${login}`, `user-review-requested:${login}`])
+        members.map(({ login }) => [`author:${login}`, `assignee:${login}`, `reviewed-by:${login}`, `user-review-requested:${login}`])
       ),
-      `${inLiveOrgRepos} team-review-requested:${ORG}/${this.teamSlug}`,
+      ...anyOf(
+        inLiveOrgRepos,
+        teams.map(({ slug }) => [`team-review-requested:${ORG}/${slug}`])
+      ),
     ];
     // A PR found by several searches is discovered once.
     const prs = new Map<string, DiscoveredPr>();
-    for (const query of queries) {
-      for (const pr of await this.search(query)) {
+    for (const batch of batches) {
+      for (const pr of await this.searchBatch(batch)) {
         prs.set(pr.id, pr);
       }
     }
     return [...prs.values()];
   }
 
-  private async search(query: string): Promise<DiscoveredPr[]> {
+  /** Searches the batch, or its halves when GitHub reports more results than it will return, so no PR is lost to the cap. */
+  private async searchBatch(batch: SearchBatch): Promise<DiscoveredPr[]> {
+    const query = queryOf(batch);
+    const { prs, issueCount } = await this.search(query);
+    if (issueCount <= SEARCH_RESULTS_CAP) {
+      return prs;
+    }
+    if (batch.groups.length === 1) {
+      this.logger.warn({ msg: 'search exceeds its cap of 1,000 results and cannot be split, so PRs past it are missed', query, results: issueCount });
+      return prs;
+    }
+    const middle = Math.ceil(batch.groups.length / HALVES);
+    const halves = [batch.groups.slice(0, middle), batch.groups.slice(middle)];
+    const found = new Map<string, DiscoveredPr>();
+    for (const groups of halves) {
+      for (const pr of await this.searchBatch({ base: batch.base, groups })) {
+        found.set(pr.id, pr);
+      }
+    }
+    return [...found.values()];
+  }
+
+  private async search(query: string): Promise<{ prs: DiscoveredPr[]; issueCount: number }> {
     const prs: DiscoveredPr[] = [];
+    let issueCount = 0;
     let after: string | null = null;
     do {
       const { search }: SearchData = await this.client.query<SearchData>(SEARCH_QUERY, { query, after });
-      if (after === null && search.issueCount > SEARCH_RESULTS_WARNING) {
-        this.logger.warn({ msg: 'search nears its cap of 1,000 results, so PRs past it would be missed', query, results: search.issueCount });
+      if (after === null) {
+        issueCount = search.issueCount;
+        if (issueCount > SEARCH_RESULTS_WARNING && issueCount <= SEARCH_RESULTS_CAP) {
+          this.logger.warn({ msg: 'search nears its cap of 1,000 results, so PRs past it would be missed', query, results: issueCount });
+        }
       }
       prs.push(
         ...search.nodes.flatMap(({ id, updatedAt }) => (id === undefined || updatedAt === undefined ? [] : [{ id, updatedAt: new Date(updatedAt) }]))
       );
       after = search.pageInfo.hasNextPage ? search.pageInfo.endCursor : null;
     } while (after !== null);
-    return prs;
+    return { prs, issueCount };
   }
 
-  private async readRoster(): Promise<Roster> {
-    const data = await this.client.query<RosterData>(ROSTER_QUERY, {
-      org: ORG,
-      team: this.teamSlug,
-    });
-    const team = data.organization?.team;
-    if (!team) {
-      throw new Error(`team ${ORG}/${this.teamSlug} not found`);
+  /** Reads every Team in the org but the excluded ones, in a stable order. */
+  private async readTeams(): Promise<WatchedTeam[]> {
+    const data = await this.client.query<RosterData>(ROSTER_QUERY, { org: ORG });
+    if (!data.organization) {
+      throw new Error(`org ${ORG} not found`);
     }
-    this.warnIfTruncated(whichTruncated({ members: team.members.pageInfo.hasNextPage, repositories: team.repositories.pageInfo.hasNextPage }), {
-      team: this.teamSlug,
-    });
-    return {
-      members: team.members.nodes.map(toActor),
-      repos: team.repositories.nodes.filter((repo) => !repo.isArchived).map((repo) => repo.nameWithOwner),
-    };
+    const { teams } = data.organization;
+    this.warnIfTruncated(whichTruncated({ teams: teams.pageInfo.hasNextPage }), { org: ORG });
+    return teams.nodes
+      .filter((team) => !this.excludedTeams.has(team.slug))
+      .map((team) => {
+        this.warnIfTruncated(whichTruncated({ members: team.members.pageInfo.hasNextPage, repositories: team.repositories.pageInfo.hasNextPage }), {
+          team: team.slug,
+        });
+        return {
+          slug: team.slug,
+          name: team.name,
+          roster: {
+            members: team.members.nodes.map(toActor).sort((a, b) => compare(a.login, b.login)),
+            repos: unique(team.repositories.nodes.filter((repo) => !repo.isArchived).map((repo) => repo.nameWithOwner)),
+          },
+        };
+      })
+      .sort((a, b) => compare(a.slug, b.slug));
   }
 }
 
 export interface GithubPrProviderOptions extends GithubAuthConfig {
-  teamSlug: string;
+  /** Slugs of Teams to leave out. */
+  excludedTeams?: readonly string[];
   logger: Logger;
   metrics: Pick<SyncMetrics, 'graphqlPointsRemaining'>;
   fetch?: typeof fetch;
@@ -270,5 +345,5 @@ export function createGithubPrProvider(options: GithubPrProviderOptions): PrProv
     fetch: fetchImpl,
     onRateLimit: (rateLimit): void => options.metrics.graphqlPointsRemaining.set(rateLimit.remaining),
   });
-  return new GithubPrProvider(client, options.teamSlug, options.logger, options.batchSize ?? DEFAULT_BATCH_SIZE);
+  return new GithubPrProvider(client, new Set(options.excludedTeams ?? []), options.logger, options.batchSize ?? DEFAULT_BATCH_SIZE);
 }

@@ -12,7 +12,7 @@ describe('config', function () {
     it('should validate the in-repo defaults offline', function () {
       const config = getConfig();
 
-      expect(config.get('team.slug')).toBeString();
+      expect(config.get('teams.excluded')).toStrictEqual([]);
       expect(config.get('bots.logins')).toBeArray();
       expect(config.get('extraNonWorkingDays')).toStrictEqual([]);
       expect(config.get('urgency.thresholds')).toHaveLength(3);
@@ -40,7 +40,7 @@ describe('config', function () {
     });
 
     it('should read every setting the chart renders', async function () {
-      vi.stubEnv('TEAM_SLUG', 'avengers');
+      vi.stubEnv('EXCLUDED_TEAMS', '["umbrella"]');
       vi.stubEnv('BOTS_LOGINS', '["jarvis","friday"]');
       vi.stubEnv('EXTRA_NON_WORKING_DAYS', '["2026-11-03"]');
       vi.stubEnv('URGENCY_THRESHOLDS', '[1,3,5]');
@@ -61,7 +61,7 @@ describe('config', function () {
       await initConfig(true);
       const config = getConfig();
 
-      expect(config.get('team.slug')).toBe('avengers');
+      expect(config.get('teams.excluded')).toStrictEqual(['umbrella']);
       expect(config.get('bots.logins')).toStrictEqual(['jarvis', 'friday']);
       expect(config.get('extraNonWorkingDays')).toStrictEqual(['2026-11-03']);
       expect(config.get('urgency.thresholds')).toStrictEqual([1, 3, 5]);

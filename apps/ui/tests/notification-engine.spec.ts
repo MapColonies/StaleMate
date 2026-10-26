@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AWAY_LIMIT_MS, dismiss, type NotificationState, notificationsOf, observe } from '@/notifications/engine';
+import { migrateNotificationKeys, notificationsKey } from '@/lib/local-storage';
 import type { Move, TrackedPr } from '@/snapshot/types';
 import { aPr, aSnapshot, bot, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 
@@ -205,5 +206,28 @@ describe('the notification engine', () => {
     const second = observe(first.state, aSnapshot({ prs: [onAlice('a', ['review', 'reply'])] }), 'alice', false, T0 + 2 * HOUR);
 
     expect(second.due.map(({ prId, moves }) => ({ prId, moves }))).toEqual([{ prId: 'a', moves: ['reply'] }]);
+  });
+});
+
+describe('the Notifications storage keys', () => {
+  it('keeps each Team’s and Viewer’s state apart', () => {
+    expect(notificationsKey('infra', 'alice')).not.toBe(notificationsKey('raster', 'alice'));
+    expect(notificationsKey('infra', 'alice')).not.toBe(notificationsKey('infra', 'bob'));
+  });
+
+  it('moves each Viewer’s state from before Teams to infra’s, leaving per-Team keys and other settings alone', () => {
+    window.localStorage.setItem('stalemate.notifications.alice', 'a');
+    window.localStorage.setItem('stalemate.notifications.bob', 'b');
+    window.localStorage.setItem(notificationsKey('raster', 'alice'), 'r');
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+
+    migrateNotificationKeys();
+    migrateNotificationKeys();
+
+    expect(window.localStorage.getItem(notificationsKey('infra', 'alice'))).toBe('a');
+    expect(window.localStorage.getItem(notificationsKey('infra', 'bob'))).toBe('b');
+    expect(window.localStorage.getItem(notificationsKey('raster', 'alice'))).toBe('r');
+    expect(window.localStorage.getItem('stalemate.notifications.alice')).toBeNull();
+    expect(window.localStorage.getItem('stalemate.viewer')).toBe('alice');
   });
 });

@@ -53,9 +53,9 @@ env:
     enabled: false
     url: http://localhost:55681/v1/trace
 
-# The GitHub Team whose Team Repos and Team Members are tracked.
-team:
-  slug: infra
+# Slugs of GitHub Teams StaleMate leaves out. Every other Team in the org is watched.
+teams:
+  excluded: []
 # Logins that count as Bots, on top of the accounts GitHub types as Bot.
 bots:
   logins:

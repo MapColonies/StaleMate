@@ -24,10 +24,10 @@ function createPrProvider(container: DependencyContainer): PrProvider {
   const config = container.resolve<ConfigType>(SERVICES.CONFIG);
   switch (config.get('provider')) {
     case 'fixture':
-      return new FixturePrProvider(config.get('team.slug'));
+      return new FixturePrProvider(config.get('teams.excluded'));
     case 'github':
       return createGithubPrProvider({
-        teamSlug: config.get('team.slug'),
+        excludedTeams: config.get('teams.excluded'),
         githubToken: config.get('githubToken'),
         githubApp: config.get('githubApp'),
         logger: container.resolve<Logger>(SERVICES.LOGGER),

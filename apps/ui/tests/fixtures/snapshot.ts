@@ -1,4 +1,4 @@
-import type { Move, Person, Snapshot, TrackedPr, WaitingOnParty } from '@/snapshot/types';
+import type { Move, Person, Snapshot, TrackedPr, WatchedTeam, WaitingOnParty } from '@/snapshot/types';
 
 const HOUR = 60 * 60 * 1000;
 const WORKING_DAY = 24 * HOUR;
@@ -10,6 +10,9 @@ export const JIRA_BASE_URL = 'https://mapcolonies.atlassian.net';
 export const member = (login: string): Person => ({ login, kind: 'member' });
 export const bot = (login: string): Person => ({ login, kind: 'bot' });
 export const outsider = (login: string): Person => ({ login, kind: 'outsider' });
+
+/** A watched Team, as GET /teams lists it. */
+export const aTeam = (slug: string, name: string, members: Person[]): WatchedTeam => ({ slug, name, members });
 
 export const waitingOnAuthor = (person: Person, moves: Move[] = ['merge']): WaitingOnParty => ({
   type: 'person',
@@ -67,6 +70,7 @@ export function aSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     readAt,
     sync: { state: 'idle', lastAttemptAt: readAt },
     config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 30_000, jiraBaseUrl: JIRA_BASE_URL },
+    teamInfo: { slug: 'infra', name: 'Infra' },
     team: [member('alice'), member('bob'), member('carol'), bot('mapcolonies-devops')],
     prs: [],
     ...overrides,

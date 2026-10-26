@@ -8,7 +8,7 @@ type ReadPlanConfig = TierConfig & Pick<DerivationConfig, 'extraNonWorkingDays'>
 
 function tierOf(record: PrRecord, config: ReadPlanConfig, now: Date): Tier {
   // Idle Time ignores Bots, so a PR only Bots touch cools down like any idle PR.
-  const idleDays = toWorkingDays(workingMsBetween(record.derived.clockStarts.lastActivityAt, now, config.extraNonWorkingDays));
+  const idleDays = toWorkingDays(workingMsBetween(record.teamFree.clockStarts.lastActivityAt, now, config.extraNonWorkingDays));
   if (idleDays >= config.coldFromWorkingDays) {
     return 'cold';
   }

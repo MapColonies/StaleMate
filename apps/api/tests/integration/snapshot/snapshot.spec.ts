@@ -17,7 +17,7 @@ import { SYNC_LOOP, type SyncLoop } from '@src/sync/syncLoop';
 import { SERVICES } from '@common/constants';
 import { getConfig, initConfig } from '@common/config';
 import { OPENAPI_PATH } from '@tests/utils/paths.mjs';
-import type { PrFacts } from '@domain/facts';
+import type { Actor, PrFacts, WatchedTeam } from '@domain/facts';
 import { anActor, aPrFacts } from '@tests/utils/facts';
 import { FixturePrProvider } from '@src/providers/fixture/fixturePrProvider';
 import { ScriptedProvider } from './helpers/scriptedProvider';
@@ -27,6 +27,13 @@ type Snapshot = components['schemas']['snapshot'];
 /** The PRs without their clocks, which move with the request time. */
 function withoutClocks(prs: Snapshot['prs']): Omit<Snapshot['prs'][number], 'age' | 'idleTime'>[] {
   return prs.map(({ age: _age, idleTime: _idleTime, ...pr }) => pr);
+}
+
+const infraOf = (teams: WatchedTeam[]): WatchedTeam => teams.find(({ slug }) => slug === 'infra') as WatchedTeam;
+
+/** The Teams with infra's roster given more members. */
+function withInfraMembers(teams: WatchedTeam[], extra: Actor[]): WatchedTeam[] {
+  return teams.map((team) => (team.slug === 'infra' ? { ...team, roster: { ...team.roster, members: [...team.roster.members, ...extra] } } : team));
 }
 
 const expectResponseStatus: ExpectResponseStatus = expectResponseStatusFactory(expect);
@@ -90,8 +97,8 @@ describe('snapshot', function () {
     return response.body;
   }
 
-  async function getSnapshot(): Promise<Snapshot> {
-    const response = await requestSender.getSnapshot();
+  async function getSnapshot(team = 'infra'): Promise<Snapshot> {
+    const response = await requestSender.getSnapshot({ queryParams: { team } });
     expectResponseStatus(response, StatusCodes.OK);
 
     expect(response).toSatisfyApiSpec();
@@ -101,7 +108,7 @@ describe('snapshot', function () {
 
   describe('GET /snapshot', function () {
     it('should return 503 warming before the first sweep', async function () {
-      const response = await requestSender.getSnapshot();
+      const response = await requestSender.getSnapshot({ queryParams: { team: 'infra' } });
 
       expectResponseStatus(response, StatusCodes.SERVICE_UNAVAILABLE);
 
@@ -113,7 +120,7 @@ describe('snapshot', function () {
       const release = provider.hold();
       const firstSweep = syncLoop.start();
 
-      const response = await requestSender.getSnapshot();
+      const response = await requestSender.getSnapshot({ queryParams: { team: 'infra' } });
       release();
       await firstSweep;
 
@@ -155,7 +162,7 @@ describe('snapshot', function () {
         const jiralessSyncLoop = jiralessContainer.resolve<SyncLoop>(SYNC_LOOP);
         await jiralessSyncLoop.start();
 
-        const response = await sender.getSnapshot();
+        const response = await sender.getSnapshot({ queryParams: { team: 'infra' } });
         jiralessSyncLoop.stop();
 
         expectResponseStatus(response, StatusCodes.OK);
@@ -205,7 +212,7 @@ describe('snapshot', function () {
   describe('GET /snapshot caching', function () {
     /** Asks for the Snapshot as a browser holding `etag` would. */
     async function getSnapshotIfNoneMatch(etag?: string): Promise<supertest.Response> {
-      const request = supertest(app).get('/snapshot');
+      const request = supertest(app).get('/snapshot').query({ team: 'infra' });
       return etag === undefined ? request : request.set('If-None-Match', etag);
     }
 
@@ -316,6 +323,202 @@ describe('snapshot', function () {
     });
   });
 
+  describe('Teams', function () {
+    const dana = anActor({ id: 'U_dana-raster', login: 'dana-raster' });
+    const schnitz = anActor({ id: 'U_CptSchnitz', login: 'CptSchnitz' });
+    const ids = (snapshot: Snapshot): string[] => snapshot.prs.map(({ id }) => id);
+    const prOf = (snapshot: Snapshot, id: string): Snapshot['prs'][number] | undefined => snapshot.prs.find((pr) => pr.id === id);
+
+    async function getTeams(): Promise<components['schemas']['watchedTeam'][]> {
+      const response = await requestSender.getTeams();
+      expectResponseStatus(response, StatusCodes.OK);
+
+      expect(response).toSatisfyApiSpec();
+
+      return response.body;
+    }
+
+    describe('GET /teams', function () {
+      it('should return 503 warming before the first sweep', async function () {
+        const response = await requestSender.getTeams();
+
+        expectResponseStatus(response, StatusCodes.SERVICE_UNAVAILABLE);
+
+        expect(response).toSatisfyApiSpec();
+        expect(response.body).toEqual({ status: 'warming', sync: { state: 'idle' } });
+      });
+
+      it('should return every watched Team sorted by display name, with its members', async function () {
+        await syncLoop.start();
+
+        const teams = await getTeams();
+
+        expect(teams.map(({ slug, name }) => ({ slug, name }))).toEqual([
+          { slug: '3d', name: '3D' },
+          { slug: 'infra', name: 'Infra' },
+          { slug: 'raster', name: 'Raster' },
+          { slug: 'vector', name: 'Vector' },
+        ]);
+        expect(teams.find(({ slug }) => slug === 'raster')?.members).toIncludeSameMembers([
+          { login: 'dana-raster', kind: 'member' },
+          { login: 'eyal-gis', kind: 'member' },
+          { login: 'CptSchnitz', kind: 'member' },
+        ]);
+        expect(teams.find(({ slug }) => slug === 'infra')?.members).toContainEqual({ login: 'mapcolonies-devops', kind: 'bot' });
+      });
+
+      it('should leave an excluded Team out', async function () {
+        provider.teams = (await new FixturePrProvider(['raster']).discover()).teams;
+        await syncLoop.start();
+
+        expect((await getTeams()).map(({ slug }) => slug)).not.toContain('raster');
+
+        expectResponseStatus(await requestSender.getSnapshot({ queryParams: { team: 'raster' } }), StatusCodes.NOT_FOUND);
+      });
+    });
+
+    describe('GET /snapshot?team=', function () {
+      it('should return the Team slice, naming its Team and its members', async function () {
+        await syncLoop.start();
+
+        const snapshot = await getSnapshot('raster');
+
+        expect(snapshot.teamInfo).toEqual({ slug: 'raster', name: 'Raster' });
+        expect(snapshot.team).toContainEqual({ login: 'dana-raster', kind: 'member' });
+        expect(snapshot.team).not.toContainEqual({ login: 'mapcolonies-devops', kind: 'bot' });
+        expect(snapshot.prs.length).toBeGreaterThan(0);
+
+        snapshot.prs.forEach((pr) => expect(pr.inclusionReasons.length).toBeGreaterThan(0));
+      });
+
+      it('should answer 404 for a slug that is not a watched Team', async function () {
+        await syncLoop.start();
+
+        const response = await requestSender.getSnapshot({ queryParams: { team: 'nobody' } });
+
+        expectResponseStatus(response, StatusCodes.NOT_FOUND);
+
+        expect(response).toSatisfyApiSpec();
+      });
+
+      it('should answer 400 without a team', async function () {
+        await syncLoop.start();
+
+        const response = await supertest(app).get('/snapshot');
+
+        expectResponseStatus(response, StatusCodes.BAD_REQUEST);
+
+        expect(response).toSatisfyApiSpec();
+      });
+
+      it('should show a PR two Teams track in both slices, each with its own Inclusion Reasons, kinds and viaTeam', async function () {
+        provider.add(
+          aPrFacts({
+            id: 'PR_shared',
+            repo: 'MapColonies/shared-workflows',
+            author: schnitz,
+            reviewRequests: [
+              { type: 'person', reviewer: dana, asCodeOwner: false },
+              { type: 'team', slug: 'raster', asCodeOwner: false },
+            ],
+          }),
+          mondayMorning
+        );
+        await syncLoop.start();
+
+        const infra = prOf(await getSnapshot('infra'), 'PR_shared');
+        const raster = prOf(await getSnapshot('raster'), 'PR_shared');
+
+        expect(infra?.inclusionReasons).toEqual(['authoredByMember', 'teamRepo']);
+        expect(infra?.requestedReviewers).toContainEqual({ login: 'dana-raster', kind: 'outsider' });
+        expect(infra?.waitingOn).toContainEqual({ type: 'team', slug: 'raster', viaTeam: false });
+        expect(raster?.inclusionReasons).toEqual(['authoredByMember', 'memberReviewRequested', 'teamReviewRequested', 'teamRepo']);
+        expect(raster?.requestedReviewers).toContainEqual({ login: 'dana-raster', kind: 'member' });
+        expect(raster?.waitingOn).toContainEqual({ type: 'team', slug: 'raster', viaTeam: true });
+      });
+
+      it('should show a PR no Team tracks in no slice', async function () {
+        provider.add(aPrFacts({ id: 'PR_nobody', repo: 'MapColonies/nowhere', author: anActor({ id: 'U_zed', login: 'zed' }) }), mondayMorning);
+        await syncLoop.start();
+
+        for (const { slug } of await getTeams()) {
+          expect(ids(await getSnapshot(slug))).not.toContain('PR_nobody');
+        }
+      });
+
+      it("should keep a Team's ETag when only another Team's PRs changed, and answer 304 per Team", async function () {
+        const rasterOnly = (title: string): PrFacts =>
+          aPrFacts({ id: 'PR_raster_only', repo: 'MapColonies/discrete-overseer', author: dana, title, createdAt: mondayMorning });
+        provider.add(rasterOnly('first'), mondayMorning);
+        await syncLoop.start();
+        const etagOf = async (team: string): Promise<string> => {
+          const response = await supertest(app).get('/snapshot').query({ team });
+          return response.headers.etag as string;
+        };
+        const [infraBefore, rasterBefore] = [await etagOf('infra'), await etagOf('raster')];
+
+        // Sweeps again at the same instant, so only the PR's facts differ.
+        provider.add(rasterOnly('second'), mondayMorning);
+        await syncLoop.start();
+
+        await expect(etagOf('infra')).resolves.toBe(infraBefore);
+        await expect(etagOf('raster')).resolves.not.toBe(rasterBefore);
+
+        const notModified = await supertest(app).get('/snapshot').query({ team: 'infra' }).set('If-None-Match', infraBefore);
+        const modified = await supertest(app).get('/snapshot').query({ team: 'raster' }).set('If-None-Match', rasterBefore);
+
+        expect(notModified.status).toBe(StatusCodes.NOT_MODIFIED);
+        expect(modified.status).toBe(StatusCodes.OK);
+      });
+
+      it('should drop a stored PR from a slice, and from the Snapshot, when a roster change leaves no Team tracking it', async function () {
+        const idle = new Date(mondayMorning.getTime() - 365 * 24 * HOUR);
+        const pushed = { ...aPrFacts().headCommit, committedDate: idle, firstCheckSuiteAt: idle };
+        const eyal = anActor({ id: 'U_eyal-gis', login: 'eyal-gis' });
+        provider.add(aPrFacts({ id: 'PR_cold_by_eyal', repo: 'MapColonies/nowhere', author: eyal, createdAt: idle, headCommit: pushed }), idle);
+        await syncLoop.start();
+
+        expect(ids(await getSnapshot('raster'))).toContain('PR_cold_by_eyal');
+
+        const { teams } = await new FixturePrProvider().discover();
+        provider.teams = teams.map((team) =>
+          team.slug === 'raster'
+            ? { ...team, roster: { ...team.roster, members: team.roster.members.filter(({ login }) => login !== 'eyal-gis') } }
+            : team
+        );
+        vi.setSystemTime(mondayMorning.getTime() + cooldownMs);
+        await requestSender.refresh();
+        await untilIdle();
+
+        expect(provider.reads.at(-1)).not.toContain('PR_cold_by_eyal');
+        expect(ids(await getSnapshot('raster'))).not.toContain('PR_cold_by_eyal');
+      });
+
+      it("should re-derive a stored PR in the affected Team's slice only when that Team's roster changes", async function () {
+        const idle = new Date(mondayMorning.getTime() - 365 * 24 * HOUR);
+        const pushed = { ...aPrFacts().headCommit, committedDate: idle, firstCheckSuiteAt: idle };
+        const reviewRequests = [{ type: 'person' as const, reviewer: dana, asCodeOwner: false }];
+        provider.add(aPrFacts({ id: 'PR_cold', repo: 'MapColonies/opa-la', createdAt: idle, headCommit: pushed, reviewRequests }), idle);
+        await syncLoop.start();
+
+        expect(prOf(await getSnapshot('infra'), 'PR_cold')?.inclusionReasons).toEqual(['teamRepo']);
+        expect(prOf(await getSnapshot('raster'), 'PR_cold')?.inclusionReasons).toEqual(['memberReviewRequested']);
+
+        const { teams } = await new FixturePrProvider().discover();
+        provider.teams = teams.map((team) =>
+          team.slug === 'infra' ? { ...team, roster: { ...team.roster, members: [...team.roster.members, dana] } } : team
+        );
+        vi.setSystemTime(mondayMorning.getTime() + cooldownMs);
+        await requestSender.refresh();
+        await untilIdle();
+
+        expect(provider.reads.at(-1)).not.toContain('PR_cold');
+        expect(prOf(await getSnapshot('infra'), 'PR_cold')?.inclusionReasons).toEqual(['memberReviewRequested', 'teamRepo']);
+        expect(prOf(await getSnapshot('raster'), 'PR_cold')?.inclusionReasons).toEqual(['memberReviewRequested']);
+      });
+    });
+  });
+
   describe('POST /refresh', function () {
     it('should sweep at once when idle and past the cooldown', async function () {
       await syncLoop.start();
@@ -392,8 +595,9 @@ describe('snapshot', function () {
     it('should re-derive Waiting On and Inclusion Reasons when the Roster changes', async function () {
       const carol = anActor({ id: 'U_carol', login: 'carol' });
       const dave = anActor({ id: 'U_dave', login: 'dave' });
-      const { roster } = await new FixturePrProvider('infra').discover();
-      provider.roster = { ...roster, members: [...roster.members, carol, dave] };
+      const { teams } = await new FixturePrProvider().discover();
+      const { roster } = infraOf(teams);
+      provider.teams = withInfraMembers(teams, [carol, dave]);
       provider.add(
         aPrFacts({
           id: 'PR_carol',
@@ -411,7 +615,7 @@ describe('snapshot', function () {
         waitingOn: [{ type: 'person', login: 'dave', kind: 'member' }],
       });
 
-      provider.roster = roster;
+      provider.teams = teams;
       const snapshot = await sweepAgain();
 
       expect(byCarol(snapshot)).toMatchObject({ inclusionReasons: ['teamRepo'], waitingOn: [{ type: 'person', login: 'dave', kind: 'outsider' }] });
@@ -539,7 +743,8 @@ describe('snapshot', function () {
     it('should re-derive a Cold PR not re-read when the Roster changes', async function () {
       const carol = anActor({ id: 'U_carol', login: 'carol' });
       const dave = anActor({ id: 'U_dave', login: 'dave' });
-      const { roster } = await new FixturePrProvider('infra').discover();
+      const { teams } = await new FixturePrProvider().discover();
+      const { roster } = infraOf(teams);
       const reviewRequests = [{ type: 'person' as const, reviewer: dave, asCodeOwner: false }];
       provider.add(aPrIdleSince(cold.id, cold.createdAt, { repo: roster.repos[0], author: carol, reviewRequests }), cold.createdAt);
       await syncLoop.start();
@@ -551,7 +756,7 @@ describe('snapshot', function () {
         waitingOn: [{ type: 'person', login: 'dave', kind: 'outsider' }],
       });
 
-      provider.roster = { ...roster, members: [...roster.members, carol, dave] };
+      provider.teams = withInfraMembers(teams, [carol, dave]);
       const read = await sweepAt(cooldownMs);
       const snapshot = await getSnapshot();
 
@@ -608,7 +813,7 @@ describe('snapshot', function () {
       provider.failure = new SweepError(failure, { cause: new Error('raw') });
 
       await syncLoop.start();
-      const response = await requestSender.getSnapshot();
+      const response = await requestSender.getSnapshot({ queryParams: { team: 'infra' } });
 
       expectResponseStatus(response, StatusCodes.SERVICE_UNAVAILABLE);
 

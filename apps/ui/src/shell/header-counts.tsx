@@ -1,10 +1,9 @@
 import { Badge } from '@/components/ui/badge';
-import { teamSlug } from '@/filters/filter-options';
 import { noReviewerCount, waitingOnViewerCounts } from '@/snapshot/selectors';
 import type { TrackedPr } from '@/snapshot/types';
 
 /** "Your turn 3 + 5 via @infra" and the No Reviewer count, over the whole Snapshot whatever the filters. */
-export function HeaderCounts({ prs, viewer }: { prs: readonly TrackedPr[]; viewer: string | null }) {
+export function HeaderCounts({ prs, teamSlug, viewer }: { prs: readonly TrackedPr[]; teamSlug: string; viewer: string | null }) {
   const turn = waitingOnViewerCounts(prs, viewer);
   return (
     <div className="flex min-w-0 items-center gap-4 text-sm whitespace-nowrap">
@@ -13,7 +12,7 @@ export function HeaderCounts({ prs, viewer }: { prs: readonly TrackedPr[]; viewe
           <span className="text-muted-foreground">Your turn</span> <b className="tabular-nums">{turn.mine}</b>
           <span className="text-muted-foreground tabular-nums">
             {' '}
-            + {turn.team} via @{teamSlug(prs) ?? 'team'}
+            + {turn.team} via @{teamSlug}
           </span>
         </span>
       )}

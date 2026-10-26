@@ -12,9 +12,18 @@ export const MEMBERS = ['AnguIar', 'alex131290', 'CptSchnitz', 'netanelC', 'mich
 /** Team Members whose logins are configured as Bots. */
 export const SERVICE_ACCOUNTS = ['mapcolonies-devops', 'mapcolonies-org'].map(human);
 export const BOTS = ['dependabot', 'renovate', 'github-actions'].map(bot);
-export const OUTSIDERS = ['dana-raster', 'yoav-3d', 'shira-vector', 'eyal-gis', 'noam-catalog', 'tal-export'].map(human);
+/** People outside the Team; the last two belong to no Team at all. */
+export const OUTSIDERS = ['dana-raster', 'yoav-3d', 'shira-vector', 'eyal-gis', 'noam-catalog', 'tal-export', 'omer-gis', 'lior-ui'].map(human);
+/** The outsiders who belong to no Team. A PR they open in a repo no Team is granted, and only they touch, is tracked by no one. */
+export const TEAMLESS = OUTSIDERS.filter(({ login }) => ['omer-gis', 'lior-ui'].includes(login));
 /** Another team in the org. A review request to it never puts a Team Member in Waiting On. */
 export const OTHER_TEAM_SLUG = 'raster';
+/** The Team the fixture's PRs are generated around. */
+export const INFRA_TEAM_SLUG = 'infra';
+/** Another team in the org, which PRs now and then ask for review. */
+export const THREE_D_TEAM_SLUG = '3d';
+/** Repositories no Team is granted, so PRs in them are tracked only when a Team Member is involved. */
+export const UNOWNED_REPOS = ['mc-map-viewer'];
 
 export const TEAM_REPOS = [
   'ts-server-boilerplate',
@@ -46,7 +55,7 @@ export const OTHER_REPOS = [
   'vector-tiles-server',
   'discrete-overseer',
   'export-manager',
-  'mc-map-viewer',
+  ...UNOWNED_REPOS,
 ];
 
 export const DEPENDENCIES = [

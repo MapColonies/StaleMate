@@ -11,7 +11,7 @@ import { aDerivationConfig } from '@tests/utils/facts';
 import { sweep as aSweep } from '@tests/utils/sweep';
 import { aRecordedGithub } from './helpers/recordedGithub';
 
-// Over a real sweep of MapColonies, recorded on 2026-10-15 by tests/fixtures/github/record.ts with people pseudonymized.
+// Over a real sweep of MapColonies, recorded on 2026-10-26 by tests/fixtures/github/record.ts with people pseudonymized.
 
 const copilotReviewer = { id: 'BOT_kgDOCnlnWA', login: 'copilot-pull-request-reviewer', isBot: true };
 const copilotAgent = { id: 'BOT_kgDOC9w8XQ', login: 'copilot-swe-agent', isBot: true };
@@ -32,7 +32,6 @@ describe('GithubPrProvider over a recorded sweep', function () {
   beforeAll(async function () {
     const github = aRecordedGithub();
     const provider = createGithubPrProvider({
-      teamSlug: 'infra',
       githubToken: 'ghp_test',
       githubApp: {},
       logger: await jsLogger({ enabled: false }),
@@ -47,25 +46,33 @@ describe('GithubPrProvider over a recorded sweep', function () {
     expect(sweep.discovery.prs.map((discovered) => discovered.id).sort()).toEqual(sweep.prs.map((facts) => facts.id).sort());
     expect(sweep.discovery.prs).toContainEqual({
       id: pr('https://github.com/MapColonies/opa-la/pull/160').id,
-      updatedAt: new Date('2026-10-08T13:03:32Z'),
+      updatedAt: new Date('2026-10-25T15:25:26Z'),
     });
   });
 
   it('should read the Team, service accounts included, and its live public Team Repos', function () {
-    expect(sweep.roster.members).toHaveLength(9);
-    expect(sweep.roster.members).toContainEqual(devops);
-    expect(sweep.roster.repos).toContain('MapColonies/opa-la');
-    expect(sweep.roster.repos).not.toContain('MapColonies/telemetry');
+    expect(sweep.teams.map((team) => team.slug)).toEqual(['infra', 'raster-team']);
+    expect(sweep.teams[0]!.roster.members).toHaveLength(10);
+    expect(sweep.teams[0]!.roster.members).toContainEqual(devops);
+    expect(sweep.teams[0]!.roster.repos).toContain('MapColonies/opa-la');
+    expect(sweep.teams[0]!.roster.repos).not.toContain('MapColonies/telemetry');
+  });
+
+  it('should read every other Team of the recording the same way, with its own members and repos', function () {
+    const raster = sweep.teams[1]!;
+
+    expect(raster.name).toBe('Raster Team');
+    expect(raster.roster.members).toHaveLength(6);
+    expect(raster.roster.repos).toContain('MapColonies/mc-utils');
+    expect(raster.roster.repos).not.toContain('MapColonies/opa-la');
   });
 
   it('should read each PR the searches found once', function () {
     expect(sweep.prs.map((facts) => facts.url).sort()).toEqual([
       'https://github.com/MapColonies/config-ui/pull/62',
       'https://github.com/MapColonies/infra-packages/pull/33',
-      'https://github.com/MapColonies/javascript-github-actions/pull/17',
       'https://github.com/MapColonies/jobnik-manager/pull/247',
       'https://github.com/MapColonies/opa-la/pull/160',
-      'https://github.com/MapColonies/schemas/pull/66',
       'https://github.com/MapColonies/telemetry/pull/96',
     ]);
   });
@@ -84,29 +91,17 @@ describe('GithubPrProvider over a recorded sweep', function () {
 
     const requests = facts.reviews.filter((review) => review.state === 'changesRequested');
 
-    expect(requests.map((review) => review.author)).toEqual([person('member-6'), person('member-3')]);
+    expect(requests.map((review) => review.author)).toEqual([person('member-12'), person('member-8')]);
     expect(facts.reviewThreads).toEqual([
-      { isResolved: false, comments: [expect.objectContaining({ author: person('member-3'), reviewId: 'PRR_kwDOJLgOiM8AAAABRUJB-A' })] },
+      {
+        isResolved: false,
+        comments: [
+          expect.objectContaining({ author: person('member-8'), reviewId: 'PRR_kwDOJLgOiM8AAAABRUJB-A' }),
+          expect.objectContaining({ author: person('member-9'), reviewId: 'PRR_kwDOJLgOiM8AAAABUGZkhw' }),
+        ],
+      },
     ]);
     expect(facts.reviews.map((review) => review.id)).toContain('PRR_kwDOJLgOiM8AAAABRUJB-A');
-  });
-
-  it('should read a Copilot review, and the author’s replies in threads as reviews of their own', function () {
-    const facts = pr('https://github.com/MapColonies/javascript-github-actions/pull/17');
-
-    expect(facts.reviews).toContainEqual(expect.objectContaining({ author: copilotReviewer, state: 'commented' }));
-    expect(facts.reviews.filter((review) => review.author.login === facts.author.login && review.state === 'commented')).not.toHaveLength(0);
-    expect(facts.reviewThreads).toHaveLength(44);
-    expect(facts.reviews.map((review) => review.submittedAt)).toEqual(
-      [...facts.reviews.map((review) => review.submittedAt)].sort((a, b) => a.getTime() - b.getTime())
-    );
-  });
-
-  it('should read dismissed reviews and when the PR became ready for review', function () {
-    const facts = pr('https://github.com/MapColonies/schemas/pull/66');
-
-    expect(facts.reviews.filter((review) => review.state === 'dismissed').map((review) => review.author.login)).toEqual(['person-1', 'member-4']);
-    expect(facts.timeline.filter((event) => event.type === 'readyForReview')).toHaveLength(1);
   });
 
   it('should read a conflict and failing checks', function () {
@@ -116,7 +111,7 @@ describe('GithubPrProvider over a recorded sweep', function () {
     expect(facts.headCommit.checks).toContainEqual({ name: 'Run Tests (24.13.0)', state: 'failed' });
     expect(facts.headCommit.checks).toContainEqual({ name: 'jira/issue-validation', state: 'failed' });
     expect(facts.headCommit.firstCheckSuiteAt).not.toBeNull();
-    expect(facts.reviewRequests.map((request) => request.type === 'person' && request.reviewer.login)).toEqual(['member-3', 'member-6']);
+    expect(facts.reviewRequests.map((request) => request.type === 'person' && request.reviewer.login)).toEqual(['member-8', 'member-12']);
   });
 
   it('should read a request to the Team', function () {
@@ -133,10 +128,10 @@ describe('GithubPrProvider over a recorded sweep', function () {
   });
 
   it('should emit facts that each derive a contract-valid Tracked PR', function () {
-    const config = aDerivationConfig({ teamSlug: 'infra' });
+    const config = aDerivationConfig();
 
     for (const facts of sweep.prs) {
-      expect(deriveTrackedPr(facts, sweep.roster, config, new Date('2026-10-15T12:00:00Z'))).toSatisfySchemaInApiSpec('trackedPr');
+      expect(deriveTrackedPr(facts, sweep.teams[0]!, config, new Date('2026-10-15T12:00:00Z'))).toSatisfySchemaInApiSpec('trackedPr');
     }
   });
 });

@@ -1,12 +1,10 @@
 import type { Filters } from '@/filters/filter-model';
 import type { Move, Person, Snapshot, TrackedPr } from './types';
 
-/** Who can pick themselves in "I am…": Team Members, never Bots or service accounts. */
-export function viewerOptions(team: readonly Person[]): string[] {
-  return team
-    .filter((person) => person.kind === 'member')
-    .map((person) => person.login)
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+/** Who can pick themselves in "I am…": the Team Members of every Team, once each, never Bots or service accounts. */
+export function viewerOptions(teams: readonly { members: readonly Person[] }[]): string[] {
+  const logins = teams.flatMap((team) => team.members.filter((person) => person.kind === 'member').map((person) => person.login));
+  return [...new Set(logins)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
 function waitsOnPerson(pr: TrackedPr, login: string): boolean {

@@ -1,7 +1,8 @@
-import type { PrFacts, Roster } from '@domain/facts';
+import type { PrFacts, WatchedTeam } from '@domain/facts';
 
 export interface SweepResult {
-  roster: Roster;
+  /** Every watched Team, with its roster. */
+  teams: WatchedTeam[];
   /** Every Tracked PR, open ones only. */
   prs: PrFacts[];
 }
@@ -13,13 +14,14 @@ export interface DiscoveredPr {
 }
 
 export interface Discovery {
-  roster: Roster;
+  /** Every watched Team, with its roster. */
+  teams: WatchedTeam[];
   /** Every Tracked PR, open ones only. */
   prs: DiscoveredPr[];
 }
 
 /**
- * Reads the Team and its Tracked PRs from a code host. Finding out what is open and reading chosen PRs are separate,
+ * Reads the watched Teams and their Tracked PRs from a code host. Finding out what is open and reading chosen PRs are separate,
  * so which PRs to read is StaleMate's decision. Both reject with a SweepError when they can tell why they failed.
  */
 export interface PrProvider {

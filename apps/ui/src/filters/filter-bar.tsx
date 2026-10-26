@@ -50,6 +50,7 @@ const SELECT_CLASS = 'h-8 rounded-md border border-dashed border-input bg-backgr
 /** A horizontal bar over the shared filter model, for the views that have no sidebar: the Table and the Board. */
 export function FilterBar({
   prs,
+  teamSlug,
   org,
   filters,
   onChange,
@@ -57,6 +58,8 @@ export function FilterBar({
 }: {
   /** Every Tracked PR, to offer every value there is. */
   prs: readonly TrackedPr[];
+  /** The slug of the Team the Snapshot is for. */
+  teamSlug: string;
   /** The org every Tracked PR's repo is in, which the Repo filter leaves out. */
   org: string | null;
   filters: Filters;
@@ -123,7 +126,7 @@ export function FilterBar({
         ))}
       </select>
       <div className="mx-1 h-5 w-px bg-border" />
-      <FilterSwitches prs={prs} filters={filters} onChange={onChange} />
+      <FilterSwitches teamSlug={teamSlug} filters={filters} onChange={onChange} />
       {active > 0 && (
         <button
           type="button"

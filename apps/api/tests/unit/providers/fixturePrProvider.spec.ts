@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import 'jest-openapi';
+import type { WatchedTeam } from '@domain/facts';
 import type { TrackedPr } from '@domain/trackedPr';
 import { deriveTrackedPr } from '@domain/deriveTrackedPr';
 import { FixturePrProvider } from '@src/providers/fixture/fixturePrProvider';
@@ -7,21 +8,23 @@ import { aDerivationConfig } from '@tests/utils/facts';
 import { sweep as aSweep } from '@tests/utils/sweep';
 
 const now = new Date('2026-10-14T12:00:00Z');
-const config = aDerivationConfig({ teamSlug: 'infra' });
+const config = aDerivationConfig();
 
 describe('FixturePrProvider', function () {
   let sweep: Awaited<ReturnType<typeof aSweep>>;
   let discovery: typeof sweep.discovery;
   let trackedPrs: TrackedPr[];
+  let infra: WatchedTeam;
 
   beforeAll(async function () {
-    sweep = await aSweep(new FixturePrProvider('infra', () => now));
+    sweep = await aSweep(new FixturePrProvider([], () => now));
     discovery = sweep.discovery;
-    trackedPrs = sweep.prs.map((facts) => deriveTrackedPr(facts, sweep.roster, config, now));
+    infra = sweep.teams.find(({ slug }) => slug === 'infra') as WatchedTeam;
+    trackedPrs = sweep.prs.map((facts) => deriveTrackedPr(facts, infra, config, now)).filter((pr) => pr.inclusionReasons.length > 0);
   });
 
   it('should emit the same facts on every sweep at the same instant', async function () {
-    const again = await aSweep(new FixturePrProvider('infra', () => now));
+    const again = await aSweep(new FixturePrProvider([], () => now));
 
     expect(again).toEqual(sweep);
   });
@@ -47,14 +50,14 @@ describe('FixturePrProvider', function () {
   it('should read exactly the PRs it is asked for, in the order asked', async function () {
     const ids = [discovery.prs[3]?.id, 'PR_gone', discovery.prs[1]?.id] as string[];
 
-    const prs = await new FixturePrProvider('infra', () => now).read(ids);
+    const prs = await new FixturePrProvider([], () => now).read(ids);
 
     expect(prs.map((pr) => pr.id)).toEqual([ids[0], ids[2]]);
   });
 
   it('should date its PRs as of its first discovery, so they keep their dates and age like real ones', async function () {
     let clock = now;
-    const provider = new FixturePrProvider('infra', () => clock);
+    const provider = new FixturePrProvider([], () => clock);
     await provider.discover();
     clock = new Date(now.getTime() + 60 * 60_000);
 
@@ -64,11 +67,11 @@ describe('FixturePrProvider', function () {
   });
 
   it('should read a roster of Team Members, service accounts among them, and Team Repos', function () {
-    const logins = sweep.roster.members.map((member) => member.login);
+    const logins = infra.roster.members.map((member) => member.login);
 
     expect(logins).toContain('mapcolonies-devops');
     expect(logins.length).toBeGreaterThan(2);
-    expect(sweep.roster.repos).toContain('MapColonies/opa-la');
+    expect(infra.roster.repos).toContain('MapColonies/opa-la');
   });
 
   it('should give every PR its own id and its own repo and number', function () {
@@ -90,12 +93,47 @@ describe('FixturePrProvider', function () {
     }
   });
 
+  it('should watch several Teams with real slugs and display names, some sharing people and repos', function () {
+    expect(sweep.teams.map(({ slug, name }) => ({ slug, name }))).toEqual(
+      expect.arrayContaining([
+        { slug: 'infra', name: 'Infra' },
+        { slug: 'raster', name: 'Raster' },
+      ])
+    );
+
+    const memberships = sweep.teams.flatMap((team) => team.roster.members.map(({ login }) => login));
+    const repoships = sweep.teams.flatMap((team) => team.roster.repos);
+
+    expect(memberships.length).toBeGreaterThan(new Set(memberships).size);
+    expect(repoships.length).toBeGreaterThan(new Set(repoships).size);
+  });
+
+  it('should leave an excluded Team out of the Teams, and PRs only it tracks out of discovery', async function () {
+    const without = await aSweep(new FixturePrProvider(['infra'], () => now));
+
+    expect(without.teams.map(({ slug }) => slug)).not.toContain('infra');
+    expect(without.discovery.prs.length).toBeLessThan(discovery.prs.length);
+  });
+
+  it('should leave PRs no Team tracks out of discovery', async function () {
+    const all = await new FixturePrProvider([], () => now).read(Array.from({ length: 254 }, (_, index) => `PR_fixture_${index}`));
+
+    expect(discovery.prs.length).toBeLessThan(all.length);
+  });
+
+  it('should discover PRs asking different Teams for review', function () {
+    const requested = new Set(sweep.prs.flatMap((pr) => pr.reviewRequests.flatMap((request) => (request.type === 'team' ? [request.slug] : []))));
+
+    expect(requested.size).toBeGreaterThan(1);
+  });
+
   it('should only emit Tracked PRs, each of which derives a contract-valid Tracked PR', function () {
     // One call for all of them: the matcher rebuilds its validator on every call, which costs ~10ms per Tracked PR.
     const snapshot = {
       readAt: now.toISOString(),
       sync: { state: 'idle' },
       config: { urgencyThresholds: [2, 4, 8], refreshCooldownMs: 0 },
+      teamInfo: { slug: infra.slug, name: infra.name },
       team: [],
       prs: trackedPrs,
     };

@@ -1,173 +1,459 @@
 {
   "data": {
     "organization": {
-      "team": {
-        "members": {
-          "pageInfo": {
-            "hasNextPage": false
-          },
-          "nodes": [
-            {
-              "__typename": "User",
-              "id": "U_member_1",
-              "login": "member-1"
-            },
-            {
-              "__typename": "User",
-              "id": "U_member_2",
-              "login": "member-2"
-            },
-            {
-              "__typename": "User",
-              "id": "U_member_3",
-              "login": "member-3"
-            },
-            {
-              "__typename": "User",
-              "id": "U_member_4",
-              "login": "member-4"
-            },
-            {
-              "__typename": "User",
-              "id": "U_member_5",
-              "login": "member-5"
-            },
-            {
-              "__typename": "User",
-              "id": "U_member_6",
-              "login": "member-6"
-            },
-            {
-              "__typename": "User",
-              "id": "U_kgDOCIdygg",
-              "login": "mapcolonies-devops"
-            },
-            {
-              "__typename": "User",
-              "id": "U_kgDOEUQegg",
-              "login": "mapcolonies-org"
-            },
-            {
-              "__typename": "User",
-              "id": "U_member_7",
-              "login": "member-7"
-            }
-          ]
+      "teams": {
+        "pageInfo": {
+          "hasNextPage": false
         },
-        "repositories": {
-          "pageInfo": {
-            "hasNextPage": false
-          },
-          "nodes": [
-            {
-              "nameWithOwner": "MapColonies/eslint-config",
-              "isArchived": true
+        "nodes": [
+          {
+            "slug": "raster-team",
+            "name": "Raster Team",
+            "members": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": [
+                {
+                  "__typename": "User",
+                  "id": "U_member_1",
+                  "login": "member-1"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_2",
+                  "login": "member-2"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_3",
+                  "login": "member-3"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_4",
+                  "login": "member-4"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_5",
+                  "login": "member-5"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_6",
+                  "login": "member-6"
+                }
+              ]
             },
-            {
-              "nameWithOwner": "MapColonies/ts-server-boilerplate",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/ts-npm-package-boilerplate",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/error-express-handler",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/telemetry",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/prettier-config",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/openapi-express-viewer",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/js-logger",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/express-access-log-middleware",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/read-pkg",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/ts-script-boilerplate",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/lookup-tables",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/opa-la",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/shared-workflows",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/nginx",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/config",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/config-server",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/config-ui",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/openapi-helpers",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/infra-portal",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/tsconfig",
-              "isArchived": true
-            },
-            {
-              "nameWithOwner": "MapColonies/elastic-alertmanager-connector",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/jobnik-manager",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/infra-copilot-instructions",
-              "isArchived": false
-            },
-            {
-              "nameWithOwner": "MapColonies/dem-gateway",
-              "isArchived": false
+            "repositories": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": [
+                {
+                  "nameWithOwner": "MapColonies/mc-ingestion-service",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-logger",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-workflow",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/fusion-manager",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-models",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-probe",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-gateway",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/fusion-manager-backend",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/GEEDocker",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/image-exporter-client",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/load-testing",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/file-download-server",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/catalog-upload-service",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/exporter-s3-download",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mapproxy-api",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/discrete-agent-old",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/csw-client",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/discrete-ingestion-db",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/docker-mapproxy",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/code-generator",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/raster-catalog-manager",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/Task-Liberator",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/catalog-web-app-bff",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/heartbeat-manager",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mapproxy-initializer",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/error-types",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mapproxinator",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-utils",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/mc-priority-queue",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/netSyncTasker",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/sync-worker",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/layer-spec",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/exporter-trigger",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/gw-file-receiver",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/discrete-cleanup",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/GpkgMerger",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/exporter-cleanup",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/tiles-splitter",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/raster-publishing-cli",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/developer-portal",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/job-manager",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/discrete-overseer-creator",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/export-management",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/types",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/wmts-layer-leaflet",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/wmts-capabilities-parser",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/polygon-parts-manager",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/polygon-parts-cli",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/cache-seeder",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/ingestion-trigger",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/geoserver-polygon-parts",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/overseer",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/polygon-parts-worker",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/job-tracker",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/exporter-trigger-new",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/cleaner",
+                  "isArchived": false
+                }
+              ]
             }
-          ]
-        }
+          },
+          {
+            "slug": "infra",
+            "name": "Infra",
+            "members": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": [
+                {
+                  "__typename": "User",
+                  "id": "U_member_7",
+                  "login": "member-7"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_8",
+                  "login": "member-8"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_9",
+                  "login": "member-9"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_10",
+                  "login": "member-10"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_11",
+                  "login": "member-11"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_12",
+                  "login": "member-12"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_13",
+                  "login": "member-13"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_kgDOCIdygg",
+                  "login": "mapcolonies-devops"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_kgDOEUQegg",
+                  "login": "mapcolonies-org"
+                },
+                {
+                  "__typename": "User",
+                  "id": "U_member_14",
+                  "login": "member-14"
+                }
+              ]
+            },
+            "repositories": {
+              "pageInfo": {
+                "hasNextPage": false
+              },
+              "nodes": [
+                {
+                  "nameWithOwner": "MapColonies/eslint-config",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/ts-server-boilerplate",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/ts-npm-package-boilerplate",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/error-express-handler",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/telemetry",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/prettier-config",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/openapi-express-viewer",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/js-logger",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/express-access-log-middleware",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/read-pkg",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/ts-script-boilerplate",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/lookup-tables",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/opa-la",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/shared-workflows",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/nginx",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/config",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/config-server",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/config-ui",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/openapi-helpers",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/infra-portal",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/tsconfig",
+                  "isArchived": true
+                },
+                {
+                  "nameWithOwner": "MapColonies/elastic-alertmanager-connector",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/jobnik-manager",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/infra-copilot-instructions",
+                  "isArchived": false
+                },
+                {
+                  "nameWithOwner": "MapColonies/dem-gateway",
+                  "isArchived": false
+                }
+              ]
+            }
+          }
+        ]
       }
     },
     "rateLimit": {
-      "cost": 1,
-      "remaining": 4974,
+      "cost": 2,
+      "remaining": 4936,
       "limit": 5000,
-      "resetAt": "2026-10-15T08:07:02Z"
+      "resetAt": "2026-10-26T10:28:36Z"
     }
   }
 }

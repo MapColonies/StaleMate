@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PrFacts } from '@domain/facts';
 import type { TrackedPr } from '@domain/trackedPr';
 import { deriveTrackedPr } from '@domain/deriveTrackedPr';
-import { aDerivationConfig, anActor, aPrFacts, aReview, aReviewThread, aRoster, aThreadComment } from '@tests/utils/facts';
+import { aDerivationConfig, anActor, aPrFacts, aReview, aReviewThread, aTeam, aThreadComment } from '@tests/utils/facts';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -19,7 +19,7 @@ const now = new Date('2026-10-14T09:00+03:00');
 const lastWeek = new Date('2026-10-05T09:00+03:00');
 
 function clocksOf(overrides: Partial<PrFacts>, at = now, config = aDerivationConfig()): Pick<TrackedPr, 'age' | 'idleTime' | 'urgency'> {
-  const { age, idleTime, urgency } = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), aRoster(), config, at);
+  const { age, idleTime, urgency } = deriveTrackedPr(aPrFacts({ author: alice, ...overrides }), aTeam(), config, at);
   return { age, idleTime, urgency };
 }
 

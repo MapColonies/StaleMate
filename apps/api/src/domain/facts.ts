@@ -9,12 +9,21 @@ export interface Actor {
   isBot: boolean;
 }
 
-/** The Team as the provider read it on this sweep. */
+/** One Team's members and repos, as the provider read them on this sweep. */
 export interface Roster {
   /** Every Team Member, including members through child teams. */
   members: Actor[];
   /** The Team Repos, as owner/name. Archived repositories are left out. */
   repos: string[];
+}
+
+/** A Team the provider watches, with its roster. */
+export interface WatchedTeam {
+  /** The Team's slug, e.g. `infra`. */
+  slug: string;
+  /** The GitHub display name, e.g. `Infra`. */
+  name: string;
+  roster: Roster;
 }
 
 /** Pending reviews are unsubmitted drafts, so providers leave them out. */

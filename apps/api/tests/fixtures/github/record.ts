@@ -8,7 +8,8 @@
  * - every person gets a stable pseudonym (member-N for Team Members, person-N for others) and a made-up id.
  *   Bots and the configured service accounts keep their real identity, which the domain's rules depend on.
  *
- * One edit makes the recording cover a request to the Team: no PR in a live repo asked @infra for review when it was
+ * The roster is trimmed to RECORDED_TEAMS, so the sweep's union discovery covers several Teams.
+ * One edit makes the recording cover a request to a Team: no PR in a live repo asked @infra for review when it was
  * recorded, so the team search's response is given telemetry#96, a real PR that asks @infra, in an archived repo.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -18,7 +19,7 @@ import { jsLogger } from '@map-colonies/js-logger';
 import { createGithubPrProvider } from '@src/providers/github/githubPrProvider';
 import { createSyncMetrics } from '@src/sync/syncMetrics';
 import { sweep } from '../../utils/sweep';
-import { NODES_FIXTURE_PREFIXES, RECORDED_BATCH_SIZE, RECORDING_DIR, searchFixtureName } from './recording';
+import { NODES_FIXTURE_PREFIXES, RECORDED_BATCH_SIZE, RECORDING_DIR, SearchFixtureNames } from './recording';
 
 const RECORDED_PRS = [
   // A request for changes with a thread, in a Team Repo.
@@ -34,6 +35,8 @@ const RECORDED_PRS = [
   // A PR by a service account.
   'MapColonies/infra-packages#33',
 ];
+/** The Teams the recording keeps, out of every Team in the org. */
+const RECORDED_TEAMS = ['infra', 'raster-team'];
 const INJECTED_TEAM_REQUEST = 'MapColonies/telemetry#96';
 const JSON_INDENT = 2;
 const SERVICE_ACCOUNTS = new Set(['mapcolonies-devops', 'mapcolonies-org']);
@@ -82,12 +85,12 @@ async function lookUpPrs(refs: string[]): Promise<FoundPr[]> {
   return prs;
 }
 
-async function privateTeamRepos(teamSlug: string): Promise<Set<string>> {
-  const data = await graphql(
-    `
-      query ($team: String!) {
-        organization(login: "MapColonies") {
-          team(slug: $team) {
+async function privateTeamRepos(): Promise<Set<string>> {
+  const data = await graphql(`
+    query {
+      organization(login: "MapColonies") {
+        teams(first: 100) {
+          nodes {
             repositories(first: 100) {
               nodes {
                 nameWithOwner
@@ -97,11 +100,11 @@ async function privateTeamRepos(teamSlug: string): Promise<Set<string>> {
           }
         }
       }
-    `,
-    { team: teamSlug }
-  );
-  const nodes = (data.organization as { team: { repositories: { nodes: { nameWithOwner: string; isPrivate: boolean }[] } } }).team.repositories.nodes;
-  return new Set(nodes.filter((repo) => repo.isPrivate).map((repo) => repo.nameWithOwner));
+    }
+  `);
+  const teams = (data.organization as { teams: { nodes: { repositories: { nodes: { nameWithOwner: string; isPrivate: boolean }[] } }[] } }).teams
+    .nodes;
+  return new Set(teams.flatMap((team) => team.repositories.nodes.filter((repo) => repo.isPrivate).map((repo) => repo.nameWithOwner)));
 }
 
 /** Gives every person a stable pseudonym, Team Members first. */
@@ -148,12 +151,12 @@ class Pseudonyms {
 }
 
 async function main(): Promise<void> {
-  const teamSlug = 'infra';
   const recorded = new Set((await lookUpPrs(RECORDED_PRS)).map((pr) => pr.id));
   const [injected] = await lookUpPrs([INJECTED_TEAM_REQUEST]);
-  const privateRepos = await privateTeamRepos(teamSlug);
+  const privateRepos = await privateTeamRepos();
   const responses = new Map<string, Json>();
   const nodesCalls = new Map<string, number>();
+  const searchNames = new SearchFixtureNames();
 
   /** Passes the provider's queries to GitHub, trimming what it reads to the recorded PRs, and keeps every response. */
   const recordingFetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
@@ -174,8 +177,8 @@ async function main(): Promise<void> {
         rateLimit = data.rateLimit;
         after = search.pageInfo.hasNextPage ? search.pageInfo.endCursor : null;
       } while (after !== null);
-      name = searchFixtureName(variables.query as string);
-      if (name === 'search-team-requests' && injected !== undefined) {
+      name = searchNames.next(variables.query as string);
+      if (name.startsWith('search-team-requests') && injected !== undefined) {
         nodes.push(injected);
       }
       body = {
@@ -185,8 +188,12 @@ async function main(): Promise<void> {
       const response = await fetch(input, init);
       body = (await response.json()) as Json;
       if (operation === 'Roster') {
-        const team = (body.data as { organization: { team: { repositories: { nodes: { nameWithOwner: string }[] } } } }).organization.team;
-        team.repositories.nodes = team.repositories.nodes.filter((repo) => !privateRepos.has(repo.nameWithOwner));
+        const teams = (body.data as { organization: { teams: { nodes: { slug: string; repositories: { nodes: { nameWithOwner: string }[] } }[] } } })
+          .organization.teams;
+        teams.nodes = teams.nodes.filter((team) => RECORDED_TEAMS.includes(team.slug));
+        for (const team of teams.nodes) {
+          team.repositories.nodes = team.repositories.nodes.filter((repo) => !privateRepos.has(repo.nameWithOwner));
+        }
         name = 'roster';
       } else {
         const prefix = NODES_FIXTURE_PREFIXES[operation] ?? operation;
@@ -201,7 +208,6 @@ async function main(): Promise<void> {
 
   const logger = await jsLogger({ level: 'info' });
   const provider = createGithubPrProvider({
-    teamSlug,
     githubToken: token,
     githubApp: {},
     logger,
@@ -212,10 +218,14 @@ async function main(): Promise<void> {
   const { prs } = await sweep(provider);
 
   const pseudonyms = new Pseudonyms();
-  const roster = responses.get('roster') as { data: { organization: { team: { members: { nodes: { id: string; login: string }[] } } } } };
-  for (const member of roster.data.organization.team.members.nodes) {
-    if (!SERVICE_ACCOUNTS.has(member.login)) {
-      pseudonyms.addMember(member.id, member.login);
+  const roster = responses.get('roster') as {
+    data: { organization: { teams: { nodes: { members: { nodes: { id: string; login: string }[] } }[] } } };
+  };
+  for (const team of roster.data.organization.teams.nodes) {
+    for (const member of team.members.nodes) {
+      if (!SERVICE_ACCOUNTS.has(member.login)) {
+        pseudonyms.addMember(member.id, member.login);
+      }
     }
   }
 

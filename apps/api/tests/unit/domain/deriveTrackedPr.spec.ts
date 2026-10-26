@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import 'jest-openapi';
-import { deriveTrackedPr } from '@domain/deriveTrackedPr';
-import { aDerivationConfig, anActor, aPrFacts, aRoster } from '@tests/utils/facts';
+import { deriveTeamFreePr, deriveTrackedPr } from '@domain/deriveTrackedPr';
+import { aDerivationConfig, anActor, aPrFacts, aTeam } from '@tests/utils/facts';
 
 const now = new Date('2026-10-14T12:00:00Z');
 
@@ -16,7 +16,7 @@ describe('deriveTrackedPr', function () {
       author: anActor({ id: 'U_bob', login: 'bob' }),
     });
 
-    const trackedPr = deriveTrackedPr(facts, aRoster(), aDerivationConfig(), now);
+    const trackedPr = deriveTrackedPr(facts, aTeam(), aDerivationConfig(), now);
 
     expect(trackedPr).toMatchObject({
       id: 'PR_42',
@@ -33,7 +33,7 @@ describe('deriveTrackedPr', function () {
     ['mergeable', false],
     ['unknown', false],
   ] as const)('should mark a PR whose mergeability is %s as conflicting: %s', function (mergeable, conflicting) {
-    const trackedPr = deriveTrackedPr(aPrFacts({ mergeable }), aRoster(), aDerivationConfig(), now);
+    const trackedPr = deriveTrackedPr(aPrFacts({ mergeable }), aTeam(), aDerivationConfig(), now);
 
     expect(trackedPr.conflicting).toBe(conflicting);
   });
@@ -49,7 +49,7 @@ describe('deriveTrackedPr', function () {
     ['a key inside a longer word', 'fix: XMAPCO-12 and MAPCO-12a', []],
     ['a lowercase key', 'fix: cache headers mapco-12', []],
   ])('should read the Jira Tickets of a title with %s', function (_, title, jiraTickets) {
-    const trackedPr = deriveTrackedPr(aPrFacts({ title }), aRoster(), aDerivationConfig({ jiraProjectKeys: ['MAPCO', 'SHIELD'] }), now);
+    const trackedPr = deriveTrackedPr(aPrFacts({ title }), aTeam(), aDerivationConfig({ jiraProjectKeys: ['MAPCO', 'SHIELD'] }), now);
 
     expect(trackedPr.jiraTickets).toStrictEqual(jiraTickets);
   });
@@ -57,7 +57,7 @@ describe('deriveTrackedPr', function () {
   it('should read the Jira Tickets of every configured project', function () {
     const trackedPr = deriveTrackedPr(
       aPrFacts({ title: 'SHIELD-1: MAPCO-2' }),
-      aRoster(),
+      aTeam(),
       aDerivationConfig({ jiraProjectKeys: ['MAPCO', 'SHIELD'] }),
       now
     );
@@ -70,8 +70,22 @@ describe('deriveTrackedPr', function () {
     ['a PR with Jira Tickets', aPrFacts({ title: 'feat: add retry policy MAPCO-1234' })],
     ['a draft', aPrFacts({ isDraft: true })],
   ])('should return a contract-valid Tracked PR for %s', function (_, facts) {
-    const trackedPr = deriveTrackedPr(facts, aRoster(), aDerivationConfig(), now);
+    const trackedPr = deriveTrackedPr(facts, aTeam(), aDerivationConfig(), now);
 
     expect(trackedPr).toSatisfySchemaInApiSpec('trackedPr');
+  });
+
+  it('should derive the Team-free part from the facts alone, and each Team its own view of the same PR', function () {
+    const facts = aPrFacts({ author: anActor({ id: 'U_zed', login: 'zed' }), reviewRequests: [{ type: 'team', slug: 'infra', asCodeOwner: false }] });
+
+    const teamFree = deriveTeamFreePr(facts, aDerivationConfig());
+    const infra = deriveTrackedPr(facts, aTeam({ slug: 'infra' }), aDerivationConfig(), now);
+    const raster = deriveTrackedPr(facts, aTeam({ slug: 'raster' }), aDerivationConfig(), now);
+
+    expect(teamFree.waitingOn).toContainEqual({ type: 'team', slug: 'infra' });
+    expect(infra.waitingOn).toContainEqual({ type: 'team', slug: 'infra', viaTeam: true });
+    expect(raster.waitingOn).toContainEqual({ type: 'team', slug: 'infra', viaTeam: false });
+    expect(infra.inclusionReasons).toContain('teamReviewRequested');
+    expect(raster.inclusionReasons).not.toContain('teamReviewRequested');
   });
 });
