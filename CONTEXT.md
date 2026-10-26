@@ -1,13 +1,13 @@
 # StaleMate
 
-A dashboard that keeps a team from missing PRs: what is open, whose move it is, and how long it has been waiting.
+A dashboard that keeps each team in the org from missing PRs: what is open, whose move it is, and how long it has been waiting.
 
 ## Language
 
 ### Who
 
 **Team**:
-The GitHub Team whose work StaleMate watches, e.g. `@MapColonies/infra`.
+A GitHub Team in the org whose work StaleMate watches, e.g. `@MapColonies/infra`. StaleMate watches every Team except any configured out. A Team includes the members and repositories of its child Teams, as on GitHub.
 _Avoid_: Group, squad
 
 **Team Member**:
@@ -19,7 +19,7 @@ A non-human PR author — a GitHub account of type Bot, or a login configured as
 _Avoid_: Automation, app
 
 **Viewer**:
-The person looking at the dashboard, who has said which Team Member they are.
+The person looking at the dashboard, who has said which person they are: anyone in any Team, whichever Team they are looking at.
 _Avoid_: User, me, current user
 
 ### What
@@ -33,11 +33,11 @@ A live repository the Team is granted on GitHub, at any access level. Archived r
 _Avoid_: Owned repo, project
 
 **Tracked PR**:
-A PR StaleMate shows: any PR in a Team Repo, or any PR in the org that a Team Member authored, is a requested reviewer on, has reviewed, or is assigned to, or that asks the Team itself for review. A PR in an archived repository is never a Tracked PR.
+A PR StaleMate shows for a Team: any PR in one of its Team Repos, or any PR in the org that one of its Team Members authored, is a requested reviewer on, has reviewed, or is assigned to, or that asks that Team itself for review. A PR can be tracked for several Teams; a PR no Team tracks is never shown. A PR in an archived repository is never a Tracked PR.
 _Avoid_: Watched PR, relevant PR
 
 **Snapshot**:
-Every Tracked PR as StaleMate last read it from the code host, stamped with when the last successful sweep started. A Viewer always sees one Snapshot; there is no history. Each sweep finds every open Tracked PR, but re-reads long-idle PRs less often, by their Tier, so their details can be behind by up to their Tier's interval.
+Every Tracked PR of every Team as StaleMate last read it from the code host, stamped with when the last successful sweep started. A Viewer always sees one Team's Tracked PRs from one Snapshot; there is no history. Each sweep finds every open Tracked PR, but re-reads long-idle PRs less often, by their Tier, so their details can be behind by up to their Tier's interval.
 _Avoid_: Cache, sync result, data
 
 **Out-of-date Snapshot**:
@@ -91,19 +91,19 @@ How long since a person last acted on a PR — opened it, pushed, reviewed, comm
 _Avoid_: Waiting Time, staleness, inactivity
 
 **Tier**:
-How often StaleMate re-reads a Tracked PR's details, by its Idle Time: **Hot** (recently acted on) every sweep, **Warm** less often, **Cold** (idle for months) least often. The boundaries and intervals are set by the Team. A PR that changed on the code host is re-read in the next sweep whatever its Tier.
+How often StaleMate re-reads a Tracked PR's details, by its Idle Time: **Hot** (recently acted on) every sweep, **Warm** less often, **Cold** (idle for months) least often. The boundaries and intervals are set once for the whole org. A PR that changed on the code host is re-read in the next sweep whatever its Tier.
 _Avoid_: Priority, bucket, freshness
 
 **Working Day**:
-A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off the Team declares (e.g. election day). Chol hamoed is a Working Day; Yom HaZikaron is not.
+A day the Team is expected to work: not Friday, Saturday, a chag, an erev chag, or an extra day off declared for the whole org (e.g. election day). Chol hamoed is a Working Day; Yom HaZikaron is not.
 _Avoid_: Business day, weekday
 
 **Urgency**:
-How loudly a PR's Age calls for attention — four levels, with thresholds in Working Days the Team sets. A Draft has no Urgency.
+How loudly a PR's Age calls for attention — four levels, with thresholds in Working Days set once for the whole org. A Draft has no Urgency.
 _Avoid_: Staleness, aging, priority
 
 **Notification**:
-News for the Viewer: a PR became Waiting On them, or gave them a new Move, since their browser last saw it. Only ever about the Viewer's own moves, never anyone else's. It lasts until the Viewer dismisses it or the PR is no longer on them.
+News for the Viewer about the Team they are looking at: one of its Tracked PRs became Waiting On them, or gave them a new Move, since their browser last saw that Team. News about another Team waits until the Viewer looks at it. Only ever about the Viewer's own moves, never anyone else's. It lasts until the Viewer dismisses it or the PR is no longer on them.
 _Avoid_: Alert, turn change
 
 **No Reviewer**:
