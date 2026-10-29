@@ -115,7 +115,7 @@ How loudly a PR's Age calls for attention — four levels, with thresholds in Wo
 _Avoid_: Staleness, aging, priority
 
 **Notification**:
-News for the Viewer about the Team they are looking at: one of its Tracked PRs became Waiting On them, or gave them a new Move, since their browser last saw that Team. News about another Team waits until the Viewer looks at it. Only ever about the Viewer's own moves, never anyone else's. It lasts until the Viewer dismisses it or the PR is no longer on them.
+News for the Viewer about the Team they are looking at: one of its Tracked PRs became Waiting On them, gave them a new Move, or named them where only their Team had been asked, since their browser last saw that Team. News about another Team waits until the Viewer looks at it. Only ever about the Viewer's own moves, never anyone else's. A request for review on a Draft or Approved PR is not news until the PR is on them. Newest first. It lasts until the Viewer dismisses it, even after the PR is no longer on them, when it is marked "no longer on you"; changing a filter never discards one. A browser away for a long time still shows what changed meanwhile, but raises no OS popups for it.
 _Avoid_: Alert, turn change
 
 **No Reviewer**:

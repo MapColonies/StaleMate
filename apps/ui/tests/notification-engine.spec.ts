@@ -40,7 +40,7 @@ function seenBy(passes: Pass[], viewer = 'alice') {
     }
   });
   const shown = notificationsOf(state!).map(({ prId, moves }) => ({ prId, moves }));
-  return { shown, due, state: state! };
+  return { shown, due, state: state!, onYou: () => notificationsOf(state!).map(({ prId, onYou }) => [prId, onYou]) };
 }
 
 describe('the notification engine', () => {
@@ -102,10 +102,49 @@ describe('the notification engine', () => {
     expect(due).toEqual([[], ['a'], []]);
   });
 
-  it('drops a Notification once the PR is no longer on the Viewer', () => {
-    const { shown } = seenBy([{ prs: [] }, { prs: [onAlice('a'), onAlice('b')] }, { prs: [onBob('a'), onAlice('b')] }]);
+  it('keeps a Notification after the PR leaves the Viewer, until dismissed', () => {
+    const left = [onBob('a'), onAlice('b')];
+    const { shown, due, onYou } = seenBy([{ prs: [] }, { prs: [onAlice('a'), onAlice('b')] }, { prs: left }, { prs: left }]);
 
-    expect(shown).toEqual([{ prId: 'b', moves: ['review'] }]);
+    expect(shown).toEqual([
+      { prId: 'a', moves: ['review'] },
+      { prId: 'b', moves: ['review'] },
+    ]);
+    expect(due).toEqual([[], ['a', 'b'], [], []]);
+    expect(onYou()).toEqual([
+      ['a', false],
+      ['b', true],
+    ]);
+  });
+
+  it('keeps a Notification whose PR left the Snapshot altogether', () => {
+    const { shown } = seenBy([{ prs: [] }, { prs: [onAlice('a')] }, { prs: [] }]);
+
+    expect(shown).toEqual([{ prId: 'a', moves: ['review'] }]);
+  });
+
+  it('dismisses a Notification whose PR has left the Viewer', () => {
+    const { shown } = seenBy([{ prs: [] }, { prs: [onAlice('a')] }, { prs: [onBob('a')], dismiss: ['a'] }]);
+
+    expect(shown).toEqual([]);
+  });
+
+  it('notifies about a named reviewer request on a normal PR', () => {
+    const { shown, due } = seenBy([
+      { prs: [aPr({ id: 'p', author: bob, requestedReviewers: [], waitingOn: [waitingOnAuthor(bob)] })] },
+      { prs: [onAlice('p')] },
+    ]);
+
+    expect(shown).toEqual([{ prId: 'p', moves: ['review'] }]);
+    expect(due).toEqual([[], ['p']]);
+  });
+
+  it.each(['draft', 'approved'] as const)('stays silent about a reviewer request on a %s PR until it is on the Viewer', (reviewStatus) => {
+    const asked = aPr({ id: 'p', author: bob, reviewStatus, requestedReviewers: [alice], waitingOn: [waitingOnAuthor(bob)] });
+    const { shown, due } = seenBy([{ prs: [] }, { prs: [asked] }, { prs: [onAlice('p')] }]);
+
+    expect(due).toEqual([[], [], ['p']]);
+    expect(shown).toEqual([{ prId: 'p', moves: ['review'] }]);
   });
 
   it('drops a Notification once none of the Moves it told about is owed any more', () => {
@@ -141,7 +180,7 @@ describe('the notification engine', () => {
   it.each([
     { case: 'shown to hidden', from: false, to: true },
     { case: 'hidden to shown', from: true, to: false },
-  ])('starts over quietly when via-Team PRs switch from $case', ({ from, to }) => {
+  ])('keeps its Notifications and re-baselines quietly when via-Team PRs switch from $case', ({ from, to }) => {
     const { shown, due } = seenBy([
       { prs: [], hideViaTeam: from },
       { prs: [onAlice('a')], hideViaTeam: from },
@@ -149,22 +188,55 @@ describe('the notification engine', () => {
       { prs: [onAlice('a'), onAlice('b'), viaTeam('t')], hideViaTeam: to },
     ]);
 
-    expect(shown).toEqual([]);
+    expect(shown).toEqual([{ prId: 'a', moves: ['review'] }]);
     expect(due).toEqual([[], ['a'], [], []]);
   });
 
+  it('notifies about later changes under the new via-Team setting', () => {
+    const { shown } = seenBy([
+      { prs: [], hideViaTeam: false },
+      { prs: [viaTeam('t')], hideViaTeam: true },
+      { prs: [viaTeam('t'), onAlice('b')], hideViaTeam: true },
+    ]);
+
+    expect(shown).toEqual([{ prId: 'b', moves: ['review'] }]);
+  });
+
+  it('notifies once when a PR on the Viewer only via the Team then names them', () => {
+    const named = (moves: Move[]) => aPr({ id: 't', author: bob, requestedReviewers: [alice], waitingOn: [waitingOnReviewer(alice, moves)] });
+    const { shown, due } = seenBy([{ prs: [] }, { prs: [viaTeam('t')] }, { prs: [named(['review'])], dismiss: ['t'] }, { prs: [named(['review'])] }]);
+
+    expect(due).toEqual([[], ['t'], ['t'], []]);
+    expect(shown).toEqual([]);
+  });
+
   it.each([
-    { case: 'just under 4 days', gap: AWAY_LIMIT_MS - 1, shown: [{ prId: 'b', moves: ['review'] }], due: ['b'] },
-    { case: 'exactly 4 days', gap: AWAY_LIMIT_MS, shown: [{ prId: 'b', moves: ['review'] }], due: ['b'] },
-    { case: 'just over 4 days', gap: AWAY_LIMIT_MS + 1, shown: [], due: [] },
-  ])('after $case away, a gap of real time', ({ gap, shown, due }) => {
+    { case: 'just under 4 days', gap: AWAY_LIMIT_MS - 1, due: ['b'] },
+    { case: 'exactly 4 days', gap: AWAY_LIMIT_MS, due: ['b'] },
+    { case: 'just over 4 days', gap: AWAY_LIMIT_MS + 1, due: [] },
+  ])('after $case away, a gap of real time', ({ gap, due }) => {
     const result = seenBy([
       { prs: [], at: T0 },
       { prs: [onAlice('b')], at: T0 + gap },
     ]);
 
-    expect(result.shown).toEqual(shown);
+    expect(result.shown).toEqual([{ prId: 'b', moves: ['review'] }]);
     expect(result.due[1]).toEqual(due);
+  });
+
+  it('keeps what it had and shows what changed meanwhile after a long gap, with no popups', () => {
+    const { shown, due } = seenBy([
+      { prs: [] },
+      { prs: [onAlice('a')] },
+      { prs: [onAlice('a'), onAlice('b')], at: T0 + HOUR + AWAY_LIMIT_MS + 1 },
+      { prs: [onAlice('a'), onAlice('b')], at: T0 + 3 * HOUR + AWAY_LIMIT_MS },
+    ]);
+
+    expect(shown).toEqual([
+      { prId: 'a', moves: ['review'] },
+      { prId: 'b', moves: ['review'] },
+    ]);
+    expect(due).toEqual([[], ['a'], [], []]);
   });
 
   it('measures the gap from the last pass, not the first', () => {
@@ -172,16 +244,6 @@ describe('the notification engine', () => {
       { prs: [], at: T0 },
       { prs: [], at: T0 + AWAY_LIMIT_MS },
       { prs: [onAlice('b')], at: T0 + 2 * AWAY_LIMIT_MS },
-    ]);
-
-    expect(shown).toEqual([{ prId: 'b', moves: ['review'] }]);
-  });
-
-  it('starts over after a long gap with what is on the Viewer as the baseline, then notifies about later changes', () => {
-    const { shown } = seenBy([
-      { prs: [], at: T0 },
-      { prs: [onAlice('a')], at: T0 + AWAY_LIMIT_MS + 1 },
-      { prs: [onAlice('a'), onAlice('b')], at: T0 + AWAY_LIMIT_MS + 2 },
     ]);
 
     expect(shown).toEqual([{ prId: 'b', moves: ['review'] }]);

@@ -4,12 +4,22 @@ import { MoveList } from '@/cells';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { formatSince } from '@/lib/time';
-import { type Notification, withPrs } from '@/notifications/engine';
+import { type Notification, type PrSummary, withPrs } from '@/notifications/engine';
 import type { OsNotifications } from '@/notifications/use-os-notifications';
 import type { TrackedPr } from '@/snapshot/types';
 import { NotificationBell } from './notification-bell';
 
-function NotificationRow({ notification, pr, now, onDismiss }: { notification: Notification; pr: TrackedPr; now: number; onDismiss: () => void }) {
+function NotificationRow({
+  notification,
+  pr,
+  now,
+  onDismiss,
+}: {
+  notification: Notification;
+  pr: PrSummary & { id: string };
+  now: number;
+  onDismiss: () => void;
+}) {
   const titleId = useId();
   return (
     <li aria-labelledby={titleId} className="flex flex-col gap-1 border-b px-4 py-2.5">
@@ -27,6 +37,12 @@ function NotificationRow({ notification, pr, now, onDismiss }: { notification: N
         </span>
         <span aria-hidden>·</span>
         <MoveList moves={notification.moves} />
+        {!notification.onYou && (
+          <>
+            <span aria-hidden>·</span>
+            <span className="whitespace-nowrap font-medium">no longer on you</span>
+          </>
+        )}
         <span aria-hidden>·</span>
         <span className="whitespace-nowrap">noticed {formatSince(new Date(notification.noticedAt).toISOString(), now)} ago</span>
       </div>

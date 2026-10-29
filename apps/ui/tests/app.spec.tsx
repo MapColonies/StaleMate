@@ -737,6 +737,22 @@ describe('the Notifications bell', () => {
     expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
   });
 
+  it('keeps counting a PR that left the Viewer, marked "no longer on you" until dismissed', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    const gone = onAlice('Gone');
+    const left = { ...gone, waitingOn: [waitingOnAuthor(bob)] };
+
+    const { queryClient } = await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [gone] }));
+    serve(aFreshSnapshot({ prs: [left] }));
+    await act(() => queryClient.refetchQueries());
+
+    expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+    await userEvent.click(bell());
+    expect(await screen.findByText('no longer on you')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss Gone' }));
+    expect(screen.queryByText('no longer on you')).not.toBeInTheDocument();
+  });
+
   it('is greyed out, with a hint, until the Viewer picks themselves', async () => {
     serve(aFreshSnapshot({ prs: [onAlice('New')] }));
 
@@ -788,7 +804,7 @@ describe('Notifications per Team', () => {
         hideViaTeam: false,
         seenAt: Date.now(),
         owed: { [kept.id]: ['review'], [dismissed.id]: ['review'] },
-        notifications: [{ prId: kept.id, moves: ['review'], noticedAt: Date.now() }],
+        notifications: [{ prId: kept.id, moves: ['review'], noticedAt: Date.now(), onYou: true }],
       })
     );
     serve(aFreshSnapshot({ prs: [kept, dismissed] }));
