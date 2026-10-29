@@ -2,6 +2,22 @@ import { MOVE_LABELS } from '@/cells/labels';
 import type { TrackedPr } from '@/snapshot/types';
 import { type Notification as ViewerNotification, withPrs } from './engine';
 
+/** Why a test popup didn't go out, in words for the Viewer; undefined when it was sent. */
+export function sendTestPopUp(): string | undefined {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    return 'Notifications haven’t been allowed yet. Tick “Also send them to my OS” first.';
+  }
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return 'The browser hasn’t allowed StaleMate’s notifications, so nothing was shown.';
+  }
+  try {
+    new Notification('StaleMate test notification', { body: 'If you can see this, OS notifications work.', tag: 'stalemate.test' });
+    return undefined;
+  } catch {
+    return 'The browser refused to show it. Check your OS’s notification or focus settings.';
+  }
+}
+
 /** More newly due than this in one pass fire one summary instead, so the OS isn't spammed. */
 const MAX_POPUPS = 3;
 

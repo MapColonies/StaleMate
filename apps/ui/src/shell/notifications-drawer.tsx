@@ -1,10 +1,11 @@
 import { X } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { MoveList } from '@/cells';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { formatSince } from '@/lib/time';
 import { type Notification, type PrSummary, withPrs } from '@/notifications/engine';
+import { sendTestPopUp } from '@/notifications/pop-up';
 import type { OsNotifications } from '@/notifications/use-os-notifications';
 import type { TrackedPr } from '@/snapshot/types';
 import { NotificationBell } from './notification-bell';
@@ -53,6 +54,7 @@ function NotificationRow({
 /** The footer, with the checkbox that also sends Notifications to the OS. Hidden when the browser has no Notification API. */
 function OsNotificationsFooter({ os: { permission, enabled, setEnabled } }: { os: OsNotifications }) {
   const hintId = useId();
+  const [testFailure, setTestFailure] = useState<string>();
   if (permission === 'unsupported') {
     return null;
   }
@@ -73,6 +75,18 @@ function OsNotificationsFooter({ os: { permission, enabled, setEnabled } }: { os
       {blocked && (
         <p id={hintId} className="text-xs text-muted-foreground">
           This browser blocks StaleMate’s notifications. Allow them from the padlock in the address bar.
+        </p>
+      )}
+      <button
+        type="button"
+        className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+        onClick={() => setTestFailure(sendTestPopUp())}
+      >
+        Send a test notification
+      </button>
+      {testFailure !== undefined && (
+        <p role="status" className="text-xs text-muted-foreground">
+          {testFailure}
         </p>
       )}
     </SheetFooter>

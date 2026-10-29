@@ -1209,6 +1209,58 @@ describe('OS notifications', () => {
     expect(screen.queryByRole('checkbox', { name: /send them to my OS/i })).not.toBeInTheDocument();
   });
 
+  it('sends a test popup from the drawer when permission is granted', async () => {
+    fakeBrowser('granted');
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send a test notification' }));
+
+    expect(FakeNotification.shown.map((popup) => popup.title)).toEqual(['StaleMate test notification']);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('says so quietly when the test popup is refused by permission', async () => {
+    fakeBrowser('denied');
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send a test notification' }));
+
+    expect(FakeNotification.shown).toEqual([]);
+    expect(await screen.findByRole('status')).toHaveTextContent(/hasn’t allowed/);
+  });
+
+  it('says so quietly when the browser throws on the test popup, and clears it on a later success', async () => {
+    fakeBrowser('granted');
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+    const link = screen.getByRole('button', { name: 'Send a test notification' });
+    Object.defineProperty(window, 'Notification', {
+      configurable: true,
+      writable: true,
+      value: Object.assign(
+        function () {
+          throw new TypeError('Illegal constructor');
+        },
+        { permission: 'granted' }
+      ),
+    });
+
+    await userEvent.click(link);
+    expect(await screen.findByRole('status')).toHaveTextContent(/refused/);
+
+    Object.defineProperty(window, 'Notification', { configurable: true, writable: true, value: FakeNotification });
+    await userEvent.click(link);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('does not offer the test link when the browser has no Notification API', async () => {
+    await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
+    await openDrawer();
+    expect(screen.queryByRole('button', { name: 'Send a test notification' })).not.toBeInTheDocument();
+  });
+
   it('asks for permission only once the checkbox is ticked', async () => {
     fakeBrowser('default');
     await seeThenPoll(aFreshSnapshot(), aFreshSnapshot());
