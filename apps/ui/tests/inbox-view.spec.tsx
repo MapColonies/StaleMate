@@ -223,6 +223,18 @@ describe('the Inbox below 1280px', () => {
       expect(within(panel).getByRole('button', { name: 'Reset filters' })).toBeDisabled();
     });
 
+    it('clear one facet from the panel, leaving the others, and keep focus in it', async () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/a&review=approved');
+      renderInbox(snapshot, 'alice');
+      const panel = await openFilters();
+      const repo = within(panel).getByRole('group', { name: 'Repo' });
+
+      await userEvent.click(within(repo).getByRole('button', { name: 'Clear Repo' }));
+
+      expect(window.location.search).toBe('?review=approved');
+      expect(repo).toHaveFocus();
+    });
+
     it('close with Escape, giving focus back to the button', async () => {
       renderInbox(snapshot, 'alice');
       await openFilters();
@@ -307,6 +319,41 @@ describe('the Inbox’s facets', () => {
     renderInbox(snapshot, 'alice');
 
     expect(facetEntries('Repo')).toEqual(['b1']);
+  });
+
+  describe('with values picked', () => {
+    const facetHeading = (name: string) => within(facet(name)).getByRole('heading');
+    const clearButton = (name: string) => within(facet(name)).queryByRole('button', { name: `Clear ${name}` });
+    const getClearButton = (name: string) => within(facet(name)).getByRole('button', { name: `Clear ${name}` });
+
+    it('show how many are picked and a Clear in the heading, and neither with none picked', () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/a,MapColonies/b');
+
+      renderInbox(snapshot, 'alice');
+
+      expect(facetHeading('Repo')).toHaveTextContent(/^Repo · 2/);
+      expect(facetHeading('Repo')).toHaveAccessibleName('Repo 2 picked');
+      expect(getClearButton('Repo')).toHaveTextContent('Clear');
+      expect(facetHeading('Author')).toHaveAccessibleName('Author');
+      expect(clearButton('Author')).toBeNull();
+    });
+
+    it('clear one facet with the keyboard, leaving another picked, and keep focus in the facet', async () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/a&author=bob&q=asks');
+      renderInbox(snapshot, 'alice');
+
+      getClearButton('Repo').focus();
+      await userEvent.keyboard('{Enter}');
+
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get('repo')).toBeNull();
+      expect(params.get('author')).toBe('bob');
+      expect(params.get('q')).toBe('asks');
+      expect(within(facet('Repo')).queryAllByRole('checkbox', { checked: true })).toEqual([]);
+      expect(clearButton('Repo')).toBeNull();
+      expect(facet('Repo')).toHaveFocus();
+      expect(getClearButton('Author')).toBeInTheDocument();
+    });
   });
 
   describe('with more values than they show', () => {

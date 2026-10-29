@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, PersonChip, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, facetCounts, toggled } from '@/filters/filter-model';
@@ -46,10 +46,59 @@ function peopleIn(prs: readonly TrackedPr[]): Map<string, Person> {
   return people;
 }
 
-function Facet({ title, children }: { title: string; children: ReactNode }) {
+/** How many of a list facet's values are picked, and how to unpick them all. */
+interface Picks {
+  count: number;
+  clear: () => void;
+}
+
+/**
+ * A facet: its heading, with how many values are picked and a Clear that unpicks them, when any are. Clear goes away once
+ * used, so it hands focus to the facet, keeping a keyboard Viewer's place.
+ */
+function Facet({ title, picks, children }: { title: string; picks?: Picks; children: ReactNode }) {
+  const group = useRef<HTMLDivElement>(null);
+  const separator = <span aria-hidden> · </span>;
+  const picked = picks !== undefined && picks.count > 0 ? picks : null;
+
   return (
-    <div role="group" aria-label={title}>
-      <h3 className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
+    <div
+      ref={group}
+      role="group"
+      aria-label={title}
+      tabIndex={-1}
+      className="rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      <div className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground">
+        <h3 className="inline uppercase">
+          {title}
+          {picked && (
+            <>
+              {separator}
+              <span className="text-indigo-600 tabular-nums dark:text-indigo-400">
+                {picked.count}
+                <span className="sr-only"> picked</span>
+              </span>
+            </>
+          )}
+        </h3>
+        {picked && (
+          <>
+            {separator}
+            <button
+              type="button"
+              aria-label={`Clear ${title}`}
+              onClick={() => {
+                picked.clear();
+                group.current?.focus();
+              }}
+              className="rounded-sm text-indigo-600 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:text-indigo-400"
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </div>
       {children}
     </div>
   );
@@ -92,7 +141,7 @@ function FacetList<K extends ListFilter>({
   const { shown, cut } = facetValues(facetCounts(prs, filters, filter), picked, showAll);
 
   return (
-    <Facet title={title}>
+    <Facet title={title} picks={{ count: picked.length, clear: () => onChange({ [filter]: [] }) }}>
       <div className="space-y-px">
         {shown.map(([value, count]) => {
           const checked = picked.includes(value);
