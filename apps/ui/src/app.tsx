@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFilters } from '@/filters/use-filters';
 import { STORAGE_KEYS, migrateNotificationKeys, migrateRememberedTeam, useStoredString } from '@/lib/local-storage';
 import { useNow } from '@/lib/use-now';
+import { withPrs } from '@/notifications/engine';
 import { popUp } from '@/notifications/pop-up';
 import { useNotifications } from '@/notifications/use-notifications';
 import { useOsNotifications } from '@/notifications/use-os-notifications';
@@ -14,6 +15,7 @@ import { NotificationsDrawer } from '@/shell/notifications-drawer';
 import { OutOfDateBanner } from '@/shell/out-of-date-banner';
 import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
 import { ThemeToggle } from '@/shell/theme-toggle';
+import { useTabTitle } from '@/shell/use-tab-title';
 import { useTheme } from '@/shell/use-theme';
 import { TeamPicker } from '@/shell/team-picker';
 import { useTeam } from '@/shell/use-team';
@@ -62,14 +64,14 @@ export default function App() {
   const { data: teams, error: teamsError } = useTeams();
   const knownTeams = useMemo(() => teams?.map((team) => team.slug), [teams]);
   const { team, selectTeam, dropTeam } = useTeam(knownTeams);
-  const { data: snapshot, error, isError } = useSnapshot({ team, inBackground: os.enabled });
+  const [storedViewer, setViewer] = useStoredString(STORAGE_KEYS.viewer);
+  const { data: snapshot, error, isError } = useSnapshot({ team, inBackground: storedViewer !== null });
   // A Team the API turned away is dropped, and the Snapshot is asked for again without it.
   useEffect(() => {
     if (team !== null && error instanceof UnknownTeamError) {
       dropTeam(team);
     }
   }, [team, error, dropTeam]);
-  const [storedViewer, setViewer] = useStoredString(STORAGE_KEYS.viewer);
   const [view, setView] = useLastView();
   const theme = useTheme();
   const now = useNow();
@@ -84,6 +86,8 @@ export default function App() {
       popUp(due, observed.prs, () => setDrawerOpen(true));
     }
   });
+  // The bell counts the same rows the drawer lists.
+  useTabTitle(withPrs(notifications, snapshot?.prs ?? []).length, viewer !== null);
 
   return (
     // The header stays put; each view fills the space below it and scrolls inside itself.

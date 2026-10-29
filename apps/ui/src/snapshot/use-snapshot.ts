@@ -40,9 +40,9 @@ const snapshotInit = (team: string) => ({ params: { query: { team } } });
 
 /**
  * One Team's slice of the Snapshot, refetched as sweeps land (at least every 30 s) and when the window regains focus. A
- * tab in the background polls only when `inBackground`, e.g. so OS notifications still arrive; the browser throttles
- * it to about once a minute, which is enough. A Team the API doesn't know fails with UnknownTeamError. With no Team yet,
- * nothing is requested.
+ * tab in the background polls only when `inBackground`, i.e. a Viewer is picked, so the bell and tab title stay
+ * current; the browser throttles it to about once a minute, which is enough. A Team the API doesn't know fails with
+ * UnknownTeamError. With no Team yet, nothing is requested.
  */
 export function useSnapshot({ team, inBackground = false }: { team: string | null; inBackground?: boolean }) {
   const { queryKey } = $api.queryOptions('get', '/snapshot', snapshotInit(team ?? ''));

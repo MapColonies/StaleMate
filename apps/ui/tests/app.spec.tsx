@@ -888,6 +888,44 @@ describe('the Notifications drawer', () => {
     expect(moves.map((move) => move.textContent)).toEqual(['Resolve conflict']);
   });
 
+  it('lists the most recently noticed first, ties in Snapshot order, stable across polls', async () => {
+    const [a, b, c] = [onAlice('A'), onAlice('B'), onAlice('C')];
+    const rendered = await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [a, b] }));
+    await screen.findByTestId('notification-count');
+    const titles = (drawer: HTMLElement) =>
+      within(drawer)
+        .getAllByRole('link')
+        .map((link) => link.textContent);
+    const drawer = await openDrawer();
+    expect(titles(drawer)).toEqual(['A', 'B']);
+
+    serve(aFreshSnapshot({ prs: [c, a, b] }));
+    await act(() => rendered.queryClient.refetchQueries());
+    await waitFor(() => expect(titles(drawer)).toEqual(['C', 'A', 'B']));
+
+    serve(aFreshSnapshot({ prs: [c, a, b] }));
+    await act(() => rendered.queryClient.refetchQueries());
+    expect(titles(drawer)).toEqual(['C', 'A', 'B']);
+  });
+
+  it('puts the count in the tab title, following dismissals, and drops it at 0 or with no Viewer', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(aFreshSnapshot());
+    const rendered = renderApp();
+    await screen.findByTestId('no-reviewer');
+    expect(document.title).toBe('StaleMate');
+
+    serve(aFreshSnapshot({ prs: [onAlice('First'), onAlice('Second')] }));
+    await act(() => rendered.queryClient.refetchQueries());
+    await waitFor(() => expect(document.title).toBe('(2) StaleMate'));
+
+    const drawer = await openDrawer();
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Dismiss First' }));
+    expect(document.title).toBe('(1) StaleMate');
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Dismiss all' }));
+    expect(document.title).toBe('StaleMate');
+  });
+
   it('keeps a Notification when its PR is opened', async () => {
     await seeThenPoll(aFreshSnapshot(), aFreshSnapshot({ prs: [onAlice('New')] }));
     await screen.findByTestId('notification-count');
@@ -1329,17 +1367,20 @@ describe('OS notifications', () => {
       expect(FakeNotification.shown.map((popup) => popup.title)).toEqual(['New']);
     });
 
-    it('does not poll while it is off', async () => {
+    it('keeps polling with a Viewer picked while OS popups are off, and updates the bell and the tab title', async () => {
       fakeBrowser('granted');
       window.localStorage.setItem('stalemate.viewer', 'alice');
       serve(aFreshSnapshot());
       renderApp();
       await screen.findByTestId('no-reviewer');
 
-      expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
+      expect(await pollsWhileHiddenFor5Minutes(aFreshSnapshot({ prs: [onAlice('New')] }))).toBeGreaterThan(0);
+      expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
+      expect(document.title).toBe('(1) StaleMate');
+      expect(FakeNotification.shown).toEqual([]);
     });
 
-    it('does not poll while the browser blocks notifications, though the setting is on', async () => {
+    it('keeps polling while the browser blocks notifications, though the setting is on', async () => {
       fakeBrowser('denied');
       window.localStorage.setItem('stalemate.osNotifications', 'on');
       window.localStorage.setItem('stalemate.viewer', 'alice');
@@ -1347,15 +1388,14 @@ describe('OS notifications', () => {
       renderApp();
       await screen.findByTestId('no-reviewer');
 
-      expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
+      expect(await pollsWhileHiddenFor5Minutes()).toBeGreaterThan(0);
     });
 
-    it('stops polling once it is turned off, without a reload', async () => {
+    it('does not poll with no Viewer picked', async () => {
       fakeBrowser('granted');
-      await turnOn();
-      await openDrawer();
-      await userEvent.click(checkbox());
-      await waitFor(() => expect(checkbox()).not.toBeChecked());
+      serve(aFreshSnapshot());
+      renderApp();
+      await screen.findByTestId('no-reviewer');
 
       expect(await pollsWhileHiddenFor5Minutes()).toBe(0);
     });

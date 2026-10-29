@@ -91,13 +91,17 @@ export function notificationsOf(state: NotificationState): readonly Notification
 }
 
 /**
- * Each Notification with its PR. A Notification is only kept while its PR is on the Viewer, so it is in the Snapshot;
- * any whose PR isn't is left out, so the bell, the drawer and the popups always agree.
+ * Each Notification with its PR, newest first; Notifications noticed together keep the order of their PRs in the
+ * Snapshot, so the order is stable across polls. A Notification is only kept while its PR is on the Viewer, so it is in
+ * the Snapshot; any whose PR isn't is left out, so the bell, the drawer and the popups always agree.
  */
 export function withPrs(notifications: readonly Notification[], prs: readonly TrackedPr[]): { notification: Notification; pr: TrackedPr }[] {
-  const byId = new Map(prs.map((pr) => [pr.id, pr]));
-  return notifications.flatMap((notification) => {
-    const pr = byId.get(notification.prId);
-    return pr === undefined ? [] : [{ notification, pr }];
-  });
+  const positions = new Map(prs.map((pr, index) => [pr.id, index]));
+  return notifications
+    .flatMap((notification) => {
+      const index = positions.get(notification.prId);
+      return index === undefined ? [] : [{ notification, pr: prs[index], index }];
+    })
+    .sort((a, b) => b.notification.noticedAt - a.notification.noticedAt || a.index - b.index)
+    .map(({ notification, pr }) => ({ notification, pr }));
 }

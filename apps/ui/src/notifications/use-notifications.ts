@@ -28,7 +28,7 @@ function save(key: string, state: NotificationState): void {
 }
 
 interface ViewerNotifications {
-  /** Oldest first. */
+  /** In the order they were noticed; withPrs orders them for display. */
   notifications: readonly Notification[];
   /** Dismisses the Notifications of these PRs. Their Moves stay seen, so only a later change notifies again. */
   dismiss: (prIds: readonly string[]) => void;
