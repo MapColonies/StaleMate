@@ -1,6 +1,6 @@
 {
   "name": "stalemate-api",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "dockerfile": "docker/backend.Dockerfile",
   "description": "Sweeps GitHub for the Team's Tracked PRs and serves the derived Snapshot",
   "author": "MapColonies",

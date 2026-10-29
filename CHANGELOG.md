@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0](https://github.com/MapColonies/StaleMate/compare/v2.0.1...v2.1.0) (2026-10-29)
+
+
+### 🎉 Features
+
+* **stalemate-ui:** add a subtle Send a test notification link to the drawer ([f106981](https://github.com/MapColonies/StaleMate/commit/f106981b76bebbe1d3730ec5564115d12b5b72c7))
+* **stalemate-ui:** give the Inbox sidebar its own scrollbar and reorder its facets ([04e82c7](https://github.com/MapColonies/StaleMate/commit/04e82c7f83f6d546fbfa140b86c4ed454c664947)), closes [#83](https://github.com/MapColonies/StaleMate/issues/83)
+* **stalemate-ui:** keep picked facet values visible at the top ([d812c98](https://github.com/MapColonies/StaleMate/commit/d812c981beddcd522e6748aca4e0ac3f628088e0)), closes [#84](https://github.com/MapColonies/StaleMate/issues/84)
+* **stalemate-ui:** keep the bell and tab title current, newest first ([34c72f0](https://github.com/MapColonies/StaleMate/commit/34c72f006c2b9e56544c5a4751d3021d5d73204a))
+* **stalemate-ui:** never silently lose a Notification ([ed4a145](https://github.com/MapColonies/StaleMate/commit/ed4a145c2e97992fe2711b1d622af3f6e578c5e4))
+* **stalemate-ui:** search within long Inbox facets ([a0db8e2](https://github.com/MapColonies/StaleMate/commit/a0db8e21146d8536c15bf302badb039fbc7ea65a)), closes [#86](https://github.com/MapColonies/StaleMate/issues/86)
+* **stalemate-ui:** show a picked count and Clear on each Inbox facet ([629879b](https://github.com/MapColonies/StaleMate/commit/629879b21f182acc632aaa8013468c8d8c45e616)), closes [#85](https://github.com/MapColonies/StaleMate/issues/85)
+
 ## [2.0.1](https://github.com/MapColonies/StaleMate/compare/v2.0.0...v2.0.1) (2026-10-26)
 
 
