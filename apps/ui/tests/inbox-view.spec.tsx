@@ -45,6 +45,18 @@ const facetEntries = (name: string): string[] =>
     .getAllByRole('checkbox')
     .map((option) => option.textContent ?? '');
 
+/** What a sidebar or panel holds, top to bottom: its facets by name, with its switches as one entry. */
+const facetsIn = (container: HTMLElement): string[] => {
+  const items = [...within(container).getAllByRole('switch'), ...within(container).getAllByRole('group')].sort((a, b) =>
+    a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+  );
+  const names = items.map((item) => (item.getAttribute('role') === 'switch' ? 'switches' : (item.getAttribute('aria-label') ?? '')));
+  // Only the switches, which sit together, fold into one entry, so a facet shown twice would still show.
+  return names.filter((name, index) => name !== 'switches' || names[index - 1] !== 'switches');
+};
+
+const FACET_ORDER = ['switches', 'Repo', 'Review', 'Checks', 'Age', 'Idle Time', 'Author', 'Reviewer', 'Waiting On', 'Why tracked'];
+
 const snapshot = aSnapshot({
   prs: [
     aPr({ title: 'asks alice', repo: 'MapColonies/a', author: bob, waitingOn: [waitingOnReviewer(alice)], age: clock(2) }),
@@ -169,6 +181,12 @@ describe('the Inbox below 1280px', () => {
       expect(facetEntries('Repo')).toEqual(['b3', 'a2']);
     });
 
+    it('list the facets in the sidebar’s order', async () => {
+      renderInbox(snapshot, 'alice');
+
+      expect(facetsIn(await openFilters())).toEqual(FACET_ORDER);
+    });
+
     it('count on the button the active filters the panel holds, leaving out the search beside it', () => {
       window.history.replaceState(null, '', '/?review=approved&hideBots=0&q=tiles');
 
@@ -252,6 +270,12 @@ describe('the Inbox at 1280px and up', () => {
 
     expect(within(screen.getByRole('complementary', { name: 'Filters' })).getByRole('group', { name: 'Repo' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Filters/ })).not.toBeInTheDocument();
+  });
+
+  it('lists the facets the Viewer reaches for first on top, with Waiting On low', () => {
+    renderInbox(snapshot, 'alice');
+
+    expect(facetsIn(screen.getByRole('complementary', { name: 'Filters' }))).toEqual(FACET_ORDER);
   });
 });
 

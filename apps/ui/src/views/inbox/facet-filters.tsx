@@ -135,7 +135,8 @@ export interface FacetFiltersProps {
 
 /**
  * The Inbox's filters over the shared filter model: the switches, the Age and Idle presets, and a facet per list filter.
- * They sit in the sidebar, or in the Filters panel where the window is too narrow for one.
+ * They sit in the sidebar, or in the Filters panel where the window is too narrow for one, in the order the Viewer reaches for
+ * them: the buckets already split the PRs by whose move it is, so Waiting On sits low. The Table's filter bar keeps its own order.
  */
 export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: FacetFiltersProps) {
   const people = peopleIn(prs);
@@ -151,6 +152,18 @@ export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: 
       <div className="flex flex-col items-start gap-2">
         <FilterSwitches teamSlug={teamSlug} filters={filters} onChange={onChange} />
       </div>
+      <FacetList
+        title="Repo"
+        filter="repo"
+        label={(value) => (
+          <span className="font-mono text-xs">
+            <RepoName repo={value} org={org} />
+          </span>
+        )}
+        {...facetProps}
+      />
+      <FacetList title="Review" filter="review" label={(value) => REVIEW_STATUS_LABELS[value]} {...facetProps} />
+      <FacetList title="Checks" filter="check" label={(value) => CHECK_STATUS_LABELS[value]} {...facetProps} />
       <Facet title="Age">
         <div className="flex flex-wrap gap-1">
           {AGE_PRESETS.map((preset) => (
@@ -173,30 +186,18 @@ export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: 
           ))}
         </div>
       </Facet>
-      <FacetList title="Waiting On" filter="waitingOn" label={partyLabel} {...facetProps} />
-      <FacetList title="Review" filter="review" label={(value) => REVIEW_STATUS_LABELS[value]} {...facetProps} />
-      <FacetList title="Checks" filter="check" label={(value) => CHECK_STATUS_LABELS[value]} {...facetProps} />
-      <FacetList title="Reviewer" filter="reviewer" label={partyLabel} {...facetProps} />
       <FacetList title="Author" filter="author" label={partyLabel} {...facetProps} />
-      <FacetList
-        title="Repo"
-        filter="repo"
-        label={(value) => (
-          <span className="font-mono text-xs">
-            <RepoName repo={value} org={org} />
-          </span>
-        )}
-        {...facetProps}
-      />
+      <FacetList title="Reviewer" filter="reviewer" label={partyLabel} {...facetProps} />
+      <FacetList title="Waiting On" filter="waitingOn" label={partyLabel} {...facetProps} />
       <FacetList title="Why tracked" filter="reason" label={(value) => INCLUSION_REASON_LABELS[value]} {...facetProps} />
     </>
   );
 }
 
-/** The Inbox's filters in a sidebar of their own. */
+/** The Inbox's filters in a sidebar of their own, which stays put while the PRs scroll, and scrolls on its own when long. */
 export function FacetSidebar(props: FacetFiltersProps) {
   return (
-    <aside aria-label="Filters" className="w-72 shrink-0 space-y-5 border-r bg-background p-4">
+    <aside aria-label="Filters" className="w-72 shrink-0 space-y-5 overflow-y-auto border-r bg-background p-4">
       <FacetFilters {...props} />
     </aside>
   );

@@ -86,7 +86,7 @@ export default function App() {
   });
 
   return (
-    // The header stays put; the views scroll below it, and the Board scrolls inside itself.
+    // The header stays put; each view fills the space below it and scrolls inside itself.
     <div className="flex h-screen flex-col">
       <header className="flex h-14 shrink-0 items-center gap-5 border-b bg-background px-5">
         <Logo />

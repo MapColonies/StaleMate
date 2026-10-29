@@ -185,9 +185,10 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const filterProps = { prs: snapshot.prs, teamSlug: snapshot.teamInfo.slug, org, filters, viewer, onChange: setFilters };
 
   return (
-    <div className="flex min-h-full">
+    // The sidebar and the PRs scroll apart, so the facets stay in view however far down the PRs go.
+    <div className="flex h-full">
       {!compact && <FacetSidebar {...filterProps} />}
-      <section className="min-w-0 flex-1 space-y-6 p-5">
+      <section className="min-w-0 flex-1 space-y-6 overflow-y-auto p-5">
         <div className="flex flex-wrap items-center gap-3">
           <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="w-96" />
           {compact && <FiltersPanel {...filterProps} />}
