@@ -3,7 +3,9 @@ import { Check } from 'lucide-react';
 import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, PersonChip, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, facetCounts, toggled } from '@/filters/filter-model';
 import { FilterSwitches } from '@/filters/filter-switches';
+import { SEARCH_FROM, SEARCH_INPUT_CLASS, matchesQuery } from '@/components/option-search';
 import { cn } from '@/lib/utils';
+import { shortRepoName } from '@/snapshot/selectors';
 import type { Person, TrackedPr } from '@/snapshot/types';
 
 // How many unpicked values a facet shows before "Show N more".
@@ -15,17 +17,21 @@ type FacetEntry<T extends string> = readonly [value: T, count: number];
 
 /**
  * Which of a facet's values show, and how many wait behind "Show N more". The picked values come first, so the Viewer can
- * always see and untick what they filtered on, even with no PR left to count; the unpicked ones follow, busiest first, and
- * only they are cut. Each group is busiest first, then by name.
+ * always see and untick what they filtered on, even with no PR left to count, or matching no search; the unpicked ones
+ * follow, busiest first, and only they are cut. Each group is busiest first, then by name. While the Viewer searches the
+ * facet, only the unpicked values that match follow, and every one of them shows.
  */
 function facetValues<T extends string>(
   counts: ReadonlyMap<T, number>,
   picked: readonly T[],
-  showAll: boolean
+  { showAll, matches }: { showAll: boolean; matches: ((value: T) => boolean) | null }
 ): { shown: FacetEntry<T>[]; cut: number } {
   const busiestFirst = (entries: FacetEntry<T>[]) => entries.sort(([a, countA], [b, countB]) => countB - countA || byName(a, b));
   const pickedEntries = busiestFirst(picked.map((value) => [value, counts.get(value) ?? 0]));
   const unpicked = busiestFirst([...counts].filter(([value]) => !picked.includes(value)));
+  if (matches !== null) {
+    return { shown: [...pickedEntries, ...unpicked.filter(([value]) => matches(value))], cut: 0 };
+  }
   const shownUnpicked = showAll ? unpicked : unpicked.slice(0, SHOWN_UNPICKED);
   return { shown: [...pickedEntries, ...shownUnpicked], cut: Math.max(unpicked.length - SHOWN_UNPICKED, 0) };
 }
@@ -120,28 +126,54 @@ function Pill({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
   );
 }
 
-/** A list filter's values, picked ones first, each with how many PRs picking it would keep. */
+/**
+ * A list filter's values, picked ones first, each with how many PRs picking it would keep. A long one gets a search box that
+ * narrows the values it shows, never the PRs; what the Viewer types stays here, out of the URL.
+ */
 function FacetList<K extends ListFilter>({
   title,
   filter,
   prs,
   filters,
   onChange,
-  label,
+  text = (value) => value,
+  label = text,
 }: {
   title: string;
   filter: K;
   prs: readonly TrackedPr[];
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
-  label: (value: Filters[K][number]) => ReactNode;
+  /** A value's name as shown, which the search matches; the value itself when absent. */
+  text?: (value: Filters[K][number]) => string;
+  /** How a value shows, when it is more than its name; its name when absent. */
+  label?: (value: Filters[K][number]) => ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const [query, setQuery] = useState('');
   const picked = filters[filter] as readonly Filters[K][number][];
-  const { shown, cut } = facetValues(facetCounts(prs, filters, filter), picked, showAll);
+  const counts = facetCounts(prs, filters, filter);
+  const searchable = new Set([...counts.keys(), ...picked]).size >= SEARCH_FROM;
+  // Text left in a box that went away, when another filter shortened the facet, narrows nothing.
+  const searching = searchable && query.trim() !== '';
+  const { shown, cut } = facetValues(counts, picked, { showAll, matches: searching ? (value) => matchesQuery(text(value), query) : null });
 
   return (
     <Facet title={title} picks={{ count: picked.length, clear: () => onChange({ [filter]: [] }) }}>
+      {searchable && (
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            // Once the search is cleared, the facet folds back to its capped view.
+            setShowAll(false);
+          }}
+          placeholder="Search…"
+          aria-label={`Search ${title}`}
+          className={SEARCH_INPUT_CLASS}
+        />
+      )}
       <div className="space-y-px">
         {shown.map(([value, count]) => {
           const checked = picked.includes(value);
@@ -171,6 +203,7 @@ function FacetList<K extends ListFilter>({
             </button>
           );
         })}
+        {searching && shown.length === 0 && <p className="px-1.5 py-1 text-sm text-muted-foreground">Nothing matches.</p>}
         {cut > 0 && (
           <button type="button" onClick={() => setShowAll(!showAll)} className="px-1.5 text-xs text-indigo-600 hover:underline dark:text-indigo-400">
             {showAll ? 'Show less' : `Show ${cut} more`}
@@ -220,10 +253,11 @@ export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: 
             <RepoName repo={value} org={org} />
           </span>
         )}
+        text={(value) => shortRepoName(value, org)}
         {...facetProps}
       />
-      <FacetList title="Review" filter="review" label={(value) => REVIEW_STATUS_LABELS[value]} {...facetProps} />
-      <FacetList title="Checks" filter="check" label={(value) => CHECK_STATUS_LABELS[value]} {...facetProps} />
+      <FacetList title="Review" filter="review" text={(value) => REVIEW_STATUS_LABELS[value]} {...facetProps} />
+      <FacetList title="Checks" filter="check" text={(value) => CHECK_STATUS_LABELS[value]} {...facetProps} />
       <Facet title="Age">
         <div className="flex flex-wrap gap-1">
           {AGE_PRESETS.map((preset) => (
@@ -249,7 +283,7 @@ export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: 
       <FacetList title="Author" filter="author" label={partyLabel} {...facetProps} />
       <FacetList title="Reviewer" filter="reviewer" label={partyLabel} {...facetProps} />
       <FacetList title="Waiting On" filter="waitingOn" label={partyLabel} {...facetProps} />
-      <FacetList title="Why tracked" filter="reason" label={(value) => INCLUSION_REASON_LABELS[value]} {...facetProps} />
+      <FacetList title="Why tracked" filter="reason" text={(value) => INCLUSION_REASON_LABELS[value]} {...facetProps} />
     </>
   );
 }

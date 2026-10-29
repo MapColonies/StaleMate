@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HIGHLIGHTED_CLASS } from './highlight-classes';
+import { SEARCH_FROM, SEARCH_INPUT_CLASS, matchesQuery } from './option-search';
 
 export interface CheckboxMenuOption {
   value: string;
@@ -10,9 +11,6 @@ export interface CheckboxMenuOption {
   text?: string;
   checked: boolean;
 }
-
-// Longer menus get a search box.
-const SEARCH_FROM = 9;
 
 /** A button that opens a menu of checkboxes: the filter bar's multi-selects and the Table's column picker. */
 export function CheckboxMenu({
@@ -58,8 +56,7 @@ export function CheckboxMenu({
     };
   }, [open]);
 
-  const q = query.trim().toLowerCase();
-  const shown = q === '' ? options : options.filter((option) => (option.text ?? option.value).toLowerCase().includes(q));
+  const shown = options.filter((option) => matchesQuery(option.text ?? option.value, query));
   const checkedCount = options.filter((option) => option.checked).length;
 
   return (
@@ -94,7 +91,7 @@ export function CheckboxMenu({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search…"
               aria-label="Search the options"
-              className="mb-1 h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none"
+              className={SEARCH_INPUT_CLASS}
             />
           )}
           <div className="max-h-72 overflow-auto">

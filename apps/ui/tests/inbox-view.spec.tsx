@@ -235,6 +235,20 @@ describe('the Inbox below 1280px', () => {
       expect(repo).toHaveFocus();
     });
 
+    it('search a long facet in the panel too, matching people by login', async () => {
+      const logins = ['ann', 'ben', 'cat', 'dan', 'eve', 'fay', 'gus', 'hal', 'ivy'];
+      renderInbox(aSnapshot({ prs: logins.map((login) => aPr({ author: member(login) })) }));
+      const author = within(await openFilters()).getByRole('group', { name: 'Author' });
+
+      await userEvent.type(within(author).getByRole('searchbox', { name: 'Search Author' }), 'V');
+
+      expect(
+        within(author)
+          .getAllByRole('checkbox')
+          .map((option) => option.textContent)
+      ).toEqual(['eve1', 'ivy1']);
+    });
+
     it('close with Escape, giving focus back to the button', async () => {
       renderInbox(snapshot, 'alice');
       await openFilters();
@@ -409,6 +423,84 @@ describe('the Inbox’s facets', () => {
 
       expect(facetEntries('Repo')).toEqual(['q2', 'v1', 'w1', 'p2', 'r2', 's2', 't2', 'u2']);
       expect(showMore()).toBeNull();
+    });
+
+    it('offer no search box below nine values', () => {
+      renderInbox(manyRepos);
+
+      expect(within(facet('Repo')).queryByRole('searchbox')).toBeNull();
+    });
+  });
+
+  describe('with nine values or more', () => {
+    // Seven svc- repos, the six busiest of them shown, then two quiet repos besides.
+    const svc = ['svc-p', 'svc-q', 'svc-r', 'svc-s', 'svc-t', 'svc-u'];
+    const longRepos = aSnapshot({
+      prs: [
+        ...svc.flatMap((name) => [aPr({ repo: `MapColonies/${name}` }), aPr({ repo: `MapColonies/${name}` })]),
+        aPr({ repo: 'MapColonies/svc-v' }),
+        aPr({ repo: 'MapColonies/w' }),
+        aPr({ repo: 'MapColonies/x' }),
+      ],
+    });
+    const search = (name: string) => within(facet(name)).getByRole('searchbox', { name: `Search ${name}` });
+    const shownEntries = (name: string): string[] =>
+      within(facet(name))
+        .queryAllByRole('checkbox')
+        .map((option) => option.textContent ?? '');
+    const showMore = () => within(facet('Repo')).queryByRole('button', { name: /^Show/ });
+    const prTitles = () => screen.getAllByRole('link').map((link) => link.textContent);
+
+    it('offer a search box named for the facet, and none on a shorter facet', () => {
+      renderInbox(longRepos);
+
+      expect(search('Repo')).toBeInTheDocument();
+      expect(within(facet('Review')).queryByRole('searchbox')).toBeNull();
+    });
+
+    it('narrow that facet by the name as shown, any case, leaving the PRs, the other facets and the URL alone', async () => {
+      window.history.replaceState(null, '', '/?q=Change');
+      renderInbox(longRepos);
+      const prs = prTitles();
+      const authors = shownEntries('Author');
+
+      await userEvent.type(search('Repo'), 'W');
+
+      expect(shownEntries('Repo')).toEqual(['w1']);
+      expect(prTitles()).toEqual(prs);
+      expect(shownEntries('Author')).toEqual(authors);
+      expect(window.location.search).toBe('?q=Change');
+
+      // The org the name leaves out matches nothing.
+      await userEvent.clear(search('Repo'));
+      await userEvent.type(search('Repo'), 'MapColonies');
+
+      expect(shownEntries('Repo')).toEqual([]);
+    });
+
+    it('show every match while searching, and the capped view again once cleared, though it was opened before', async () => {
+      renderInbox(longRepos);
+      await userEvent.click(showMore()!);
+
+      await userEvent.type(search('Repo'), 'svc');
+
+      expect(shownEntries('Repo')).toEqual(['svc-p2', 'svc-q2', 'svc-r2', 'svc-s2', 'svc-t2', 'svc-u2', 'svc-v1']);
+      expect(showMore()).toBeNull();
+
+      await userEvent.clear(search('Repo'));
+
+      expect(shownEntries('Repo')).toEqual(['svc-p2', 'svc-q2', 'svc-r2', 'svc-s2', 'svc-t2', 'svc-u2']);
+      expect(showMore()).toHaveTextContent('Show 3 more');
+    });
+
+    it('keep a picked value on show though it does not match', async () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/x');
+      renderInbox(longRepos);
+
+      await userEvent.type(search('Repo'), 'svc-p');
+
+      expect(shownEntries('Repo')).toEqual(['x1', 'svc-p2']);
+      expect(within(facet('Repo')).getByRole('checkbox', { name: /^x/ })).toHaveAttribute('aria-checked', 'true');
     });
   });
 });
