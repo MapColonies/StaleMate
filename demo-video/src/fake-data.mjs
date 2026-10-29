@@ -1,5 +1,5 @@
-// Turns the API's fixture Snapshot into the video's: real logins swapped for invented ones, and the PRs that become the
-// Viewer's turn on camera, which is what makes the bell's Notifications arrive live.
+// Turns the API's fixture Snapshot and Teams into the video's: real logins swapped for invented ones, and the PRs that
+// become the Viewer's turn on camera, which is what makes the bell's Notifications arrive live.
 
 export const VIEWER = 'mergey-mcmergeface';
 
@@ -41,6 +41,9 @@ function askViewerToReview(pr) {
     noReviewer: false,
   };
 }
+
+/** The watched Teams as the video shows them: their names stay real, their members' logins don't. */
+export const fakeTeams = rename;
 
 /** The Snapshot as the video shows it, with or without the news for the Viewer. */
 export function fakeSnapshot(snapshot, { withNews }) {

@@ -60,7 +60,12 @@ def speak_kokoro(text: str) -> tuple[np.ndarray, int]:
 def qwen_speaker():
     from qwen_tts import Qwen3TTSModel
 
-    model = Qwen3TTSModel.from_pretrained("Qwen/Qwen3-TTS-12Hz-1.7B-Base", device_map="cuda:0", dtype=torch.bfloat16)
+    # Without an NVIDIA GPU it runs on the CPU, many times slower, in float32 (about 7 GB of RAM): most CPUs only
+    # emulate bfloat16, which is slower still.
+    gpu = torch.cuda.is_available()
+    model = Qwen3TTSModel.from_pretrained(
+        "Qwen/Qwen3-TTS-12Hz-1.7B-Base", device_map="cuda:0" if gpu else "cpu", dtype=torch.bfloat16 if gpu else torch.float32
+    )
     reference, rate = speak_kokoro(REFERENCE_TEXT)
     prompt = model.create_voice_clone_prompt(ref_audio=(reference, rate), ref_text=REFERENCE_TEXT)
 

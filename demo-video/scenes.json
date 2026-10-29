@@ -1,13 +1,13 @@
 [
   {
     "id": "intro",
-    "text": "Ever lost track of a pull request that was waiting on you? StaleMate helps with that. It shows every open pull request on the team, whose turn it is, and how long it has been waiting. You can find it at stalemate.mapcolonies.net.",
-    "say": "Ever lost track of a pull request that was waiting on you? StaleMate helps with that. It shows every open pull request on the team, whose turn it is, and how long it has been waiting. You can find it at stalemate dot map colonies dot net."
+    "text": "Ever lost track of a pull request that was waiting on you? StaleMate helps with that. It shows every open pull request on your team, whose turn it is, and how long it has been waiting. You can find it at stalemate.mapcolonies.net.",
+    "say": "Ever lost track of a pull request that was waiting on you? StaleMate helps with that. It shows every open pull request on your team, whose turn it is, and how long it has been waiting. You can find it at stalemate dot map colonies dot net."
   },
   {
     "id": "pick-yourself",
-    "text": "First, tell StaleMate who you are. Open \"I am\" at the top, and pick your name. Here, I'm Mergey McMergeface, and now the \"Your turn\" tab shows how many pull requests are waiting on you.",
-    "say": "First, tell StaleMate who you are. Open \"I am\" at the top, and pick your name. Here, I'm Mergey Mick-Merge-face, and now the \"Your turn\" tab shows how many pull requests are waiting on you."
+    "text": "The first time you open it, StaleMate asks for your team and who you are. Here, I'm Mergey McMergeface on the Infra team. You can change either one at the top, any time.",
+    "say": "The first time you open it, StaleMate asks for your team and who you are. Here, I'm Mergey Mick-Merge-face on the Infra team. You can change either one at the top, any time."
   },
   {
     "id": "table",
@@ -24,12 +24,13 @@
   },
   {
     "id": "notifications",
-    "text": "Now, notifications. When a pull request becomes your turn, the bell shows a number. Click it to see what is new. Open the pull request from here, or dismiss it when you are done. Tick \"Also send them to my OS\" to get a desktop pop-up too, even when the tab is in the background."
+    "text": "Now, notifications. When a pull request becomes your turn, the bell shows a number. Click it to see what is new. Open the pull request from here, or dismiss it when you are done. Tick \"Also send them to my OS\" to get a desktop pop-up too, even when the tab is in the background.",
+    "say": "Now, notifications. When a pull request becomes your turn, the bell shows a number. Click it to see what is new. Open the pull request from here, or dismiss it when you are done. Tick also send them to my OS, to get a desktop pop-up too, even when the tab is in the background."
   },
   {
     "id": "dark-mode",
     "text": "And of course, we also support dark mode.",
-    "pause": 2.5
+    "pause": 1.8
   },
   {
     "id": "outro",

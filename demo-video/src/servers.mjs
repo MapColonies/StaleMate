@@ -40,7 +40,7 @@ export async function startServers() {
     process.kill(-ui.pid);
   };
   try {
-    await waitFor(`http://localhost:${API_PORT}/snapshot`, 'The API');
+    await waitFor(`http://localhost:${API_PORT}/teams`, 'The API');
     await waitFor(`http://localhost:${UI_PORT}/`, 'The UI');
   } catch (error) {
     stop();

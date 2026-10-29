@@ -4,13 +4,15 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createCursor } from './cursor.mjs';
-import { fakeSnapshot, VIEWER } from './fake-data.mjs';
+import { fakeSnapshot, fakeTeams, VIEWER } from './fake-data.mjs';
 import { startScreencast } from './screencast.mjs';
 import { startServers } from './servers.mjs';
 
 const [audioDir, outDir] = process.argv.slice(2);
 /** Silence after a scene, so one thought ends before the next starts, unless the scene sets its own "pause". */
 const PAUSE_S = 0.7;
+/** How long before its words the cursor sets off, as a hand does, so it lands on the thing as it is named. */
+const CUE_LEAD_MS = 400;
 
 const scenes = JSON.parse(await readFile(new URL('../scenes.json', import.meta.url), 'utf8'));
 const lengths = JSON.parse(await readFile(`${audioDir}/lengths.json`, 'utf8'));
@@ -23,23 +25,38 @@ try {
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   await context.addInitScript({ path: new URL('./page-setup.js', import.meta.url).pathname });
   let withNews = false;
-  await context.route('**/api/snapshot', async (route) => {
+  const apiPath = (path) => (url) => url.pathname === `/api${path}`;
+  await context.route(apiPath('/snapshot'), async (route) => {
     const response = await route.fetch();
     await route.fulfill({ response, json: fakeSnapshot(await response.json(), { withNews }) });
   });
+  await context.route(apiPath('/teams'), async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: fakeTeams(await response.json()) });
+  });
 
   const page = await context.newPage();
-  const screencast = await startScreencast(page, outDir);
-  const cursor = createCursor(page);
+  const modal = page.getByRole('dialog', { name: 'Which Team are you looking at?' });
+  // A first visit, so nothing is stored when the app loads and it asks for a Team. Once it has, light mode is stored
+  // for the reload, which the existing-user check, already done, no longer reads as an earlier visit.
   await page.goto(url);
-  await page.getByRole('group', { name: 'View' }).waitFor();
-  await page.locator('tbody tr').first().waitFor();
-  // The cursor rests in plain sight until the narration first points at something.
-  await page.mouse.move(1180, 700);
+  await modal.getByRole('option', { name: 'Infra' }).waitFor({ state: 'attached' });
+  await page.evaluate(() => localStorage.setItem('stalemate.theme', 'light'));
+  await page.reload();
+  await modal.getByRole('option', { name: 'Infra' }).waitFor({ state: 'attached' });
+
+  const screencast = await startScreencast(page, outDir);
+  // The cursor rests in plain sight, beside the modal, until the narration first points at something.
+  const rest = { x: 1330, y: 760 };
+  const cursor = createCursor(page, rest);
+  await page.mouse.move(rest.x, rest.y);
   await sleep(500);
   const videoStart = screencast.firstFrameAt();
 
   const header = page.locator('header');
+  // A select's name is its label followed by the option it shows.
+  const modalSelect = (label) => modal.getByLabel(new RegExp(`^${label}`));
+  const headerSelect = (label) => header.getByLabel(new RegExp(`^${label}`));
   const view = (name) => page.getByRole('group', { name: 'View' }).getByRole('button', { name });
   const tab = (name) =>
     page
@@ -105,39 +122,39 @@ try {
     const length = lengths[scene.id];
     const spoken = scene.say ?? scene.text;
     const start = Date.now();
-    /** Waits for the moment the narration reaches the phrase, guessed from where it sits in the text. */
+    /** Waits until just before the narration reaches the phrase, guessed from where it sits in the text. */
     const cue = async (phrase) => {
       const at = spoken.indexOf(phrase);
       if (at === -1) {
         throw new Error(`"${phrase}" isn't in the ${scene.id} narration`);
       }
-      await sleep(start + (at / spoken.length) * length * 1000 - Date.now());
+      await sleep(start + (at / spoken.length) * length * 1000 - CUE_LEAD_MS - Date.now());
     };
     timeline.push({ id: scene.id, start: (start - videoStart) / 1000 });
 
     switch (scene.id) {
       case 'intro':
-        await cue('every open pull request');
-        await cursor.hover(tab('All'));
-        await cue('whose turn');
-        await cursor.hover(columnHeader('Waiting On'));
-        await cue('how long');
-        await cursor.hover(columnHeader('Age'));
         break;
       case 'pick-yourself': {
-        const select = header.locator('select');
-        await cue('Open');
-        await cursor.fakeClick(select);
-        await openOptions(select);
-        await cue('pick your name');
-        const option = page.locator(`#demo-options [data-option="${VIEWER}"]`);
-        await cursor.hover(option);
-        await cue("Here, I'm");
-        // A real click on the drawn option: the app's <select> sits under it, unopened.
-        await cursor.click(option);
-        await pickOption(select, VIEWER);
-        await cue('and now the "Your turn" tab');
-        await cursor.hover(tab('Your turn'));
+        /** Opens the select, as drawn, and picks the option. A real click on the drawn option: the select sits under it, unopened. */
+        const pick = async (select, option) => {
+          await cursor.fakeClick(select);
+          await openOptions(select);
+          const drawn = page.locator(`#demo-options [data-option="${option}"]`);
+          await cursor.hover(drawn);
+          await cursor.click(drawn);
+          await pickOption(select, option);
+        };
+        await cue('asks for your team');
+        await pick(modalSelect('Team'), 'Infra');
+        await cue('who you are');
+        await pick(modalSelect('I am'), VIEWER);
+        await cue('on the Infra team');
+        await cursor.click(modal.getByRole('button', { name: 'Show PRs' }));
+        await page.locator('tbody tr').first().waitFor();
+        await cue('change either one');
+        await cursor.hover(headerSelect('Team'));
+        await cursor.hover(headerSelect('I am'));
         break;
       }
       case 'table':
@@ -150,7 +167,7 @@ try {
         await cursor.hover(tab('Your PRs'));
         await cue('"Involving you"');
         await cursor.hover(tab('Involving you'));
-        await cue('search');
+        await cue('You can search');
         await cursor.hover(
           page
             .getByRole('searchbox')
@@ -171,7 +188,7 @@ try {
         await cue('no reviewer');
         await cursor.hover(bucket('No Reviewer'));
         await cue('the rest');
-        await cursor.hover(bucket('Rest of the Team'));
+        await cursor.hover(bucket('Rest of Infra'));
         break;
       case 'board':
         await cursor.click(view('Board'));
@@ -197,7 +214,7 @@ try {
         await cursor.click(drawer.getByRole('button', { name: /^Dismiss (?!all)/ }).first());
         await cue('Tick');
         await cursor.click(drawer.getByRole('checkbox'));
-        await cue('in the background');
+        await cue('even when the tab');
         await cursor.click(drawer.getByRole('button', { name: 'Close' }));
         break;
       }

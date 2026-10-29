@@ -1,16 +1,12 @@
 // Runs in the page before the app. Playwright's video has no mouse pointer, so this draws one that follows the mouse and
 // dips on clicks. It zooms the app to 133%, for text big enough to read in a video: the video records CSS pixels,
-// so a higher deviceScaleFactor wouldn't help. It also starts the app in light mode, and makes the OS-notification
-// checkbox usable: headless Chromium denies notifications whatever the permissions say.
+// so a higher deviceScaleFactor wouldn't help. It also makes the OS-notification checkbox usable: headless Chromium
+// denies notifications whatever the permissions say. It stores nothing, so the app sees a first visit.
 // The pointer and other overlays hang off <html>, outside the zoomed <body>, so they use the mouse's own coordinates.
 (() => {
   const zoom = document.createElement('style');
   zoom.textContent = 'body { zoom: 1.3333; }';
   window.addEventListener('DOMContentLoaded', () => document.documentElement.append(zoom));
-
-  if (localStorage.getItem('stalemate.theme') === null) {
-    localStorage.setItem('stalemate.theme', 'light');
-  }
 
   class GrantedNotification {
     static permission = 'granted';

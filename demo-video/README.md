@@ -17,5 +17,6 @@ It needs ffmpeg, and an NVIDIA GPU for Qwen3-TTS; the draft voice runs on a CPU.
 - `src/record.mjs` drives the app through the scenes, holding each for as long as its clip, and moves the cursor when
   the narration reaches the words it points at.
 - `src/screencast.mjs` captures what Chromium paints as high-quality frames: Playwright's own video is too lossy.
-- `src/fake-data.mjs` swaps the fixture's real logins for invented ones and stages the Notifications that arrive on
-  camera.
+- `src/fake-data.mjs` swaps the fixture's real logins for invented ones, in the Snapshot and the Teams, and stages the
+  Notifications that arrive on camera.
+- The recording starts as a first visit, with nothing in localStorage, so it opens on the modal that asks for a Team.
