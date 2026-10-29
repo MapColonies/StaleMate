@@ -6,10 +6,29 @@ import { FilterSwitches } from '@/filters/filter-switches';
 import { cn } from '@/lib/utils';
 import type { Person, TrackedPr } from '@/snapshot/types';
 
-// A facet shows its busiest values; the rest wait behind "Show N more".
-const SHOWN_VALUES = 6;
+// How many unpicked values a facet shows before "Show N more".
+const SHOWN_UNPICKED = 6;
 
 const byName = (a: string, b: string): number => a.localeCompare(b, undefined, { sensitivity: 'base' });
+
+type FacetEntry<T extends string> = readonly [value: T, count: number];
+
+/**
+ * Which of a facet's values show, and how many wait behind "Show N more". The picked values come first, so the Viewer can
+ * always see and untick what they filtered on, even with no PR left to count; the unpicked ones follow, busiest first, and
+ * only they are cut. Each group is busiest first, then by name.
+ */
+function facetValues<T extends string>(
+  counts: ReadonlyMap<T, number>,
+  picked: readonly T[],
+  showAll: boolean
+): { shown: FacetEntry<T>[]; cut: number } {
+  const busiestFirst = (entries: FacetEntry<T>[]) => entries.sort(([a, countA], [b, countB]) => countB - countA || byName(a, b));
+  const pickedEntries = busiestFirst(picked.map((value) => [value, counts.get(value) ?? 0]));
+  const unpicked = busiestFirst([...counts].filter(([value]) => !picked.includes(value)));
+  const shownUnpicked = showAll ? unpicked : unpicked.slice(0, SHOWN_UNPICKED);
+  return { shown: [...pickedEntries, ...shownUnpicked], cut: Math.max(unpicked.length - SHOWN_UNPICKED, 0) };
+}
 
 /** Everyone the PRs name, by login, so a facet can show each as a chip. */
 function peopleIn(prs: readonly TrackedPr[]): Map<string, Person> {
@@ -52,7 +71,7 @@ function Pill({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
   );
 }
 
-/** A list filter's values, busiest first, each with how many PRs picking it would keep. */
+/** A list filter's values, picked ones first, each with how many PRs picking it would keep. */
 function FacetList<K extends ListFilter>({
   title,
   filter,
@@ -69,29 +88,21 @@ function FacetList<K extends ListFilter>({
   label: (value: Filters[K][number]) => ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const selected = filters[filter] as readonly Filters[K][number][];
-  const counts = facetCounts(prs, filters, filter);
-  // A picked value stays on show when no PR has it any more, so it can be unpicked.
-  for (const value of selected) {
-    if (!counts.has(value)) {
-      counts.set(value, 0);
-    }
-  }
-  const entries = [...counts].sort(([a, countA], [b, countB]) => countB - countA || byName(a, b));
-  const shown = showAll ? entries : entries.slice(0, SHOWN_VALUES);
+  const picked = filters[filter] as readonly Filters[K][number][];
+  const { shown, cut } = facetValues(facetCounts(prs, filters, filter), picked, showAll);
 
   return (
     <Facet title={title}>
       <div className="space-y-px">
         {shown.map(([value, count]) => {
-          const checked = selected.includes(value);
+          const checked = picked.includes(value);
           return (
             <button
               key={value}
               type="button"
               role="checkbox"
               aria-checked={checked}
-              onClick={() => onChange({ [filter]: toggled(selected, value) })}
+              onClick={() => onChange({ [filter]: toggled(picked, value) })}
               className={cn(
                 'flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-sm',
                 checked ? 'bg-indigo-50 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100' : 'hover:bg-accent'
@@ -111,9 +122,9 @@ function FacetList<K extends ListFilter>({
             </button>
           );
         })}
-        {entries.length > SHOWN_VALUES && (
+        {cut > 0 && (
           <button type="button" onClick={() => setShowAll(!showAll)} className="px-1.5 text-xs text-indigo-600 hover:underline dark:text-indigo-400">
-            {showAll ? 'Show less' : `Show ${entries.length - SHOWN_VALUES} more`}
+            {showAll ? 'Show less' : `Show ${cut} more`}
           </button>
         )}
       </div>

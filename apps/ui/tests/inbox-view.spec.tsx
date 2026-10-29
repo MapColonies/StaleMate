@@ -296,8 +296,8 @@ describe('the Inbox’s facets', () => {
     expect(new URLSearchParams(window.location.search).get('repo')).toBe('MapColonies/a');
     expect(within(facet('Repo')).getByRole('checkbox', { name: /^a/ })).toHaveAttribute('aria-checked', 'true');
     expect(titlesIn('Your PRs, waiting on others')).toEqual([]);
-    // The Repo facet keeps its other values; the others count what the Repo filter keeps.
-    expect(facetEntries('Repo')).toEqual(['b3', 'a2']);
+    // The Repo facet keeps its other values, under the picked one; the others count what the Repo filter keeps.
+    expect(facetEntries('Repo')).toEqual(['a2', 'b3']);
     expect(facetEntries('Author')).toEqual(['bob2']);
   });
 
@@ -307,6 +307,62 @@ describe('the Inbox’s facets', () => {
     renderInbox(snapshot, 'alice');
 
     expect(facetEntries('Repo')).toEqual(['b1']);
+  });
+
+  describe('with more values than they show', () => {
+    // Six busy repos, then two quiet ones, so the quiet ones wait behind "Show N more". w's is the only approved PR.
+    const busy = ['p', 'q', 'r', 's', 't', 'u'];
+    const manyRepos = aSnapshot({
+      prs: [
+        ...busy.flatMap((name) => [aPr({ repo: `MapColonies/${name}` }), aPr({ repo: `MapColonies/${name}` })]),
+        aPr({ repo: 'MapColonies/v' }),
+        aPr({ repo: 'MapColonies/w', reviewStatus: 'approved' }),
+      ],
+    });
+    const showMore = () => within(facet('Repo')).queryByRole('button', { name: /^Show/ });
+
+    it('show the busiest, the rest behind "Show N more"', async () => {
+      renderInbox(manyRepos);
+
+      expect(facetEntries('Repo')).toEqual(['p2', 'q2', 'r2', 's2', 't2', 'u2']);
+      expect(showMore()).toHaveTextContent('Show 2 more');
+
+      await userEvent.click(showMore()!);
+
+      expect(facetEntries('Repo')).toEqual(['p2', 'q2', 'r2', 's2', 't2', 'u2', 'v1', 'w1']);
+    });
+
+    it('show a picked value on top, though it ranks past the cut, and count only the unpicked ones hidden', () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/w');
+
+      renderInbox(manyRepos);
+
+      expect(facetEntries('Repo')).toEqual(['w1', 'p2', 'q2', 'r2', 's2', 't2', 'u2']);
+      expect(within(facet('Repo')).getByRole('checkbox', { name: /^w/ })).toHaveAttribute('aria-checked', 'true');
+      expect(showMore()).toHaveTextContent('Show 1 more');
+    });
+
+    it('show a picked value another filter has emptied, so it can be unpicked', async () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/v&review=approved');
+
+      renderInbox(manyRepos);
+
+      expect(facetEntries('Repo')).toEqual(['v0', 'w1']);
+      expect(showMore()).toBeNull();
+
+      await userEvent.click(within(facet('Repo')).getByRole('checkbox', { name: /^v/ }));
+
+      expect(new URLSearchParams(window.location.search).get('repo')).toBeNull();
+    });
+
+    it('show every picked value on top, unpicked ones still busiest first', () => {
+      window.history.replaceState(null, '', '/?repo=MapColonies/w,MapColonies/v,MapColonies/q');
+
+      renderInbox(manyRepos);
+
+      expect(facetEntries('Repo')).toEqual(['q2', 'v1', 'w1', 'p2', 'r2', 's2', 't2', 'u2']);
+      expect(showMore()).toBeNull();
+    });
   });
 });
 
