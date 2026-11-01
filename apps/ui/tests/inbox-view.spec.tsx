@@ -142,6 +142,12 @@ describe('the Inbox below 1280px', () => {
     vi.unstubAllGlobals();
   });
 
+  it('asks who the Viewer is from the button named for the Team', () => {
+    renderInbox(snapshot, null);
+
+    expect(screen.getByText(/Pick who you are in/)).toHaveTextContent('Pick who you are in Infra ▾ (top right)');
+  });
+
   it('puts Waiting On, with the No Reviewer flag, under the PR', () => {
     renderInbox(snapshot, 'alice');
 

@@ -565,13 +565,64 @@ describe('the top bar below 1280px', () => {
     expect(await syncDot(/Refresh failed: API unreachable$/)).toBeInTheDocument();
   });
 
-  it('keeps the Viewer picker and the bell', async () => {
+  it('keeps the bell', async () => {
     serve(aFreshSnapshot({ team: [alice] }));
 
     renderApp();
 
-    expect(await screen.findByLabelText(/I am/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+  });
+
+  it('gathers the Team, the Viewer and the theme behind one button that names the Team and the Viewer', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(aFreshSnapshot({ team: [alice, bob] }));
+
+    renderApp();
+    const button = await screen.findByRole('button', { name: 'Team: Infra · I am: alice' });
+    expect(screen.queryByRole('combobox', { name: /^I am/ })).not.toBeInTheDocument();
+    await userEvent.click(button);
+
+    expect(screen.getByRole('combobox', { name: /^Team/ })).toHaveValue('infra');
+    expect(screen.getByRole('combobox', { name: /^I am/ })).toHaveValue('alice');
+    expect(screen.getByRole('button', { name: /theme: system/i })).toBeInTheDocument();
+  });
+
+  it('picks the Viewer from behind the button', async () => {
+    serve(aFreshSnapshot({ team: [alice, bob] }));
+
+    renderApp();
+    await userEvent.click(await screen.findByRole('button', { name: 'Team: Infra · I am: nobody yet' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^I am/ }), 'bob');
+
+    expect(screen.getByRole('button', { name: 'Team: Infra · I am: bob' })).toBeInTheDocument();
+  });
+
+  it('counts the Viewer’s turn on the Inbox tab instead of in the bar, and leaves the No Reviewer count to the Inbox', async () => {
+    window.localStorage.setItem('stalemate.viewer', 'alice');
+    serve(
+      aFreshSnapshot({
+        prs: [
+          aPr({ author: bob, waitingOn: [waitingOnReviewer(alice)] }),
+          aPr({ author: bob, waitingOn: [waitingOnTheTeam] }),
+          aPr({ author: bob, waitingOn: [waitingOnAuthor(bob)], noReviewer: true }),
+        ],
+      })
+    );
+
+    renderApp();
+
+    const inbox = await screen.findByRole('button', { name: 'Inbox — Your turn 1 + 1 via @infra' });
+    expect(within(inbox).getByText('2')).toBeInTheDocument();
+    expect(screen.queryByTestId('my-turn')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('no-reviewer')).not.toBeInTheDocument();
+  });
+
+  it('puts no count on the Inbox tab until the Viewer picks themselves', async () => {
+    serve(aFreshSnapshot({ prs: [aPr({ author: bob, waitingOn: [waitingOnTheTeam] })] }));
+
+    renderApp();
+
+    expect(await screen.findByRole('button', { name: 'Inbox' })).toBeInTheDocument();
   });
 });
 
@@ -781,7 +832,7 @@ describe('the Notifications bell', () => {
     await seeThenPoll(aFreshSnapshot(), forAlice);
     expect(await screen.findByTestId('notification-count')).toHaveTextContent('1');
 
-    await userEvent.selectOptions(screen.getByLabelText(/I am/), 'bob');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^I am/ }), 'bob');
     await waitFor(() => expect(screen.queryByTestId('notification-count')).not.toBeInTheDocument());
 
     await userEvent.selectOptions(screen.getByLabelText(/I am/), 'alice');

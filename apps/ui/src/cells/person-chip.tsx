@@ -12,7 +12,8 @@ function hue(login: string): number {
   return HUES[hash % HUES.length] ?? 0;
 }
 
-function Avatar({ person, isViewer }: { person: Person; isViewer: boolean }) {
+/** A person's initials in a circle tinted by their login, ringed when they are the Viewer; a robot for a Bot. */
+export function Avatar({ person, isViewer }: { person: Person; isViewer: boolean }) {
   if (person.kind === 'bot') {
     return (
       <span aria-hidden className="inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

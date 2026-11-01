@@ -210,7 +210,9 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         </div>
         {viewer === null && (
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-100">
-            Pick who you are in <b>I am…</b> (top right) to sort the Inbox into <b>Your turn</b> and <b>Your PRs</b>.
+            {/* Below 1280px "I am…" waits behind the button named for the Team. */}
+            Pick who you are in {compact ? <b>{snapshot.teamInfo.name} ▾</b> : <b>I am…</b>} (top right) to sort the Inbox into <b>Your turn</b> and{' '}
+            <b>Your PRs</b>.
           </div>
         )}
         {buckets.map((bucket) => (

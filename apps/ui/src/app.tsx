@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFilters } from '@/filters/use-filters';
 import { STORAGE_KEYS, migrateNotificationKeys, migrateRememberedTeam, useStoredString } from '@/lib/local-storage';
+import { useCompact } from '@/lib/use-compact';
 import { useNow } from '@/lib/use-now';
 import { withPrs } from '@/notifications/engine';
 import { popUp } from '@/notifications/pop-up';
@@ -10,6 +11,7 @@ import { viewerOptions } from '@/snapshot/selectors';
 import { UnknownTeamError, isWarming, useSnapshot, useTeams } from '@/snapshot/use-snapshot';
 import { FirstVisitModal } from '@/shell/first-visit-modal';
 import { HeaderCounts } from '@/shell/header-counts';
+import { inboxCount } from '@/shell/inbox-count';
 import { NewVersionBanner } from '@/shell/new-version-banner';
 import { NotificationsDrawer } from '@/shell/notifications-drawer';
 import { OutOfDateBanner } from '@/shell/out-of-date-banner';
@@ -17,6 +19,7 @@ import { type ApiProblem, SyncStatus } from '@/shell/sync-status';
 import { ThemeToggle } from '@/shell/theme-toggle';
 import { useTabTitle } from '@/shell/use-tab-title';
 import { useTheme } from '@/shell/use-theme';
+import { TeamAndViewerMenu } from '@/shell/team-and-viewer-menu';
 import { TeamPicker } from '@/shell/team-picker';
 import { useTeam } from '@/shell/use-team';
 import { ViewerPicker } from '@/shell/viewer-picker';
@@ -26,11 +29,14 @@ import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
 import { TableView } from '@/views/table/table-view';
 
+/** The mark and the name; below 768px, only the mark, the name left to screen readers. */
 function Logo() {
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">♞</div>
-      <h1 className="font-semibold tracking-tight">StaleMate</h1>
+      <div aria-hidden className="flex size-7 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+        ♞
+      </div>
+      <h1 className="font-semibold tracking-tight max-md:sr-only">StaleMate</h1>
     </div>
   );
 }
@@ -75,6 +81,7 @@ export default function App() {
   const [view, setView] = useLastView();
   const theme = useTheme();
   const now = useNow();
+  const compact = useCompact();
 
   const options = useMemo(() => (teams ? viewerOptions(teams) : []), [teams]);
   // A stored Viewer who is in no Team is no Viewer.
@@ -92,16 +99,33 @@ export default function App() {
   return (
     // The header stays put; each view fills the space below it and scrolls inside itself.
     <div className="flex h-screen flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-5 border-b bg-background px-5">
+      <header className="flex h-14 shrink-0 items-center gap-5 border-b bg-background px-5 max-xl:gap-3 max-md:px-3 max-[30rem]:gap-2">
         <Logo />
-        <ViewSwitcher view={view} onChange={setView} />
-        {/* When the bar runs short, the counts give way first; the controls on the right never do. */}
-        {snapshot && <HeaderCounts prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} viewer={viewer} />}
-        <div className="ml-auto flex shrink-0 items-center gap-4">
+        <ViewSwitcher
+          view={view}
+          onChange={setView}
+          inboxCount={compact && snapshot ? inboxCount(snapshot.prs, snapshot.teamInfo.slug, viewer) : undefined}
+        />
+        {/* When the bar runs short, the counts give way first; the controls on the right never do. Below 1280px the
+            Inbox tab counts the Viewer's turn instead, and the Inbox itself the No Reviewer PRs. */}
+        {snapshot && !compact && <HeaderCounts prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} viewer={viewer} />}
+        <div className="ml-auto flex min-w-0 items-center gap-4 max-xl:gap-2 max-[30rem]:gap-1">
           {snapshot && team !== null && <SyncStatus snapshot={snapshot} team={team} now={now} apiProblem={apiProblem(error, isError)} />}
-          <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />
-          {teams && team !== null && <TeamPicker teams={teams} team={team} onChange={selectTeam} />}
-          {teams && team !== null && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
+          {!compact && <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />}
+          {!compact && teams && team !== null && <TeamPicker teams={teams} team={team} onChange={selectTeam} />}
+          {!compact && teams && team !== null && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
+          {compact && teams && team !== null && (
+            <TeamAndViewerMenu
+              teams={teams}
+              team={team}
+              onTeamChange={selectTeam}
+              options={options}
+              viewer={viewer}
+              onViewerChange={setViewer}
+              theme={theme.preference}
+              onThemeCycle={theme.cycle}
+            />
+          )}
           <NotificationsDrawer
             notifications={notifications}
             prs={snapshot?.prs ?? []}
