@@ -163,7 +163,8 @@ export function withPrs(
   return notifications
     .flatMap((notification) => {
       const index = positions.get(notification.prId);
-      const summary = index === undefined ? notification.pr : summaryOf(prs[index]);
+      const current = index === undefined ? undefined : prs[index];
+      const summary = current === undefined ? notification.pr : summaryOf(current);
       return summary === undefined ? [] : [{ notification, pr: { id: notification.prId, ...summary }, index: index ?? Infinity }];
     })
     .sort((a, b) => b.notification.noticedAt - a.notification.noticedAt || a.index - b.index)
