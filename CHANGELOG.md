@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.1.0](https://github.com/MapColonies/StaleMate/compare/v2.0.1...v2.1.0) (2026-11-01)
+
+
+### 🎉 Features
+
+* **stalemate-ui:** add a subtle Send a test notification link to the drawer ([f106981](https://github.com/MapColonies/StaleMate/commit/f106981b76bebbe1d3730ec5564115d12b5b72c7))
+* **stalemate-ui:** fit the top bar into a split tab ([9a75b45](https://github.com/MapColonies/StaleMate/commit/9a75b45cc8df13458d4ef7996b0879f5fb9f2a5e))
+* **stalemate-ui:** give each Inbox row's title its own line below 768px ([36fc822](https://github.com/MapColonies/StaleMate/commit/36fc8224784caeb1451fcf55fc0e6d364f6df538))
+* **stalemate-ui:** give the Inbox sidebar its own scrollbar and reorder its facets ([04e82c7](https://github.com/MapColonies/StaleMate/commit/04e82c7f83f6d546fbfa140b86c4ed454c664947)), closes [#83](https://github.com/MapColonies/StaleMate/issues/83)
+* **stalemate-ui:** keep picked facet values visible at the top ([d812c98](https://github.com/MapColonies/StaleMate/commit/d812c981beddcd522e6748aca4e0ac3f628088e0)), closes [#84](https://github.com/MapColonies/StaleMate/issues/84)
+* **stalemate-ui:** keep the bell and tab title current, newest first ([34c72f0](https://github.com/MapColonies/StaleMate/commit/34c72f006c2b9e56544c5a4751d3021d5d73204a))
+* **stalemate-ui:** keep the Inbox toolbar in tidy rows at any width ([2fc6cef](https://github.com/MapColonies/StaleMate/commit/2fc6cef0e95a03295e3cd8d757bc48e071389ede))
+* **stalemate-ui:** leave out what the Inbox bucket already says below 768px ([fce7e3b](https://github.com/MapColonies/StaleMate/commit/fce7e3bb10332ab999b9c91cf4c3c2bb4a4dad60))
+* **stalemate-ui:** never silently lose a Notification ([ed4a145](https://github.com/MapColonies/StaleMate/commit/ed4a145c2e97992fe2711b1d622af3f6e578c5e4))
+* **stalemate-ui:** search within long Inbox facets ([a0db8e2](https://github.com/MapColonies/StaleMate/commit/a0db8e21146d8536c15bf302badb039fbc7ea65a)), closes [#86](https://github.com/MapColonies/StaleMate/issues/86)
+* **stalemate-ui:** show a picked count and Clear on each Inbox facet ([629879b](https://github.com/MapColonies/StaleMate/commit/629879b21f182acc632aaa8013468c8d8c45e616)), closes [#85](https://github.com/MapColonies/StaleMate/issues/85)
+
+
+### 🐛 Bug Fixes
+
+* **stalemate-ui:** make the UI build and pass knip again ([15d81c2](https://github.com/MapColonies/StaleMate/commit/15d81c25b8b8832ecb6742c322246227f3b37a39))
+* **stalemate-ui:** tidy the narrow Inbox and top bar after review ([1b5f8ea](https://github.com/MapColonies/StaleMate/commit/1b5f8ea330c7c49764f018405b551b0bedcc28b2))
+
 ## [2.0.1](https://github.com/MapColonies/StaleMate/compare/v2.0.0...v2.0.1) (2026-10-26)
 
 
