@@ -6,7 +6,7 @@ import type { Snapshot } from '@/snapshot/types';
 import { BoardView } from '@/views/board/board-view';
 import { InboxView } from '@/views/inbox/inbox-view';
 import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
-import { stubCompactWindow } from './window-width';
+import { stubCompactWindow, stubWindowWidth } from './window-width';
 
 const NOW = Date.parse('2026-10-15T09:00:00Z');
 
@@ -274,6 +274,34 @@ describe('the Inbox below 1280px', () => {
 
       await waitFor(() => expect(filtersPanel()).not.toBeInTheDocument());
     });
+  });
+});
+
+describe('the Inbox below 768px', () => {
+  beforeEach(() => {
+    stubWindowWidth(640);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('gathers the order and Stack grouping behind a Sort button that names the order', async () => {
+    renderInbox(snapshot, 'alice');
+    expect(screen.queryByRole('combobox', { name: 'Order' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sort: Newest first' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Group Stacks' }));
+
+    expect(screen.getByRole('button', { name: 'Sort: Oldest first, Stacks not grouped' })).toBeInTheDocument();
+    expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
+  });
+
+  it('still counts the Tracked PRs the filters keep', () => {
+    renderInbox(snapshot, 'alice');
+
+    expect(screen.getByText('5 of 5 Tracked PRs')).toBeInTheDocument();
   });
 });
 

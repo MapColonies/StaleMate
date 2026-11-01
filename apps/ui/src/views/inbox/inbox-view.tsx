@@ -21,9 +21,10 @@ import { StackConnector } from '@/components/stack-connector';
 import { SearchBox } from '@/components/search-box';
 import { activeFilterCount, applyFilters } from '@/filters/filter-model';
 import { useFilters } from '@/filters/use-filters';
-import { useCompact } from '@/lib/use-compact';
+import { useCompact, useNarrow } from '@/lib/use-compact';
 import { cn } from '@/lib/utils';
 import { OrderSelect } from '@/order/order-select';
+import { SortMenu } from '@/order/sort-menu';
 import { groupStacks, sameStack } from '@/order/stack-groups';
 import { useGroupStacks } from '@/order/use-group-stacks';
 import { usePrOrder } from '@/order/use-pr-order';
@@ -172,6 +173,7 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   }, [filtered, viewer, filters, order, grouped]);
   const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
   const compact = useCompact();
+  const narrow = useNarrow();
   const context: RowContext = {
     viewer,
     hideViaTeam: filters.hideViaTeam,
@@ -188,12 +190,19 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
     // The sidebar and the PRs scroll apart, so the facets stay in view however far down the PRs go.
     <div className="flex h-full">
       {!compact && <FacetSidebar {...filterProps} />}
-      <section className="min-w-0 flex-1 space-y-6 overflow-y-auto p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="w-96" />
+      <section className="min-w-0 flex-1 space-y-6 overflow-y-auto p-5 max-md:space-y-4 max-md:p-3">
+        {/* Below 768px the search takes a row of its own, and the order and grouping wait behind a Sort button. */}
+        <div className="flex flex-wrap items-center gap-3 max-md:gap-2">
+          <SearchBox value={filters.q} onChange={(q) => setFilters({ q })} className="max-w-96 min-w-40 flex-1 max-md:max-w-none max-md:basis-full" />
           {compact && <FiltersPanel {...filterProps} />}
-          <OrderSelect order={order} onChange={setOrder} />
-          <Checkbox label="Group Stacks" title="Show a Stack's PRs together, bottom first" checked={grouped} onChange={setGrouped} />
+          {narrow ? (
+            <SortMenu order={order} onOrderChange={setOrder} grouped={grouped} onGroupedChange={setGrouped} />
+          ) : (
+            <>
+              <OrderSelect order={order} onChange={setOrder} />
+              <Checkbox label="Group Stacks" title="Show a Stack's PRs together, bottom first" checked={grouped} onChange={setGrouped} />
+            </>
+          )}
           {/* Below 1280px the panel resets its own filters, and the search has its own clear button. */}
           {!compact && active > 0 && (
             <button
