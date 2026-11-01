@@ -58,11 +58,26 @@ interface RowContext {
   narrow: boolean;
 }
 
-/** Who the PR is Waiting On, at most two of them before the rest fold into "+N more", and the No Reviewer flag. */
-function WaitingOn({ pr, viewer, hideViaTeam, stacked = false }: { pr: TrackedPr; viewer: string | null; hideViaTeam: boolean; stacked?: boolean }) {
+/**
+ * Who the PR is Waiting On, at most two of them before the rest fold into "+N more", and the No Reviewer flag.
+ * `withoutViewer` names only who else.
+ */
+function WaitingOn({
+  pr,
+  viewer,
+  hideViaTeam,
+  stacked = false,
+  withoutViewer = false,
+}: {
+  pr: TrackedPr;
+  viewer: string | null;
+  hideViaTeam: boolean;
+  stacked?: boolean;
+  withoutViewer?: boolean;
+}) {
   return (
     <>
-      <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked={stacked} max={2} />
+      <WaitingOnChips pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} stacked={stacked} max={2} withoutViewer={withoutViewer} />
       <NoReviewerFlag pr={pr} />
     </>
   );
@@ -70,15 +85,23 @@ function WaitingOn({ pr, viewer, hideViaTeam, stacked = false }: { pr: TrackedPr
 
 function InboxRow({
   pr,
+  bucket,
   context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact, narrow },
   joined,
 }: {
   pr: TrackedPr;
+  /** The bucket the row is in, which below 768px says some of what the row would. */
+  bucket: BucketKey;
   context: RowContext;
   /** Whether the row above and the row below are in this PR's Stack. */
   joined: { above: boolean; below: boolean };
 }) {
   const titleId = useId();
+  // Below 768px, in the Viewer's own buckets, the row leaves out what the bucket says: Your turn is on the Viewer, the
+  // Viewer authored Your PRs, and either is why the PR is tracked.
+  const yourTurn = narrow && bucket === 'yourTurn';
+  const yourPrs = narrow && bucket === 'yourPrs';
+  const othersWaitedOn = pr.waitingOn.some((party) => party.type === 'team' || party.login !== viewer);
   const title = (
     <a
       id={titleId}
@@ -135,19 +158,21 @@ function InboxRow({
           </div>
         )}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          <PersonChip person={pr.author} viewer={viewer} />
+          {!yourPrs && <PersonChip person={pr.author} viewer={viewer} />}
           <ReviewStatusBadge pr={pr} />
           <CheckStatusBadge status={pr.checkStatus} />
           <ConflictBadge pr={pr} />
-          <InclusionReasonBadge pr={pr} viewer={viewer} />
+          {!yourTurn && !yourPrs && <InclusionReasonBadge pr={pr} viewer={viewer} />}
         </div>
-        {compact && (
+        {compact && (!yourTurn || othersWaitedOn || pr.noReviewer) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {/* The list names itself to screen readers. */}
-            <span aria-hidden className="text-[10px] tracking-wide text-muted-foreground uppercase">
-              Waiting On
-            </span>
-            <WaitingOn pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
+            {/* The list names itself to screen readers. With nobody else to name, only the No Reviewer flag shows. */}
+            {(!yourTurn || othersWaitedOn) && (
+              <span aria-hidden className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                {yourTurn ? 'Also on' : 'Waiting On'}
+              </span>
+            )}
+            <WaitingOn pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} withoutViewer={yourTurn} />
           </div>
         )}
       </div>
@@ -185,6 +210,7 @@ function BucketSection({ bucket, context, defaultOpen, grouped }: { bucket: Buck
             <InboxRow
               key={pr.id}
               pr={pr}
+              bucket={bucket.key}
               context={context}
               joined={{
                 above: grouped && index > 0 && sameStack(pr, bucket.prs[index - 1]!),

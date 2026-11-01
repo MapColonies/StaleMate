@@ -56,6 +56,7 @@ const partyText = (party: WaitingOnParty): string => (party.type === 'team' ? `@
  * unless the Viewer has hidden those requests.
  * Stacked puts one party per line, so the names line up down a list of rows; past `max` lines, the rest fold into
  * "+N more" at the end of the last line, named on hover.
+ * `withoutViewer` leaves the Viewer out, for where it goes without saying that the PR is on them: the list is then of who else.
  */
 export function WaitingOnChips({
   pr,
@@ -63,21 +64,25 @@ export function WaitingOnChips({
   hideViaTeam = false,
   stacked = false,
   max = Infinity,
+  withoutViewer = false,
 }: {
   pr: TrackedPr;
   viewer: string | null;
   hideViaTeam?: boolean;
   stacked?: boolean;
   max?: number;
+  withoutViewer?: boolean;
 }) {
   const markViaTeam = isOnViewerViaTeam(pr, viewer, { hideViaTeam });
-  const parties = [...pr.waitingOn].sort((a, b) => Number(isViewer(b, viewer)) - Number(isViewer(a, viewer)));
+  const parties = withoutViewer
+    ? pr.waitingOn.filter((party) => !isViewer(party, viewer))
+    : [...pr.waitingOn].sort((a, b) => Number(isViewer(b, viewer)) - Number(isViewer(a, viewer)));
   const shown = parties.slice(0, max);
   const folded = parties.slice(max);
   return (
     <span
       role="list"
-      aria-label="Waiting On"
+      aria-label={withoutViewer ? 'Also Waiting On' : 'Waiting On'}
       className={cn('flex', stacked ? 'flex-col items-start gap-1' : 'flex-wrap items-center gap-x-3 gap-y-1')}
     >
       {shown.map((party, index) => (

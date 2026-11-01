@@ -316,6 +316,49 @@ describe('the Inbox below 768px', () => {
     expect(screen.getByRole('button', { name: /^Your turn/ })).toHaveAttribute('title', 'You owe the next move');
   });
 
+  describe('in the Viewer’s own buckets, leaves out what the bucket already says', () => {
+    const ownBuckets = aSnapshot({
+      prs: [
+        aPr({ title: 'only on alice', author: bob, waitingOn: [waitingOnReviewer(alice)] }),
+        aPr({ title: 'on alice and carol', author: carol, waitingOn: [waitingOnReviewer(alice), waitingOnAuthor(carol)] }),
+        aPr({ title: 'alice’s own', author: alice, requestedReviewers: [bob], waitingOn: [waitingOnReviewer(bob)] }),
+        aPr({ title: 'on carol', author: bob, requestedReviewers: [carol], waitingOn: [waitingOnReviewer(carol)] }),
+        aPr({ title: 'alice to find one', author: alice, requestedReviewers: [], waitingOn: [waitingOnAuthor(alice)], noReviewer: true }),
+      ],
+    });
+
+    it('names only who else owes a move in Your turn', () => {
+      renderInbox(ownBuckets, 'alice');
+
+      expect(within(row('on alice and carol')).getByRole('list', { name: 'Also Waiting On' })).toHaveTextContent(/^carol/);
+      expect(within(row('on alice and carol')).getByText('Also on')).toBeInTheDocument();
+      expect(within(row('only on alice')).queryByRole('list', { name: /Waiting On/ })).not.toBeInTheDocument();
+    });
+
+    it('still flags a PR of the Viewer’s turn with No Reviewer, without naming anyone else', () => {
+      renderInbox(ownBuckets, 'alice');
+
+      expect(within(row('alice to find one')).getByText('No Reviewer')).toBeInTheDocument();
+      expect(within(row('alice to find one')).queryByText('Also on')).not.toBeInTheDocument();
+    });
+
+    it('leaves out the author of Your PRs', () => {
+      renderInbox(ownBuckets, 'alice');
+
+      expect(within(prBlock('alice’s own')).queryByText('You')).not.toBeInTheDocument();
+      expect(within(row('alice’s own')).getByRole('list', { name: 'Waiting On' })).toHaveTextContent('bob');
+    });
+
+    it('shows why a PR is tracked only outside them', async () => {
+      renderInbox(ownBuckets, 'alice');
+      await userEvent.click(screen.getByRole('button', { name: /Rest of Infra/ }));
+
+      expect(within(row('only on alice')).queryByText('Team Repo')).not.toBeInTheDocument();
+      expect(within(row('alice’s own')).queryByText('Team Repo')).not.toBeInTheDocument();
+      expect(within(row('on carol')).getByText('Team Repo')).toBeInTheDocument();
+    });
+  });
+
   it('still counts the Tracked PRs the filters keep', () => {
     renderInbox(snapshot, 'alice');
 
