@@ -142,10 +142,10 @@ describe('the Inbox below 1280px', () => {
     vi.unstubAllGlobals();
   });
 
-  it('asks who the Viewer is from the button named for the Team', () => {
+  it('asks who the Viewer is with the button at the top right', () => {
     renderInbox(snapshot, null);
 
-    expect(screen.getByText(/Pick who you are in/)).toHaveTextContent('Pick who you are in Infra ▾ (top right)');
+    expect(screen.getByText(/Pick who you are/)).toHaveTextContent(/^Pick who you are with the button \(top right\)/);
   });
 
   it('puts Waiting On, with the No Reviewer flag, under the PR', () => {

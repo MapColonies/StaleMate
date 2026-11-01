@@ -612,7 +612,7 @@ describe('the top bar below 1280px', () => {
     renderApp();
 
     const inbox = await screen.findByRole('button', { name: 'Inbox — Your turn 1 + 1 via @infra' });
-    expect(within(inbox).getByText('2')).toBeInTheDocument();
+    expect(within(inbox).getByText('1')).toBeInTheDocument();
     expect(screen.queryByTestId('my-turn')).not.toBeInTheDocument();
     expect(screen.queryByTestId('no-reviewer')).not.toBeInTheDocument();
   });

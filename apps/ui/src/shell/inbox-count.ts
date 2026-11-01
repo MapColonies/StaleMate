@@ -8,11 +8,11 @@ export interface InboxCount {
   label: string;
 }
 
-/** The Viewer's turn as the Inbox tab counts it, the Team's requests included; nothing until the Viewer picks themselves. */
+/** The Viewer's turn as the Inbox tab counts it: the PRs on them by name, the Team's requests only in the label; nothing until the Viewer picks themselves. */
 export function inboxCount(prs: readonly TrackedPr[], teamSlug: string, viewer: string | null): InboxCount | undefined {
   if (viewer === null) {
     return undefined;
   }
   const turn = waitingOnViewerCounts(prs, viewer);
-  return { count: turn.mine + turn.team, label: `Your turn ${turn.mine} + ${turn.team} via @${teamSlug}` };
+  return { count: turn.mine, label: `Your turn ${turn.mine} + ${turn.team} via @${teamSlug}` };
 }

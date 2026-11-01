@@ -28,7 +28,7 @@ import { SortMenu } from '@/order/sort-menu';
 import { groupStacks, sameStack } from '@/order/stack-groups';
 import { useGroupStacks } from '@/order/use-group-stacks';
 import { usePrOrder } from '@/order/use-pr-order';
-import { sharedOrg } from '@/snapshot/selectors';
+import { isViewerParty, sharedOrg } from '@/snapshot/selectors';
 import type { Snapshot, TrackedPr } from '@/snapshot/types';
 import { type Bucket, type BucketKey, inboxBuckets } from './buckets';
 import { FacetSidebar } from './facet-filters';
@@ -101,7 +101,7 @@ function InboxRow({
   // Viewer authored Your PRs, and either is why the PR is tracked.
   const yourTurn = narrow && bucket === 'yourTurn';
   const yourPrs = narrow && bucket === 'yourPrs';
-  const othersWaitedOn = pr.waitingOn.some((party) => party.type === 'team' || party.login !== viewer);
+  const othersWaitedOn = pr.waitingOn.some((party) => !isViewerParty(party, viewer));
   const title = (
     <a
       id={titleId}
@@ -137,7 +137,7 @@ function InboxRow({
           // Below 768px the title has its line to itself, and where the PR is and how old it is go on the next.
           <>
             {/* The title runs on after the moves, as text does, rather than dropping below them. */}
-            <div className="line-clamp-3 [&>[role=list]]:me-1.5 [&>[title^=Held]]:me-1.5">
+            <div className="line-clamp-3 [&>[role=list]]:me-1.5 [&>[data-held]]:me-1.5">
               <MovePills pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
               {title}
             </div>
@@ -201,8 +201,10 @@ function BucketSection({ bucket, context, defaultOpen, grouped }: { bucket: Buck
         <span className="text-muted-foreground">{icon}</span>
         <h2 className="font-semibold">{title}</h2>
         <span className="rounded-full bg-muted-foreground/15 px-2 text-xs font-medium tabular-nums">{bucket.prs.length}</span>
-        {/* Below 768px the hint is left to the tooltip and screen readers. */}
-        <span className="text-xs text-muted-foreground max-md:sr-only">— {hint}</span>
+        {/* The tooltip says the hint to screen readers, so the text is for the eye only; below 768px only the tooltip says it. */}
+        <span aria-hidden className="text-xs text-muted-foreground max-md:hidden">
+          — {hint}
+        </span>
       </button>
       {open && (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card text-sm">
@@ -287,9 +289,16 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
         </div>
         {viewer === null && (
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-100">
-            {/* Below 1280px "I am…" waits behind the button named for the Team. */}
-            Pick who you are in {compact ? <b>{snapshot.teamInfo.name} ▾</b> : <b>I am…</b>} (top right) to sort the Inbox into <b>Your turn</b> and{' '}
-            <b>Your PRs</b>.
+            {/* Below 1280px "I am…" waits behind the button at the top right. */}
+            Pick who you are{' '}
+            {compact ? (
+              'with the button'
+            ) : (
+              <>
+                in <b>I am…</b>
+              </>
+            )}{' '}
+            (top right) to sort the Inbox into <b>Your turn</b> and <b>Your PRs</b>.
           </div>
         )}
         {buckets.map((bucket) => (

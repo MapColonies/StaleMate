@@ -1,11 +1,14 @@
 import type { Filters } from '@/filters/filter-model';
-import type { Move, Person, Snapshot, TrackedPr } from './types';
+import type { Move, Person, Snapshot, TrackedPr, WaitingOnParty } from './types';
 
 /** Who can pick themselves in "I am…": the Team Members of every Team, once each, never Bots or service accounts. */
 export function viewerOptions(teams: readonly { members: readonly Person[] }[]): string[] {
   const logins = teams.flatMap((team) => team.members.filter((person) => person.kind === 'member').map((person) => person.login));
   return [...new Set(logins)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
+
+/** Whether a Waiting On party is the Viewer by name. */
+export const isViewerParty = (party: WaitingOnParty, viewer: string | null): boolean => party.type === 'person' && party.login === viewer;
 
 function waitsOnPerson(pr: TrackedPr, login: string): boolean {
   return pr.waitingOn.some((party) => party.type === 'person' && party.login === login);

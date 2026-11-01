@@ -109,7 +109,7 @@ export default function App() {
         {/* When the bar runs short, the counts give way first; the controls on the right never do. Below 1280px the
             Inbox tab counts the Viewer's turn instead, and the Inbox itself the No Reviewer PRs. */}
         {snapshot && !compact && <HeaderCounts prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} viewer={viewer} />}
-        <div className="ml-auto flex min-w-0 items-center gap-4 max-xl:gap-2 max-[30rem]:gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-4 max-xl:min-w-0 max-xl:shrink max-xl:gap-2 max-[30rem]:gap-1">
           {snapshot && team !== null && <SyncStatus snapshot={snapshot} team={team} now={now} apiProblem={apiProblem(error, isError)} />}
           {!compact && <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />}
           {!compact && teams && team !== null && <TeamPicker teams={teams} team={team} onChange={selectTeam} />}

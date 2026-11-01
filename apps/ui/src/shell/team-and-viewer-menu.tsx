@@ -10,8 +10,8 @@ import { ViewerPicker } from './viewer-picker';
 
 /**
  * Below 1280px: one button, showing the Viewer and the Team's name, that opens the Team and "I am…" dropdowns and the
- * theme. All three are picked once and seldom changed, so they give the bar's width to what changes. Below 480px the
- * button shows only the Viewer.
+ * theme. All three are picked once and seldom changed, so they give the bar's width to what changes. When the bar runs
+ * short, the Team's name truncates.
  */
 export function TeamAndViewerMenu({
   teams,
@@ -36,9 +36,9 @@ export function TeamAndViewerMenu({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" aria-label={`Team: ${teamName} · I am: ${viewer ?? 'nobody yet'}`} className="min-w-0 max-w-44">
+        <Button variant="outline" size="sm" aria-label={`Team: ${teamName} · I am: ${viewer ?? 'nobody yet'}`} className="max-w-44 min-w-0 shrink">
           {viewer === null ? <UserRound className="text-muted-foreground" /> : <Avatar person={{ login: viewer, kind: 'member' }} isViewer={false} />}
-          <span className="truncate max-[30rem]:sr-only">{teamName}</span>
+          <span className="truncate">{teamName}</span>
           <ChevronDown className="text-muted-foreground" />
         </Button>
       </PopoverTrigger>

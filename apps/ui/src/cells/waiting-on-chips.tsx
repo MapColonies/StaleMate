@@ -1,7 +1,7 @@
 import { Users } from 'lucide-react';
 import { partyKey } from '@/filters/filter-model';
 import { cn } from '@/lib/utils';
-import { isOnViewerViaTeam } from '@/snapshot/selectors';
+import { isOnViewerViaTeam, isViewerParty } from '@/snapshot/selectors';
 import type { TrackedPr, WaitingOnParty } from '@/snapshot/types';
 import { PersonChip } from './person-chip';
 
@@ -46,8 +46,6 @@ function PartyChip({ party, viewer, markViaTeam }: { party: WaitingOnParty; view
   );
 }
 
-const isViewer = (party: WaitingOnParty, viewer: string | null): boolean => party.type === 'person' && party.login === viewer;
-
 /** A party as the "+N more" hover names it. */
 const partyText = (party: WaitingOnParty): string => (party.type === 'team' ? `@${party.slug}` : `${party.login} · ${party.role}`);
 
@@ -75,8 +73,8 @@ export function WaitingOnChips({
 }) {
   const markViaTeam = isOnViewerViaTeam(pr, viewer, { hideViaTeam });
   const parties = withoutViewer
-    ? pr.waitingOn.filter((party) => !isViewer(party, viewer))
-    : [...pr.waitingOn].sort((a, b) => Number(isViewer(b, viewer)) - Number(isViewer(a, viewer)));
+    ? pr.waitingOn.filter((party) => !isViewerParty(party, viewer))
+    : [...pr.waitingOn].sort((a, b) => Number(isViewerParty(b, viewer)) - Number(isViewerParty(a, viewer)));
   const shown = parties.slice(0, max);
   const folded = parties.slice(max);
   return (
