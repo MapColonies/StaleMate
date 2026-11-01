@@ -54,6 +54,8 @@ interface RowContext {
   org: string | null;
   /** Whether the window is too narrow for Waiting On to have a column of its own. */
   compact: boolean;
+  /** Whether the window is too narrow for the Age to have a column of its own, or the title to share its line. */
+  narrow: boolean;
 }
 
 /** Who the PR is Waiting On, at most two of them before the rest fold into "+N more", and the No Reviewer flag. */
@@ -68,7 +70,7 @@ function WaitingOn({ pr, viewer, hideViaTeam, stacked = false }: { pr: TrackedPr
 
 function InboxRow({
   pr,
-  context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact },
+  context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact, narrow },
   joined,
 }: {
   pr: TrackedPr;
@@ -77,29 +79,61 @@ function InboxRow({
   joined: { above: boolean; below: boolean };
 }) {
   const titleId = useId();
+  const title = (
+    <a
+      id={titleId}
+      href={pr.url}
+      target="_blank"
+      rel="noreferrer"
+      className={cn('min-w-0 font-medium wrap-anywhere hover:underline', !narrow && 'line-clamp-2')}
+    >
+      {pr.title}
+    </a>
+  );
+  const where = (
+    <>
+      <span className="min-w-0 font-mono text-xs wrap-anywhere text-muted-foreground">
+        <RepoName repo={pr.repo} org={org} />#{pr.number}
+      </span>
+      <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
+      <StackPositionChip pr={pr} />
+    </>
+  );
   return (
     <li aria-labelledby={titleId} className="relative flex items-stretch hover:bg-accent/60">
       {(joined.above || joined.below) && <StackConnector {...joined} />}
       <UrgencyBar pr={pr} />
-      <div className="flex w-20 shrink-0 flex-col items-end gap-0.5 py-2.5 pr-3">
-        <AgeChip pr={pr} now={now} />
-        <IdleLine pr={pr} />
-      </div>
-      <div data-pr-block className={cn('min-w-0 flex-1 py-2.5', compact && 'pr-4')}>
-        <div className="flex items-baseline gap-2">
-          <MovePills pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
-          {/* The title wins the width: past it, the repo and Jira Ticket wrap onto a line of their own. */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
-            <a id={titleId} href={pr.url} target="_blank" rel="noreferrer" className="line-clamp-2 min-w-0 font-medium wrap-anywhere hover:underline">
-              {pr.title}
-            </a>
-            <span className="min-w-0 font-mono text-xs wrap-anywhere text-muted-foreground">
-              <RepoName repo={pr.repo} org={org} />#{pr.number}
-            </span>
-            <JiraTickets pr={pr} jiraBaseUrl={jiraBaseUrl} />
-            <StackPositionChip pr={pr} />
-          </div>
+      {!narrow && (
+        <div className="flex w-20 shrink-0 flex-col items-end gap-0.5 py-2.5 pr-3">
+          <AgeChip pr={pr} now={now} />
+          <IdleLine pr={pr} />
         </div>
+      )}
+      <div data-pr-block className={cn('min-w-0 flex-1 py-2.5', compact && 'pr-4', narrow && 'pr-3 pl-3')}>
+        {narrow ? (
+          // Below 768px the title has its line to itself, and where the PR is and how old it is go on the next.
+          <>
+            {/* The title runs on after the moves, as text does, rather than dropping below them. */}
+            <div className="line-clamp-3 [&>[role=list]]:me-1.5 [&>[title^=Held]]:me-1.5">
+              <MovePills pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
+              {title}
+            </div>
+            <div data-testid="pr-meta" className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {where}
+              <AgeChip pr={pr} now={now} />
+              <IdleLine pr={pr} />
+            </div>
+          </>
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <MovePills pr={pr} viewer={viewer} hideViaTeam={hideViaTeam} />
+            {/* The title wins the width: past it, the repo and Jira Ticket wrap onto a line of their own. */}
+            <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+              {title}
+              {where}
+            </div>
+          </div>
+        )}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <PersonChip person={pr.author} viewer={viewer} />
           <ReviewStatusBadge pr={pr} />
@@ -131,12 +165,19 @@ function BucketSection({ bucket, context, defaultOpen, grouped }: { bucket: Buck
   const { title, hint, icon } = bucketHeadings(context.teamName)[bucket.key];
   return (
     <section aria-label={title}>
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="mb-2 flex w-full items-center gap-2 text-left">
+      <button
+        type="button"
+        aria-expanded={open}
+        title={hint}
+        onClick={() => setOpen(!open)}
+        className="mb-2 flex w-full items-center gap-2 text-left"
+      >
         <ChevronRight className={cn('size-4 text-muted-foreground transition-transform', open && 'rotate-90')} />
         <span className="text-muted-foreground">{icon}</span>
         <h2 className="font-semibold">{title}</h2>
         <span className="rounded-full bg-muted-foreground/15 px-2 text-xs font-medium tabular-nums">{bucket.prs.length}</span>
-        <span className="text-xs text-muted-foreground">— {hint}</span>
+        {/* Below 768px the hint is left to the tooltip and screen readers. */}
+        <span className="text-xs text-muted-foreground max-md:sr-only">— {hint}</span>
       </button>
       {open && (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card text-sm">
@@ -182,6 +223,7 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
     teamName: snapshot.teamInfo.name,
     org,
     compact,
+    narrow,
   };
   const active = activeFilterCount(filters);
   const filterProps = { prs: snapshot.prs, teamSlug: snapshot.teamInfo.slug, org, filters, viewer, onChange: setFilters };

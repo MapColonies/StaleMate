@@ -298,6 +298,24 @@ describe('the Inbox below 768px', () => {
     expect(titlesIn('Your turn')).toEqual(['asks the Team', 'asks alice']);
   });
 
+  it('gives each PR’s title a line of its own, with the repo and its Age and Idle Time on the next', () => {
+    renderInbox(
+      aSnapshot({ prs: [aPr({ title: 'old ask', author: bob, waitingOn: [waitingOnReviewer(alice)], urgency: 2, idleTime: clock(3) })] }),
+      'alice'
+    );
+
+    const meta = within(prBlock('old ask')).getByTestId('pr-meta');
+    expect(within(meta).getByTitle('MapColonies/opa-la')).toBeInTheDocument();
+    expect(within(meta).getByText(/d$/, { selector: '[data-urgency]' })).toHaveAttribute('data-urgency', '2');
+    expect(within(meta).getByText('idle 3d')).toBeInTheDocument();
+  });
+
+  it('keeps each bucket’s hint in its tooltip too, for when there is no room to show it', () => {
+    renderInbox(snapshot, 'alice');
+
+    expect(screen.getByRole('button', { name: /^Your turn/ })).toHaveAttribute('title', 'You owe the next move');
+  });
+
   it('still counts the Tracked PRs the filters keep', () => {
     renderInbox(snapshot, 'alice');
 
