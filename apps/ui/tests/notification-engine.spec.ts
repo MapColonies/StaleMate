@@ -40,7 +40,7 @@ function seenBy(passes: Pass[], viewer = 'alice') {
     }
   });
   const shown = notificationsOf(state!).map(({ prId, moves }) => ({ prId, moves }));
-  return { shown, due, state: state!, onYou: () => notificationsOf(state!).map(({ prId, onYou }) => [prId, onYou]) };
+  return { shown, due, state: state! };
 }
 
 describe('the notification engine', () => {
@@ -102,31 +102,33 @@ describe('the notification engine', () => {
     expect(due).toEqual([[], ['a'], []]);
   });
 
-  it('keeps a Notification after the PR leaves the Viewer, until dismissed', () => {
+  it('drops a Notification once its PR leaves the Viewer', () => {
     const left = [onBob('a'), onAlice('b')];
-    const { shown, due, onYou } = seenBy([{ prs: [] }, { prs: [onAlice('a'), onAlice('b')] }, { prs: left }, { prs: left }]);
+    const { shown, due } = seenBy([{ prs: [] }, { prs: [onAlice('a'), onAlice('b')] }, { prs: left }, { prs: left }]);
 
-    expect(shown).toEqual([
-      { prId: 'a', moves: ['review'] },
-      { prId: 'b', moves: ['review'] },
-    ]);
+    expect(shown).toEqual([{ prId: 'b', moves: ['review'] }]);
     expect(due).toEqual([[], ['a', 'b'], [], []]);
-    expect(onYou()).toEqual([
-      ['a', false],
-      ['b', true],
-    ]);
   });
 
-  it('keeps a Notification whose PR left the Snapshot altogether', () => {
-    const { shown } = seenBy([{ prs: [] }, { prs: [onAlice('a')] }, { prs: [] }]);
-
-    expect(shown).toEqual([{ prId: 'a', moves: ['review'] }]);
-  });
-
-  it('dismisses a Notification whose PR has left the Viewer', () => {
-    const { shown } = seenBy([{ prs: [] }, { prs: [onAlice('a')] }, { prs: [onBob('a')], dismiss: ['a'] }]);
+  it('drops a Notification once the author’s fix moves the PR to its reviewers', () => {
+    const fixing = aPr({ id: 'a', author: alice, waitingOn: [waitingOnAuthor(alice, ['fixChecks'])] });
+    const fixed = aPr({ id: 'a', author: alice, waitingOn: [waitingOnReviewer(bob)] });
+    const { shown } = seenBy([{ prs: [] }, { prs: [fixing] }, { prs: [fixed] }]);
 
     expect(shown).toEqual([]);
+  });
+
+  it('drops a Notification whose PR left the Snapshot altogether', () => {
+    const { shown } = seenBy([{ prs: [] }, { prs: [onAlice('a')] }, { prs: [] }]);
+
+    expect(shown).toEqual([]);
+  });
+
+  it('notifies again when a PR that left the Viewer comes back to them', () => {
+    const { shown, due } = seenBy([{ prs: [] }, { prs: [onAlice('a')] }, { prs: [onBob('a')] }, { prs: [onAlice('a')] }]);
+
+    expect(shown).toEqual([{ prId: 'a', moves: ['review'] }]);
+    expect(due).toEqual([[], ['a'], [], ['a']]);
   });
 
   it('notifies about a named reviewer request on a normal PR', () => {

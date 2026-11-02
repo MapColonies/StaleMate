@@ -38,12 +38,6 @@ function NotificationRow({
         </span>
         <span aria-hidden>·</span>
         <MoveList moves={notification.moves} />
-        {!notification.onYou && (
-          <>
-            <span aria-hidden>·</span>
-            <span className="whitespace-nowrap font-medium">no longer on you</span>
-          </>
-        )}
         <span aria-hidden>·</span>
         <span className="whitespace-nowrap">noticed {formatSince(new Date(notification.noticedAt).toISOString(), now)} ago</span>
       </div>

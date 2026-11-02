@@ -7,7 +7,7 @@ import type { Move, Snapshot, TrackedPr } from '@/snapshot/types';
  */
 export const AWAY_LIMIT_MS = 4 * 24 * 60 * 60 * 1000;
 
-/** What the bell and drawer show of a PR, kept so a Notification outlives the PR leaving the Viewer, or the Snapshot. */
+/** What the bell and drawer show of a PR, kept so a tab whose Snapshot lacks the PR can still show another tab's Notification. */
 export interface PrSummary {
   repo: string;
   number: number;
@@ -26,8 +26,6 @@ export interface Notification {
   noticedAt: number;
   /** The PR as last seen. Absent in what an earlier version saved, until the PR is next in a Snapshot. */
   pr?: PrSummary;
-  /** Whether the PR is still on the Viewer. A Notification outlives that, until dismissed. */
-  onYou: boolean;
 }
 
 /** What this browser last saw for one Viewer. */
@@ -66,7 +64,8 @@ function owedMoves(snapshot: Snapshot, viewer: string, hideViaTeam: boolean): { 
  * With nothing seen before it starts over: what is on the Viewer now becomes the baseline, with no Notifications.
  * A different via-Team setting keeps the Notifications and re-baselines quietly under the new one. A gap over
  * AWAY_LIMIT_MS keeps them and adds what changed meanwhile, but due is empty: no popups for a vacation's worth.
- * A Notification is never discarded except by dismiss.
+ * A Notification lasts until dismissed or until none of the Moves it told about is still owed, which is so once its
+ * PR leaves the Viewer.
  */
 export function observe(
   previous: NotificationState | null,
@@ -94,15 +93,10 @@ export function observe(
   const due: Notification[] = [];
   const notifications: Notification[] = [];
   for (const existing of previous.notifications) {
-    const moves = owed[existing.prId];
+    // Owed implies the PR is in the Snapshot.
     const pr = prs.get(existing.prId);
-    const summary = pr === undefined ? existing.pr : summaryOf(pr);
-    if (moves === undefined) {
-      // No longer on the Viewer: stays, as it was, until dismissed.
-      notifications.push({ ...existing, onYou: false, ...(summary && { pr: summary }) });
-      continue;
-    }
-    // Still on the Viewer: it only tells about Moves still owed, and only until those are done.
+    const moves = owed[existing.prId] ?? [];
+    // It only tells about Moves still owed, and only until those are done: once the PR leaves the Viewer, it goes.
     const fresh = freshMoves(existing.prId, moves);
     const kept = existing.moves.filter((move) => moves.includes(move));
     const merged = moves.filter((move) => fresh.includes(move) || kept.includes(move));
@@ -111,12 +105,11 @@ export function observe(
         ...existing,
         moves: merged,
         noticedAt: fresh.length > 0 ? now : existing.noticedAt,
-        onYou: true,
-        ...(summary && { pr: summary }),
+        ...(pr && { pr: summaryOf(pr) }),
       });
     }
     if (fresh.length > 0 && !away) {
-      due.push({ prId: existing.prId, moves: fresh, noticedAt: now, onYou: true });
+      due.push({ prId: existing.prId, moves: fresh, noticedAt: now });
     }
   }
 
@@ -128,9 +121,9 @@ export function observe(
     const fresh = freshMoves(prId, moves);
     if (fresh.length > 0) {
       const pr = prs.get(prId);
-      notifications.push({ prId, moves: fresh, noticedAt: now, onYou: true, ...(pr && { pr: summaryOf(pr) }) });
+      notifications.push({ prId, moves: fresh, noticedAt: now, ...(pr && { pr: summaryOf(pr) }) });
       if (!away) {
-        due.push({ prId, moves: fresh, noticedAt: now, onYou: true });
+        due.push({ prId, moves: fresh, noticedAt: now });
       }
     }
   }
@@ -151,9 +144,9 @@ export function notificationsOf(state: NotificationState): readonly Notification
 
 /**
  * Each Notification with its PR, newest first; Notifications noticed together keep the order of their PRs in the
- * Snapshot, so the order is stable across polls. A Notification outlives the PR leaving the Viewer, so its PR may be
- * only the summary it kept; one with no PR at all is left out. The bell, the drawer and the popups all go through this,
- * so they always agree.
+ * Snapshot, so the order is stable across polls. Another tab may have saved a Notification about a PR not in this tab's
+ * Snapshot, so its PR may be only the summary it kept; one with no PR at all is left out. The bell, the drawer and the
+ * popups all go through this, so they always agree.
  */
 export function withPrs(
   notifications: readonly Notification[],
