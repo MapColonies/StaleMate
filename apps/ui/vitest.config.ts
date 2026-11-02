@@ -14,6 +14,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     environmentOptions: { jsdom: { url: 'http://localhost:5173/' } },
+    // Node 25+ has its own localStorage global, which hides jsdom's; turn it off in the test workers.
+    execArgv: ['--no-experimental-webstorage'],
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.spec.{ts,tsx}'],
   },
