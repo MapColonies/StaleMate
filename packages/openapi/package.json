@@ -1,6 +1,6 @@
 {
   "name": "stalemate-openapi",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "OpenAPI contract between the StaleMate API and UI",
   "author": "MapColonies",
   "homepage": "https://github.com/MapColonies/StaleMate#readme",

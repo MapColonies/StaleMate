@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/MapColonies/StaleMate/compare/v2.1.0...v2.1.1) (2026-11-02)
+
+
+### 🐛 Bug Fixes
+
+* **stalemate-ui:** drop a Notification once its PR is no longer on the Viewer ([abeefe4](https://github.com/MapColonies/StaleMate/commit/abeefe427dfae79a6300865d65737e1b61e95a5d))
+
 ## [2.1.0](https://github.com/MapColonies/StaleMate/compare/v2.0.1...v2.1.0) (2026-11-01)
 
 
