@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/MapColonies/StaleMate/compare/v2.1.1...v2.1.2) (2026-11-16)
+
+
+### 🐛 Bug Fixes
+
+* **stalemate-ui:** stop redrawing every view once a second ([1b3b81d](https://github.com/MapColonies/StaleMate/commit/1b3b81da55a5196eca4a6f670f6d38a1d4f6b095))
+
 ## [2.1.1](https://github.com/MapColonies/StaleMate/compare/v2.1.0...v2.1.1) (2026-11-02)
 
 
