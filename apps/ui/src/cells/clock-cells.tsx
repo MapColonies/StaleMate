@@ -1,4 +1,5 @@
 import { Clock } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { TrackedPr } from '@/snapshot/types';
 import { clockHover, idleHover, wholeWorkingDays } from './clocks';
@@ -22,11 +23,16 @@ export function UrgencyBar({ pr }: { pr: Pick<TrackedPr, 'urgency'> }) {
   return <div aria-hidden className={cn('w-1 shrink-0', pr.urgency === null ? 'bg-transparent' : URGENCY_BARS[pr.urgency])} />;
 }
 
-/** The PR's Age in Working Days, coloured by its Urgency. Hovering shows the times behind it. */
-export function AgeChip({ pr, now }: { pr: Pick<TrackedPr, 'age' | 'idleTime' | 'urgency'>; now: number }) {
+/**
+ * The PR's Age in Working Days, coloured by its Urgency. Hovering shows the times behind it, read when the pointer arrives so
+ * no clock has to tick for them.
+ */
+export function AgeChip({ pr }: { pr: Pick<TrackedPr, 'age' | 'idleTime' | 'urgency'> }) {
+  const [now, setNow] = useState(() => Date.now());
   return (
     <span
       title={clockHover(pr, now)}
+      onPointerEnter={() => setNow(Date.now())}
       className={cn(
         'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap tabular-nums',
         pr.urgency === null ? 'border border-dashed text-muted-foreground' : URGENCY_STYLES[pr.urgency]

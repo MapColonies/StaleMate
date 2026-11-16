@@ -46,7 +46,6 @@ const bucketHeadings = (teamName: string): Record<BucketKey, { title: string; hi
 interface RowContext {
   viewer: string | null;
   hideViaTeam: boolean;
-  now: number;
   jiraBaseUrl: string | undefined;
   /** The display name of the Team the Snapshot is for. */
   teamName: string;
@@ -86,7 +85,7 @@ function WaitingOn({
 function InboxRow({
   pr,
   bucket,
-  context: { viewer, hideViaTeam, now, jiraBaseUrl, org, compact, narrow },
+  context: { viewer, hideViaTeam, jiraBaseUrl, org, compact, narrow },
   joined,
 }: {
   pr: TrackedPr;
@@ -128,7 +127,7 @@ function InboxRow({
       <UrgencyBar pr={pr} />
       {!narrow && (
         <div className="flex w-20 shrink-0 flex-col items-end gap-0.5 py-2.5 pr-3">
-          <AgeChip pr={pr} now={now} />
+          <AgeChip pr={pr} />
           <IdleLine pr={pr} />
         </div>
       )}
@@ -143,7 +142,7 @@ function InboxRow({
             </div>
             <div data-testid="pr-meta" className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {where}
-              <AgeChip pr={pr} now={now} />
+              <AgeChip pr={pr} />
               <IdleLine pr={pr} />
             </div>
           </>
@@ -231,7 +230,7 @@ function BucketSection({ bucket, context, defaultOpen, grouped }: { bucket: Buck
  * The Inbox, the developer view: the PRs that pass the filters, bucketed by whose move it is for the Viewer,
  * beside a sidebar of facets that count what each value would keep. Below 1280px the facets wait behind a Filters button.
  */
-export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
+export function InboxView({ snapshot, viewer }: { snapshot: Snapshot; viewer: string | null }) {
   const { filters, setFilters, resetFilters } = useFilters();
   const [order, setOrder] = usePrOrder();
   const [grouped, setGrouped] = useGroupStacks();
@@ -246,7 +245,6 @@ export function InboxView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const context: RowContext = {
     viewer,
     hideViaTeam: filters.hideViaTeam,
-    now,
     jiraBaseUrl: snapshot.config.jiraBaseUrl,
     teamName: snapshot.teamInfo.name,
     org,

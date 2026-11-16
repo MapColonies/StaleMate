@@ -1,17 +1,16 @@
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, PersonChip, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { AGE_PRESETS, IDLE_PRESETS, type Filters, type ListFilter, facetCounts, toggled } from '@/filters/filter-model';
 import { FilterSwitches } from '@/filters/filter-switches';
 import { SEARCH_FROM, SEARCH_INPUT_CLASS, matchesQuery } from '@/components/option-search';
+import { byName } from '@/lib/collate';
 import { cn } from '@/lib/utils';
 import { shortRepoName } from '@/snapshot/selectors';
 import type { Person, TrackedPr } from '@/snapshot/types';
 
 // How many unpicked values a facet shows before "Show N more".
 const SHOWN_UNPICKED = 6;
-
-const byName = (a: string, b: string): number => a.localeCompare(b, undefined, { sensitivity: 'base' });
 
 type FacetEntry<T extends string> = readonly [value: T, count: number];
 
@@ -152,7 +151,7 @@ function FacetList<K extends ListFilter>({
   const [showAll, setShowAll] = useState(false);
   const [query, setQuery] = useState('');
   const picked = filters[filter] as readonly Filters[K][number][];
-  const counts = facetCounts(prs, filters, filter);
+  const counts = useMemo(() => facetCounts(prs, filters, filter), [prs, filters, filter]);
   const searchable = new Set([...counts.keys(), ...picked]).size >= SEARCH_FROM;
   // Text left in a box that went away, when another filter shortened the facet, narrows nothing.
   const searching = searchable && query.trim() !== '';
@@ -232,7 +231,7 @@ export interface FacetFiltersProps {
  * them: the buckets already split the PRs by whose move it is, so Waiting On sits low. The Table's filter bar keeps its own order.
  */
 export function FacetFilters({ prs, teamSlug, org, filters, viewer, onChange }: FacetFiltersProps) {
-  const people = peopleIn(prs);
+  const people = useMemo(() => peopleIn(prs), [prs]);
   // A Waiting On key is a login, or @slug for a team.
   const partyLabel = (key: string) => {
     const person = people.get(key);

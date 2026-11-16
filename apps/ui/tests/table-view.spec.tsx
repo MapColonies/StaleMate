@@ -6,13 +6,11 @@ import type { Snapshot } from '@/snapshot/types';
 import { TableView } from '@/views/table/table-view';
 import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 
-const NOW = Date.parse('2026-10-15T09:00:00Z');
-
 const alice = member('alice');
 const bob = member('bob');
 
 function renderTable(snapshot: Snapshot, viewer: string | null = null) {
-  return render(<TableView snapshot={snapshot} viewer={viewer} now={NOW} />);
+  return render(<TableView snapshot={snapshot} viewer={viewer} />);
 }
 
 /** The titles of the PRs in the table, top to bottom. */

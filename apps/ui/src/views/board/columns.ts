@@ -1,4 +1,5 @@
 import { partyKey } from '@/filters/filter-model';
+import { byName } from '@/lib/collate';
 import { DEFAULT_PR_ORDER, PR_ORDERS, type PrOrder } from '@/order/pr-order';
 import type { Person, TrackedPr, WaitingOnParty } from '@/snapshot/types';
 
@@ -48,9 +49,7 @@ export function boardColumns(prs: readonly TrackedPr[], viewer: string | null, o
       columns.set(key, column);
     }
   }
-  return [...columns.values()].sort(
-    (a, b) => rank(a, viewer) - rank(b, viewer) || b.prs.length - a.prs.length || a.key.localeCompare(b.key, undefined, { sensitivity: 'base' })
-  );
+  return [...columns.values()].sort((a, b) => rank(a, viewer) - rank(b, viewer) || b.prs.length - a.prs.length || byName(a.key, b.key));
 }
 
 export interface BoardStats {

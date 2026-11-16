@@ -5,14 +5,12 @@ import type { Snapshot } from '@/snapshot/types';
 import { BoardView } from '@/views/board/board-view';
 import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 
-const NOW = Date.parse('2026-10-15T09:00:00Z');
-
 const alice = member('alice');
 const bob = member('bob');
 const carol = member('carol');
 
 function renderBoard(snapshot: Snapshot, viewer: string | null = null) {
-  return render(<BoardView snapshot={snapshot} viewer={viewer} now={NOW} />);
+  return render(<BoardView snapshot={snapshot} viewer={viewer} />);
 }
 
 /** The columns' names, left to right. */

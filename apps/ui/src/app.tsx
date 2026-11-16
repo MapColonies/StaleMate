@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFilters } from '@/filters/use-filters';
 import { STORAGE_KEYS, migrateNotificationKeys, migrateRememberedTeam, useStoredString } from '@/lib/local-storage';
 import { useCompact } from '@/lib/use-compact';
-import { useNow } from '@/lib/use-now';
 import { withPrs } from '@/notifications/engine';
 import { popUp } from '@/notifications/pop-up';
 import { useNotifications } from '@/notifications/use-notifications';
@@ -80,7 +79,6 @@ export default function App() {
   }, [team, error, dropTeam]);
   const [view, setView] = useLastView();
   const theme = useTheme();
-  const now = useNow();
   const compact = useCompact();
 
   const options = useMemo(() => (teams ? viewerOptions(teams) : []), [teams]);
@@ -110,7 +108,7 @@ export default function App() {
             Inbox tab counts the Viewer's turn instead, and the Inbox itself the No Reviewer PRs. */}
         {snapshot && !compact && <HeaderCounts prs={snapshot.prs} teamSlug={snapshot.teamInfo.slug} viewer={viewer} />}
         <div className="ml-auto flex shrink-0 items-center gap-4 max-xl:min-w-0 max-xl:shrink max-xl:gap-2 max-[30rem]:gap-1">
-          {snapshot && team !== null && <SyncStatus snapshot={snapshot} team={team} now={now} apiProblem={apiProblem(error, isError)} />}
+          {snapshot && team !== null && <SyncStatus snapshot={snapshot} team={team} apiProblem={apiProblem(error, isError)} />}
           {!compact && <ThemeToggle preference={theme.preference} onCycle={theme.cycle} />}
           {!compact && teams && team !== null && <TeamPicker teams={teams} team={team} onChange={selectTeam} />}
           {!compact && teams && team !== null && <ViewerPicker options={options} viewer={viewer} onChange={setViewer} />}
@@ -130,7 +128,6 @@ export default function App() {
             notifications={notifications}
             prs={snapshot?.prs ?? []}
             hasViewer={viewer !== null}
-            now={now}
             open={drawerOpen}
             onOpenChange={setDrawerOpen}
             os={os}
@@ -140,11 +137,11 @@ export default function App() {
         </div>
       </header>
       <NewVersionBanner />
-      {snapshot && <OutOfDateBanner snapshot={snapshot} now={now} />}
+      {snapshot && <OutOfDateBanner snapshot={snapshot} />}
       <main className="min-h-0 flex-1 overflow-auto bg-muted/40">
-        {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} now={now} />}
-        {snapshot && view === 'inbox' && <InboxView snapshot={snapshot} viewer={viewer} now={now} />}
-        {snapshot && view === 'board' && <BoardView snapshot={snapshot} viewer={viewer} now={now} />}
+        {snapshot && view === 'table' && <TableView snapshot={snapshot} viewer={viewer} />}
+        {snapshot && view === 'inbox' && <InboxView snapshot={snapshot} viewer={viewer} />}
+        {snapshot && view === 'board' && <BoardView snapshot={snapshot} viewer={viewer} />}
         {team !== null && !snapshot && <p className="p-10 text-center text-muted-foreground">{startupMessage(error)}</p>}
       </main>
       {team === null && (

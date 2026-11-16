@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { FilterX } from 'lucide-react';
 import { CHECK_STATUS_LABELS, INCLUSION_REASON_LABELS, REVIEW_STATUS_LABELS, RepoName } from '@/cells';
 import { CheckboxMenu } from '@/components/checkbox-menu';
@@ -66,7 +66,7 @@ export function FilterBar({
   onChange: (patch: Partial<Filters>) => void;
   onReset: () => void;
 }) {
-  const options = filterOptions(prs);
+  const options = useMemo(() => filterOptions(prs), [prs]);
   const same = (values: readonly string[]) => values.map((value) => [value, value] as const);
   const agePreset = AGE_PRESETS.findIndex((preset) => preset.ageMin === filters.ageMin && preset.ageMax === filters.ageMax);
   const idlePreset = IDLE_PRESETS.findIndex((preset) => preset.idleOver === filters.idleOver);

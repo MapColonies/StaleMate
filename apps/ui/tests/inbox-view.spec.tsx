@@ -8,14 +8,12 @@ import { InboxView } from '@/views/inbox/inbox-view';
 import { aPr, aSnapshot, aStack, clock, member, waitingOnAuthor, waitingOnReviewer, waitingOnTheTeam } from './fixtures/snapshot';
 import { stubCompactWindow, stubWindowWidth } from './window-width';
 
-const NOW = Date.parse('2026-10-15T09:00:00Z');
-
 const alice = member('alice');
 const bob = member('bob');
 const carol = member('carol');
 
 function renderInbox(snapshot: Snapshot, viewer: string | null = null) {
-  return render(<InboxView snapshot={snapshot} viewer={viewer} now={NOW} />);
+  return render(<InboxView snapshot={snapshot} viewer={viewer} />);
 }
 
 const bucket = (name: string) => screen.getByRole('region', { name });
@@ -628,7 +626,7 @@ describe('the Inbox’s order', () => {
   });
 
   it('is the saved order when the URL has none, the same one the Board saved', async () => {
-    const board = render(<BoardView snapshot={snapshot} viewer="alice" now={NOW} />);
+    const board = render(<BoardView snapshot={snapshot} viewer="alice" />);
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Order' }), 'Oldest first');
     board.unmount();
     window.history.replaceState(null, '', '/');

@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SECOND, formatSince } from '@/lib/time';
 import { useCompact } from '@/lib/use-compact';
+import { useNow } from '@/lib/use-now';
 import { cn } from '@/lib/utils';
 import { refreshAvailableAt } from '@/snapshot/selectors';
 import { RefreshRejectedError, useRefresh } from '@/snapshot/use-snapshot';
@@ -128,16 +129,16 @@ function SyncLine({ status }: { status: Status }) {
 export function SyncStatus({
   snapshot,
   team,
-  now,
   apiProblem,
 }: {
   snapshot: Snapshot;
   /** The Team the Snapshot was asked for. */
   team: string;
-  now: number;
   apiProblem: ApiProblem | null;
 }) {
   const compact = useCompact();
+  // Only this component ticks every second, for "Updated 40 s ago" and the Refresh countdown.
+  const now = useNow(SECOND);
   // Here, not in the dot or the line, so a failed refresh still shows after the window crosses 1280px.
   const refresh = useRefresh(team);
   const { sync, readAt } = snapshot;

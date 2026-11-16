@@ -90,13 +90,12 @@ function StatsStrip({ stats, thresholds, viewer }: { stats: BoardStats; threshol
 /** What the cards need beyond the PR. */
 interface CardContext {
   viewer: string | null;
-  now: number;
   jiraBaseUrl: string | undefined;
   /** The org every Tracked PR's repo is in, which the cards leave out. */
   org: string | null;
 }
 
-function BoardCard({ pr, column, context: { viewer, now, jiraBaseUrl, org } }: { pr: TrackedPr; column: BoardColumn; context: CardContext }) {
+function BoardCard({ pr, column, context: { viewer, jiraBaseUrl, org } }: { pr: TrackedPr; column: BoardColumn; context: CardContext }) {
   const titleId = useId();
   const own = pr.waitingOn.find((party) => partyKey(party) === column.key);
   const role = own?.type === 'person' ? own.role : null;
@@ -119,7 +118,7 @@ function BoardCard({ pr, column, context: { viewer, now, jiraBaseUrl, org } }: {
           </span>
           <span className="flex shrink-0 items-center gap-1.5">
             <IdleLine pr={pr} />
-            <AgeChip pr={pr} now={now} />
+            <AgeChip pr={pr} />
           </span>
         </div>
         <a id={titleId} href={pr.url} target="_blank" rel="noreferrer" className="line-clamp-2 text-sm leading-snug font-medium hover:underline">
@@ -193,14 +192,14 @@ function Column({ column, context }: { column: BoardColumn; context: CardContext
  * The Board, the "who is the bottleneck" view: a column per party the filtered PRs are Waiting On, the Viewer's first,
  * under a strip that sums them up.
  */
-export function BoardView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
+export function BoardView({ snapshot, viewer }: { snapshot: Snapshot; viewer: string | null }) {
   const { filters, setFilters, resetFilters } = useFilters();
   const filtered = useMemo(() => applyFilters(snapshot.prs, filters), [snapshot.prs, filters]);
   const [order, setOrder] = usePrOrder();
   const columns = useMemo(() => boardColumns(filtered, viewer, order), [filtered, viewer, order]);
   const stats = useMemo(() => boardStats(filtered, columns), [filtered, columns]);
   const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
-  const context: CardContext = { viewer, now, jiraBaseUrl: snapshot.config.jiraBaseUrl, org };
+  const context: CardContext = { viewer, jiraBaseUrl: snapshot.config.jiraBaseUrl, org };
 
   return (
     // The Board fills the window: the columns scroll down on their own, and the Board scrolls across.

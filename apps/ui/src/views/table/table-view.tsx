@@ -40,20 +40,19 @@ const CHECK_ORDER: readonly CheckStatus[] = ['failing', 'pending', 'passing', 'n
 interface CellContext {
   viewer: string | null;
   hideViaTeam: boolean;
-  now: number;
   jiraBaseUrl: string | undefined;
   /** The org every Tracked PR's repo is in, which the Repo column leaves out. */
   org: string | null;
 }
 
-function tableColumns({ viewer, hideViaTeam, now, jiraBaseUrl, org }: CellContext) {
+function tableColumns({ viewer, hideViaTeam, jiraBaseUrl, org }: CellContext) {
   return helper.columns([
     helper.accessor((pr) => pr.age.workingMs, {
       id: 'age',
       header: COLUMN_NAMES.age,
       sortFn: 'basic',
       sortDescFirst: true,
-      cell: ({ row }) => <AgeChip pr={row.original} now={now} />,
+      cell: ({ row }) => <AgeChip pr={row.original} />,
     }),
     helper.accessor((pr) => pr.idleTime.workingMs, {
       id: 'idle',
@@ -234,7 +233,7 @@ const ARIA_SORT = { asc: 'ascending', desc: 'descending' } as const;
  * The Table (prototype variant A): every Tracked PR that passes the filters in one dense table, under tabs for the Viewer's
  * own slices. Shift+click sorts by more than one column; the column picker hides columns.
  */
-export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewer: string | null; now: number }) {
+export function TableView({ snapshot, viewer }: { snapshot: Snapshot; viewer: string | null }) {
   const { filters, setFilters, resetFilters } = useFilters();
   const { tab, setTab, sorting, setSorting, resetSorting } = useTableUrlState();
   const [columnVisibility, setColumnVisibility] = useHiddenColumns();
@@ -250,8 +249,8 @@ export function TableView({ snapshot, viewer, now }: { snapshot: Snapshot; viewe
   const { jiraBaseUrl } = snapshot.config;
   const org = useMemo(() => sharedOrg(snapshot.prs), [snapshot.prs]);
   const columns = useMemo(
-    () => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, now, jiraBaseUrl, org }),
-    [viewer, filters.hideViaTeam, now, jiraBaseUrl, org]
+    () => tableColumns({ viewer, hideViaTeam: filters.hideViaTeam, jiraBaseUrl, org }),
+    [viewer, filters.hideViaTeam, jiraBaseUrl, org]
   );
 
   const table = useTable({

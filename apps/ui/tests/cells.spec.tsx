@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AgeChip,
   CheckStatusBadge,
@@ -238,27 +238,49 @@ describe('AgeChip', () => {
   const now = Date.parse('2026-10-15T09:00:00Z');
 
   it('shows the Age in whole Working Days, coloured by Urgency', () => {
-    render(<AgeChip pr={aPr({ age: clock(5.6), urgency: 2 })} now={now} />);
+    render(<AgeChip pr={aPr({ age: clock(5.6), urgency: 2 })} />);
 
     expect(screen.getByText('5d')).toHaveAttribute('data-urgency', '2');
   });
 
   it('gives a Draft no Urgency', () => {
-    render(<AgeChip pr={aPr({ reviewStatus: 'draft', age: clock(9), urgency: null })} now={now} />);
+    render(<AgeChip pr={aPr({ reviewStatus: 'draft', age: clock(9), urgency: null })} />);
 
     expect(screen.getByText('9d')).toHaveAttribute('data-urgency', 'none');
   });
 
-  it('shows when the PR became ready, how long ago in wall-clock time, and its last human activity on hover', () => {
+  describe('hover', () => {
     const pr = aPr({
       age: { workingMs: clock(9).workingMs, since: '2026-10-01T09:00:00Z' },
       idleTime: { workingMs: clock(2).workingMs, since: '2026-10-12T09:00:00Z' },
     });
-    render(<AgeChip pr={pr} now={now} />);
+    const hoverOf = () => screen.getByText('9d').closest('[title]');
 
-    const hover = screen.getByText('9d').closest('[title]')?.getAttribute('title');
-    expect(hover).toMatch(/Ready for review: .*2026.* \(14 d ago\)/);
-    expect(hover).toMatch(/Last human activity: .*2026/);
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(now);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('shows when the PR became ready, how long ago in wall-clock time, and its last human activity', () => {
+      render(<AgeChip pr={pr} />);
+
+      const hover = hoverOf()?.getAttribute('title');
+      expect(hover).toMatch(/Ready for review: .*2026.* \(14 d ago\)/);
+      expect(hover).toMatch(/Last human activity: .*2026/);
+    });
+
+    it('reads the time when the pointer arrives, without a clock ticking meanwhile', () => {
+      render(<AgeChip pr={pr} />);
+
+      vi.setSystemTime(now + 2 * 24 * 60 * 60 * 1000);
+      expect(hoverOf()).toHaveAttribute('title', expect.stringContaining('(14 d ago)'));
+      fireEvent.pointerEnter(hoverOf()!);
+
+      expect(hoverOf()).toHaveAttribute('title', expect.stringContaining('(16 d ago)'));
+    });
   });
 });
 

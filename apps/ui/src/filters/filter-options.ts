@@ -1,7 +1,6 @@
 import type { TrackedPr } from '@/snapshot/types';
+import { byName } from '@/lib/collate';
 import { partyKey } from './filter-model';
-
-const byName = (a: string, b: string): number => a.localeCompare(b, undefined, { sensitivity: 'base' });
 
 const unique = (values: Iterable<string>): string[] => [...new Set(values)].sort(byName);
 

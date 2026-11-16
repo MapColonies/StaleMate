@@ -3,25 +3,18 @@ import { useId, useState } from 'react';
 import { MoveList } from '@/cells';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { formatSince } from '@/lib/time';
+import { SECOND, formatSince } from '@/lib/time';
+import { useNow } from '@/lib/use-now';
 import { type Notification, type PrSummary, withPrs } from '@/notifications/engine';
 import { sendTestPopUp } from '@/notifications/pop-up';
 import type { OsNotifications } from '@/notifications/use-os-notifications';
 import type { TrackedPr } from '@/snapshot/types';
 import { NotificationBell } from './notification-bell';
 
-function NotificationRow({
-  notification,
-  pr,
-  now,
-  onDismiss,
-}: {
-  notification: Notification;
-  pr: PrSummary & { id: string };
-  now: number;
-  onDismiss: () => void;
-}) {
+function NotificationRow({ notification, pr, onDismiss }: { notification: Notification; pr: PrSummary & { id: string }; onDismiss: () => void }) {
   const titleId = useId();
+  // Rows exist only while the drawer is open, so this tick does too.
+  const now = useNow(SECOND);
   return (
     <li aria-labelledby={titleId} className="flex flex-col gap-1 border-b px-4 py-2.5">
       <div className="flex items-start gap-2">
@@ -95,7 +88,6 @@ export function NotificationsDrawer({
   notifications,
   prs,
   hasViewer,
-  now,
   open,
   onOpenChange,
   os,
@@ -105,7 +97,6 @@ export function NotificationsDrawer({
   notifications: readonly Notification[];
   prs: readonly TrackedPr[];
   hasViewer: boolean;
-  now: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   os: OsNotifications;
@@ -138,7 +129,7 @@ export function NotificationsDrawer({
         {rows.length > 0 ? (
           <ul className="min-h-0 flex-1 overflow-auto">
             {rows.map(({ notification, pr }) => (
-              <NotificationRow key={pr.id} notification={notification} pr={pr} now={now} onDismiss={() => onDismiss([pr.id])} />
+              <NotificationRow key={pr.id} notification={notification} pr={pr} onDismiss={() => onDismiss([pr.id])} />
             ))}
           </ul>
         ) : (
